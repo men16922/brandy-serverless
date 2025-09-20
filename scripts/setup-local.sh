@@ -1,73 +1,39 @@
 #!/bin/bash
-# Local development environment setup script
+# 로컬 개발환경 설정
 
 set -e
 
-echo "🚀 Setting up AI Branding Chatbot local development environment..."
+echo "🚀 로컬 개발환경 설정 중..."
 
-# Check if Docker is running
+# Docker 실행 확인
 if ! docker info > /dev/null 2>&1; then
-    echo "❌ Docker is not running. Please start Docker and try again."
+    echo "❌ Docker가 실행되지 않았습니다. Docker를 시작하고 다시 시도하세요."
     exit 1
 fi
 
-# Start local services
-echo "📦 Starting local services (DynamoDB, MinIO, Chroma)..."
+# 로컬 서비스 시작
+echo "📦 로컬 서비스 시작 (DynamoDB, MinIO, Chroma)..."
 docker-compose -f docker-compose.local.yml up -d
 
-# Wait for services to be ready
-echo "⏳ Waiting for services to be ready..."
+# 서비스 준비 대기
+echo "⏳ 서비스 준비 중..."
 sleep 10
 
-# Create DynamoDB table
-echo "🗄️ Creating DynamoDB table..."
-aws dynamodb create-table \
-    --table-name branding-chatbot-sessions-local \
-    --attribute-definitions \
-        AttributeName=sessionId,AttributeType=S \
-    --key-schema \
-        AttributeName=sessionId,KeyType=HASH \
-    --billing-mode PAY_PER_REQUEST \
-    --endpoint-url http://localhost:8000 \
-    --region us-east-1 \
-    --no-cli-pager || echo "Table might already exist"
-
-# Create MinIO bucket
-echo "🪣 Creating S3 bucket in MinIO..."
-aws s3 mb s3://branding-chatbot-storage-local \
-    --endpoint-url http://localhost:9000 \
-    --region us-east-1 || echo "Bucket might already exist"
-
-# Create data directory for local files
-echo "📁 Creating data directories..."
+# 데이터 디렉토리 생성
+echo "📁 데이터 디렉토리 생성..."
 mkdir -p data/chroma
-mkdir -p data/fallbacks/signs
-mkdir -p data/fallbacks/interiors
-mkdir -p data/templates
+mkdir -p data/fallbacks
 
-# Install Python dependencies
-echo "🐍 Installing Python dependencies..."
-if [ -f "src/lambda/shared/requirements.txt" ]; then
-    pip install -r src/lambda/shared/requirements.txt
-fi
+# Python 의존성 설치
+echo "🐍 Python 의존성 설치..."
+pip install -r requirements.txt
 
-if [ -f "src/streamlit/requirements.txt" ]; then
-    pip install -r src/streamlit/requirements.txt
-fi
-
-if [ -f "infrastructure/requirements.txt" ]; then
-    pip install -r infrastructure/requirements.txt
-fi
-
-echo "✅ Local development environment setup complete!"
+echo "✅ 로컬 개발환경 설정 완료!"
 echo ""
-echo "🔗 Service URLs:"
+echo "🔗 서비스 URL:"
 echo "  - DynamoDB Local: http://localhost:8000"
 echo "  - MinIO Console: http://localhost:9001 (minioadmin/minioadmin)"
 echo "  - Chroma: http://localhost:8001"
 echo ""
-echo "🚀 To start the Streamlit app:"
+echo "🚀 Streamlit 앱 실행:"
 echo "  cd src/streamlit && streamlit run app.py"
-echo ""
-echo "🛑 To stop services:"
-echo "  docker-compose -f docker-compose.local.yml down"

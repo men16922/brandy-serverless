@@ -191,10 +191,25 @@
 6. 에이전트 로그(agent, tool, latency) 요약을 Slack 채널로 실시간 전송
 7. Supervisor Agent가 Slack에서 직접 상태 질의(/brand status)에 응답 가능
 
+### 통합 테스트
+
+**사용자 스토리:** 개발자로서, Docker Compose 기반 로컬 환경에서 전체 워크플로를 자동으로 테스트하여 시스템의 안정성을 보장할 수 있기를 원합니다.
+
+#### 승인 기준
+
+1. WHEN 통합 테스트 실행 THEN 시스템은 Docker Compose 서비스(DynamoDB Local, MinIO, Chroma)를 자동으로 시작해야 함
+2. WHEN Docker 서비스가 준비되면 THEN 시스템은 모든 서비스가 정상 상태인지 확인 후 테스트를 진행해야 함
+3. WHEN 5단계 워크플로 테스트 실행 THEN 시스템은 세션 생성부터 PDF 생성까지 전체 프로세스를 검증해야 함
+4. WHEN Agent 통신 테스트 실행 THEN 시스템은 Supervisor Agent 모니터링과 Agent 간 협업을 검증해야 함
+5. WHEN 테스트 완료 THEN 시스템은 Docker 서비스를 자동으로 정리하고 테스트 결과를 리포트해야 함
+6. WHEN 오류 시나리오 테스트 THEN 시스템은 폴백 메커니즘과 에러 핸들링을 검증해야 함
+7. IF Docker가 실행되지 않으면 THEN 시스템은 명확한 에러 메시지와 함께 테스트를 graceful하게 skip해야 함
+
 ## 발표 포인트
 
 - **Serverless 100% AWS**: App Runner + Lambda + Step Functions + DynamoDB + S3
 - **Express/Standard 혼합 + Supervisor**: 빠른 병렬 처리 + 사용자 대기 지원 + 워크플로 감시
 - **Bedrock KB + Agent 기반 확장**: 지식 기반 분석 + 유연한 에이전트 아키텍처
 - **에이전트 단위 배포/관측**: 독립적인 Agent Lambda 배포 및 성능 추적
+- **Docker 기반 통합 테스트**: 실제 환경과 유사한 조건에서 end-to-end 테스트
 - **Slack 통합**: 팀 협업 환경에서의 브랜딩 워크플로 실행

@@ -59,19 +59,79 @@ class StorageStack(Stack):
             projection_type=dynamodb.ProjectionType.ALL
         )
         
-        # S3 bucket for images and reports
+        # S3 bucket for images and reports with proper structure
         self.storage_bucket = s3.Bucket(
             self, "StorageBucket",
             bucket_name=f"branding-chatbot-storage-{environment}",
             versioned=False,
             public_read_access=False,
             removal_policy=RemovalPolicy.DESTROY if environment != "prod" else RemovalPolicy.RETAIN,
+            cors=[
+                s3.CorsRule(
+                    allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST],
+                    allowed_origins=["*"],  # Configure based on your domain
+                    allowed_headers=["*"],
+                    max_age=3000
+                )
+            ],
             lifecycle_rules=[
                 s3.LifecycleRule(
                     id="DeleteOldSessions",
                     enabled=True,
                     expiration=Duration.days(30),
                     prefix="sessions/"
+                ),
+                s3.LifecycleRule(
+                    id="TransitionToIA",
+                    enabled=True,
+                    transitions=[
+                        s3.Transition(
+                            storage_class=s3.StorageClass.INFREQUENT_ACCESS,
+                            transition_after=Duration.days(7)
+                        )
+                    ],
+                    prefix="sessions/"
                 )
-            ]
+            ],
+            notification_configuration=s3.NotificationConfiguration()
         )
+        
+        # Create folder structure using custom resource (for initial setup)
+        from aws_cdk import custom_resources as cr
+        
+        # Custom resource to create initial folder structure
+        folder_structure = cr.AwsCustomResource(
+            self, "CreateFolderStructure",
+            on_create=cr.AwsSdkCall(
+                service="S3",
+                action="putObject",
+                parameters={
+                    "Bucket": self.storage_bucket.bucket_name,
+                    "Key": "fallbacks/signs/.placeholder",
+                    "Body": ""
+                },
+                physical_resource_id=cr.PhysicalResourceId.of("folder-structure")
+            ),
+            policy=cr.AwsCustomResourcePolicy.from_sdk_calls(
+                resources=[self.storage_bucket.arn_for_objects("*")]
+            )
+        )
+        
+        # Additional folder creation
+        for folder in ["fallbacks/interiors", "templates/pdf-templates"]:
+            cr.AwsCustomResource(
+                self, f"CreateFolder{folder.replace('/', '').replace('-', '')}",
+                on_create=cr.AwsSdkCall(
+                    service="S3",
+                    action="putObject", 
+                    parameters={
+                        "Bucket": self.storage_bucket.bucket_name,
+                        "Key": f"{folder}/.placeholder",
+                        "Body": ""
+                    },
+                    physical_resource_id=cr.PhysicalResourceId.of(f"folder-{folder}")
+                ),
+                policy=cr.AwsCustomResourcePolicy.from_sdk_calls(
+                    resources=[self.storage_bucket.arn_for_objects("*")]
+                )
+            )

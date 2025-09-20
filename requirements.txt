@@ -1,0 +1,82 @@
+# AI 브랜딩 챗봇 프로젝트 의존성
+
+# Core AWS SDK
+boto3>=1.34.0
+botocore>=1.34.0
+
+# AWS CDK
+aws-cdk-lib>=2.100.0
+constructs>=10.3.0
+
+# Data validation and serialization
+pydantic>=2.5.0
+
+# JSON handling
+orjson>=3.9.0
+
+# Date/time utilities
+python-dateutil>=2.8.2
+
+# HTTP requests
+requests>=2.31.0
+
+# Environment variable management
+python-dotenv>=1.0.0
+
+# Logging
+structlog>=23.2.0
+
+# Streamlit for web interface
+streamlit>=1.28.0
+streamlit-chat>=0.1.1
+
+# Vector database
+chromadb>=0.4.15
+
+# OpenAI for DALL-E
+openai>=1.3.0
+
+# Google Generative AI
+google-generativeai>=0.3.0
+
+# PDF generation
+reportlab>=4.0.0
+fpdf2>=2.7.0
+
+# Image processing
+Pillow>=10.0.0
+
+# File type detection
+python-magic>=0.4.27
+
+# File validation and security
+python-magic-bin>=0.4.14  # For Windows compatibility
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+moto>=4.2.0
+
+# Code quality
+black>=23.9.0
+flake8>=6.1.0
+isort>=5.12.0
+
+# Type hints
+typing-extensions>=4.8.0
+mypy>=1.6.0
+
+# Development utilities
+ipython>=8.16.0
+jupyter>=1.0.0
+
+# FastAPI for API development (if needed)
+fastapi>=0.104.0
+uvicorn>=0.24.0
+
+# Database utilities
+sqlalchemy>=2.0.0
+
+# Async support
+aiohttp>=3.8.0
+asyncio>=3.4.3

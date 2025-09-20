@@ -261,21 +261,178 @@ class ChromaKnowledgeBase(KnowledgeBase):
 
 ## 테스팅 전략
 
-### 1. 단위 테스트
-- 세션 생성 테스트
-- 비즈니스 분석 로직 테스트
-- 상호명 생성 및 중복 회피 테스트
-- 이미지 생성 실패 시 폴백 테스트
+### Docker Compose 기반 통합 테스트
 
-### 2. 통합 테스트
-- 전체 5단계 워크플로 테스트
-- Step Functions 병렬 처리 테스트
-- 세션 상태 저장/복원 테스트
+**설계 원칙**: 단위 테스트 대신 실제 환경과 유사한 Docker Compose 환경에서 end-to-end 통합 테스트만 수행
 
-### 3. 성능 테스트
-- **부하 테스트**: 동시 사용자 100명
-- **응답 시간**: 각 단계별 SLA 검증
-- **리소스 사용량**: Lambda 메모리/실행 시간 최적화
+#### 테스트 환경 아키텍처
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Integration Test Suite                    │
+├─────────────────────────────────────────────────────────────┤
+│  pytest + Docker Compose Management                        │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
+│  │   Setup     │  │   Execute   │  │      Cleanup        │ │
+│  │   Fixtures  │  │   Tests     │  │      Fixtures       │ │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                Docker Compose Services                      │
+├─────────────────┬─────────────────┬─────────────────────────┤
+│  DynamoDB Local │   MinIO S3      │      Chroma Vector      │
+│  Port: 8000     │   Port: 9000    │      Port: 8001         │
+│  Sessions Table │   File Storage  │      Knowledge Base     │
+└─────────────────┴─────────────────┴─────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Test Scenarios                           │
+├─────────────────────────────────────────────────────────────┤
+│  • Session Lifecycle Test                                  │
+│  • 5-Step Workflow Test                                    │
+│  • Agent Communication Test                                │
+│  • Error Handling Test                                     │
+│  • Data Persistence Test                                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### 핵심 테스트 컴포넌트
+
+**1. Docker Compose Manager**
+```python
+class DockerComposeManager:
+    """Docker Compose 서비스 라이프사이클 관리"""
+    
+    def start_services(self) -> bool:
+        """docker-compose.local.yml 서비스 시작"""
+        
+    def wait_for_health(self, timeout: int = 60) -> bool:
+        """모든 서비스 헬스체크 대기"""
+        
+    def stop_services(self) -> None:
+        """서비스 정리 및 데이터 클린업"""
+        
+    def is_docker_available(self) -> bool:
+        """Docker 실행 상태 확인"""
+```
+
+**2. Test Environment Setup**
+```python
+class TestEnvironment:
+    """실제 서비스를 사용한 테스트 환경 구성"""
+    
+    def setup_dynamodb_tables(self) -> None:
+        """DynamoDB Local에 실제 테이블 생성"""
+        
+    def setup_s3_buckets(self) -> None:
+        """MinIO에 실제 버킷 및 폴더 구조 생성"""
+        
+    def setup_chroma_collections(self) -> None:
+        """Chroma에 테스트용 벡터 컬렉션 생성"""
+        
+    def cleanup_test_data(self) -> None:
+        """테스트 데이터 완전 정리"""
+```
+
+**3. Workflow Integration Tester**
+```python
+class WorkflowIntegrationTester:
+    """전체 워크플로 통합 테스트"""
+    
+    def test_full_5step_workflow(self) -> None:
+        """분석→상호명→간판→인테리어→PDF 전체 프로세스"""
+        
+    def test_session_persistence(self) -> None:
+        """세션 데이터 DynamoDB 저장/복원"""
+        
+    def test_file_operations(self) -> None:
+        """MinIO 파일 업로드/다운로드"""
+        
+    def test_agent_coordination(self) -> None:
+        """Agent 간 통신 및 Supervisor 모니터링"""
+```
+
+#### 테스트 시나리오
+
+**1. 전체 워크플로 테스트**
+- 실제 BusinessInfo로 세션 생성
+- DynamoDB에서 세션 상태 확인
+- 각 단계별 Agent 실행 및 결과 검증
+- MinIO에 생성된 파일들 확인
+- PDF 생성 및 다운로드 링크 검증
+
+**2. Agent 통신 테스트**
+- Supervisor Agent의 워크플로 모니터링
+- Agent 간 메시지 전달 확인
+- 구조화된 로그 (agent, tool, latency_ms) 검증
+- 실패 시 재시도/폴백 메커니즘 테스트
+
+**3. 데이터 지속성 테스트**
+- 세션 TTL 동작 확인
+- 파일 메타데이터 일관성 검증
+- 중간 단계 실패 시 데이터 복구
+- 동시 세션 처리 시 데이터 격리
+
+**4. 오류 처리 테스트**
+- AI Provider 실패 시 폴백 이미지 사용
+- 네트워크 타임아웃 시나리오
+- 서비스 일시 중단 시 복구 메커니즘
+- 잘못된 입력 데이터 처리
+
+#### pytest 구현 전략
+
+**Fixture 기반 환경 관리**:
+```python
+@pytest.fixture(scope="session")
+def docker_services():
+    """세션 전체에서 Docker 서비스 관리"""
+    manager = DockerComposeManager()
+    if not manager.is_docker_available():
+        pytest.skip("Docker not available")
+    
+    manager.start_services()
+    manager.wait_for_health()
+    yield manager
+    manager.stop_services()
+
+@pytest.fixture
+def test_environment(docker_services):
+    """각 테스트별 환경 초기화"""
+    env = TestEnvironment()
+    env.setup_all()
+    yield env
+    env.cleanup_test_data()
+```
+
+**테스트 실행 플로우**:
+1. **Pre-Test**: Docker 가용성 확인, 포트 충돌 체크
+2. **Setup**: Docker Compose 시작, 서비스 헬스체크
+3. **Test**: 실제 API 호출로 워크플로 실행
+4. **Verify**: 데이터베이스/스토리지 상태 검증
+5. **Cleanup**: 테스트 데이터 정리, Docker 서비스 중지
+
+#### CI/CD 통합 고려사항
+
+- **GitHub Actions**: Docker-in-Docker 환경에서 실행
+- **병렬 실행**: 테스트별 독립적인 세션 ID 사용
+- **타임아웃**: 전체 테스트 5분 내 완료
+- **아티팩트**: 실패 시 로그 및 데이터 수집
+- **리소스 제한**: CI 환경의 메모리/CPU 제약 고려
+
+#### 성능 및 안정성 검증
+
+**성능 테스트**:
+- 각 워크플로 단계별 응답 시간 측정
+- Docker 서비스 시작 시간 최적화 (30초 이내)
+- 동시 세션 처리 능력 테스트
+
+**안정성 테스트**:
+- 반복 실행 시 일관된 결과 보장
+- 메모리 누수 및 리소스 정리 확인
+- 네트워크 지연 시뮬레이션
 
 ## 보안 설계
 

@@ -12,41 +12,41 @@
   - 환경별 설정 파일 구성 (local/dev)
   - _요구사항: 1.1, 7.1_
 
-- [ ] 2. 데이터 모델 및 DynamoDB 설정
-  - [ ] 2.1 DynamoDB 테이블 스키마 정의
+- [x] 2. 데이터 모델 및 DynamoDB 설정
+  - [x] 2.1 DynamoDB 테이블 스키마 정의
     - WorkflowSessions 테이블 CDK 리소스 생성
     - TTL 설정 및 인덱스 구성
     - 로컬 개발용 DynamoDB Local 설정
     - _요구사항: 1.1, 7.1_
 
-  - [ ] 2.2 세션 데이터 모델 구현
+  - [x] 2.2 세션 데이터 모델 구현
     - TypeScript/Python 데이터 모델 클래스 작성
     - 세션 상태 검증 로직 구현
     - 단위 테스트 작성 (세션 생성, 업데이트, 만료)
     - _요구사항: 1.2, 1.3_
 
-- [ ] 3. S3 버킷 및 저장소 설정
-  - [ ] 3.1 S3 버킷 구조 구현
+- [x] 3. S3 버킷 및 저장소 설정
+  - [x] 3.1 S3 버킷 구조 구현
     - 세션별 디렉토리 구조 생성
     - 폴백 이미지 저장소 설정
     - 로컬 개발용 MinIO 설정
     - _요구사항: 4.3, 5.3, 6.3_
 
-  - [ ] 3.2 파일 업로드/다운로드 유틸리티
+  - [x] 3.2 파일 업로드/다운로드 유틸리티
     - 이미지 업로드 처리 함수 구현
     - presigned URL 생성 로직
     - 파일 검증 및 보안 처리
     - _요구사항: 2.3, 6.4_
 
-- [ ] 4. Supervisor Agent 및 에이전트 기반 구조
-  - [ ] 4.1 공통 Agent 레이어 구현
+- [x] 4. Supervisor Agent 및 에이전트 기반 구조
+  - [x] 4.1 공통 Agent 레이어 구현
     - 에이전트 단위 로깅 (agent, tool, latency_ms)
     - Agent 간 통신 인터페이스
     - AWS SDK 클라이언트 초기화
     - 환경 변수 관리 헬퍼
     - _요구사항: 8.1, 9.1, 10.1_
 
-  - [ ] 4.2 Supervisor Agent Lambda 함수
+  - [x] 4.2 Supervisor Agent Lambda 함수
     - 전체 워크플로 상태 감시 로직
     - Step Functions 실행 상태 추적
     - GET /status/{id} 엔드포인트 구현
@@ -54,15 +54,15 @@
     - 에이전트 간 조정 및 통제 로직
     - _요구사항: 1.1, 1.2, 1.4, Supervisor 역할_
 
-  - [ ] 4.3 기본 세션 관리 기능
+  - [x] 4.3 기본 세션 관리 기능
     - POST /sessions 엔드포인트 구현
     - GET /sessions/{id} 엔드포인트 구현
     - 세션 상태 업데이트 로직
     - 단위 테스트 및 통합 테스트
     - _요구사항: 1.1, 1.2, 1.4_
 
-- [ ] 5. Product Insight & Market Analyst Agent 구현
-  - [ ] 5.1 Product Insight Agent Lambda 함수
+- [x] 5. Product Insight & Market Analyst Agent 구현
+  - [x] 5.1 Product Insight Agent Lambda 함수
     - 업종/지역/규모 기반 비즈니스 분석 로직
     - Bedrock Knowledge Base 조회 구현
     - KB 지연/실패 시 캐시 데이터 활용
@@ -70,14 +70,14 @@
     - 에이전트 단위 로그 기록
     - _요구사항: 2.1, 2.2, 2.6, 2.7_
 
-  - [ ] 5.2 Market Analyst Agent Lambda 함수
+  - [x] 5.2 Market Analyst Agent Lambda 함수
     - 시장 동향 및 경쟁사 분석 로직
     - Bedrock KB에서 관련 데이터 검색
     - Product Insight와 협력하여 종합 분석
     - 에이전트 단위 로그 기록
     - _요구사항: 2.1, 2.6, 2.7_
 
-  - [ ] 5.3 Knowledge Base 추상화 구현
+  - [x] 5.3 Knowledge Base 추상화 구현
     - KnowledgeBase 인터페이스 정의
     - BedrockKnowledgeBase 구현체 (개발용)
     - ChromaKnowledgeBase 구현체 (로컬용)
@@ -236,20 +236,46 @@
     - 환경별 Agent 설정 검증
     - _요구사항: 7.2, 7.4, 에이전트별 분리 배포_
 
-- [ ] 16. Agent 통합 테스트 및 성능 최적화
-  - [ ] 16.1 전체 Agent 워크플로 테스트
-    - 6개 Agent 연동 5단계 플로우 자동화 테스트
-    - Supervisor Agent 감시 및 제어 테스트
-    - Agent 실패 시나리오 및 폴백 메커니즘 검증
-    - Agent 간 통신 및 상태 동기화 테스트
-    - _요구사항: 8.1, 8.2, 8.3, 8.4, 8.5, Supervisor 감시_
+- [ ] 16. Docker Compose 기반 통합 테스트 구현
+  - [x] 16.1 Docker Compose Manager 구현
+    - docker-compose.local.yml 서비스 자동 시작/중지 클래스 작성
+    - DynamoDB Local, MinIO, Chroma 헬스체크 로직 구현
+    - Docker 가용성 확인 및 graceful skip 처리
+    - 포트 충돌 감지 및 해결 가이드 제공
+    - pytest fixture로 서비스 라이프사이클 관리
+    - _요구사항: 통합 테스트 1, 7_
 
-  - [ ] 16.2 Agent별 성능 최적화 및 부하 테스트
-    - 각 Agent별 응답 시간 최적화 (5초/30초 목표)
-    - Agent별 메모리/실행시간 개별 튜닝
-    - 동시 사용자 100명 부하 테스트
-    - Supervisor Agent 부하 분산 테스트
-    - _요구사항: 8.1, 8.2, 8.3, Agent별 최적화_
+  - [ ] 16.2 Test Environment Setup 구현
+    - DynamoDB Local에 실제 테이블 자동 생성 로직
+    - MinIO에 버킷 및 폴더 구조 자동 설정
+    - Chroma에 테스트용 벡터 컬렉션 생성
+    - 테스트 데이터 팩토리 및 클린업 로직
+    - 환경별 설정 자동 전환 (local 환경 강제)
+    - _요구사항: 통합 테스트 2, 3_
+
+  - [ ] 16.3 전체 워크플로 통합 테스트 구현
+    - 실제 BusinessInfo로 세션 생성부터 PDF 생성까지 end-to-end 테스트
+    - 각 단계별 DynamoDB 세션 상태 검증
+    - MinIO 파일 업로드/다운로드 실제 동작 확인
+    - Agent 실행 로그 (agent, tool, latency_ms) 검증
+    - Supervisor Agent 워크플로 모니터링 테스트
+    - _요구사항: 통합 테스트 2, 3_
+
+  - [ ] 16.4 Agent 통신 및 오류 처리 테스트
+    - Agent 간 통신 및 Supervisor 조정 실제 동작 테스트
+    - AI Provider 실패 시 폴백 이미지 사용 검증
+    - 네트워크 타임아웃 및 서비스 장애 시나리오 테스트
+    - 데이터 일관성 및 세션 TTL 동작 확인
+    - 동시 세션 처리 시 데이터 격리 검증
+    - _요구사항: 통합 테스트 4, 6_
+
+  - [ ] 16.5 CI/CD 통합 및 성능 최적화
+    - GitHub Actions에서 Docker-in-Docker 환경 설정
+    - 테스트 병렬 실행을 위한 독립적 세션 ID 사용
+    - 전체 테스트 5분 내 완료 최적화
+    - 실패 시 로그 및 데이터 아티팩트 수집
+    - 메모리/CPU 제약 환경에서의 안정성 확보
+    - _요구사항: 통합 테스트 4, 5_
 
 - [ ] 17. 선택 확장 기능 구현 (옵션)
   - [ ] 17.1 에이전트 기반 확장 고도화
@@ -281,8 +307,19 @@
 **Phase 2 (분석 Agent)**: 태스크 5-6  
 **Phase 3 (AI Agent + 워크플로)**: 태스크 7-10
 **Phase 4 (Agent 통신 + API 통합)**: 태스크 11-13
-**Phase 5 (모니터링 + 배포/테스트)**: 태스크 14-16
-**Phase 6 (Agent 확장)**: 태스크 17 (선택사항)
+**Phase 5 (모니터링 + 배포)**: 태스크 14-15
+**Phase 6 (Docker 통합 테스트)**: 태스크 16 ⭐ **핵심 검증 단계**
+**Phase 7 (Agent 확장)**: 태스크 17 (선택사항)
+
+## 통합 테스트 우선순위
+
+Docker Compose 기반 통합 테스트(태스크 16)는 **전체 시스템 검증의 핵심**으로, 다음과 같은 이유로 중요합니다:
+
+- **실제 환경 검증**: 단위 테스트로는 확인할 수 없는 서비스 간 실제 연동 검증
+- **Agent 협업 확인**: Supervisor Agent와 각 전문 Agent 간의 실제 통신 및 조정 검증  
+- **데이터 플로우 검증**: DynamoDB → MinIO → Chroma 간 실제 데이터 흐름 확인
+- **오류 복구 검증**: 실제 서비스 장애 시나리오에서의 폴백 메커니즘 동작 확인
+- **성능 검증**: 실제 Docker 환경에서의 응답 시간 및 리소스 사용량 측정
 
 ## 에이전트 기반 아키텍처 구현 전략
 
