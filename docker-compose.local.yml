@@ -1,0 +1,50 @@
+# Local development environment setup
+# DynamoDB Local and MinIO for S3 emulation
+
+version: '3.8'
+
+services:
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: branding-chatbot-dynamodb
+    ports:
+      - "8000:8000"
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
+    networks:
+      - branding-local
+
+  minio:
+    image: minio/minio:latest
+    container_name: branding-chatbot-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - branding-local
+
+  chroma:
+    image: chromadb/chroma:latest
+    container_name: branding-chatbot-chroma
+    ports:
+      - "8001:8000"
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+    volumes:
+      - chroma_data:/chroma/chroma
+    networks:
+      - branding-local
+
+volumes:
+  minio_data:
+  chroma_data:
+
+networks:
+  branding-local:
+    driver: bridge

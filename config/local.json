@@ -1,0 +1,43 @@
+{
+  "environment": "local",
+  "aws": {
+    "region": "us-east-1",
+    "dynamodb": {
+      "endpoint": "http://localhost:8000",
+      "table_name": "branding-chatbot-sessions-local"
+    },
+    "s3": {
+      "endpoint": "http://localhost:9000",
+      "bucket_name": "branding-chatbot-storage-local"
+    }
+  },
+  "vector_store": {
+    "type": "chroma",
+    "config": {
+      "persist_directory": "./data/chroma",
+      "collection_name": "business_knowledge"
+    }
+  },
+  "ai_providers": {
+    "dalle": {
+      "enabled": true,
+      "api_key_env": "OPENAI_API_KEY"
+    },
+    "sdxl": {
+      "enabled": false,
+      "reason": "Bedrock not available in local"
+    },
+    "gemini": {
+      "enabled": true,
+      "api_key_env": "GOOGLE_API_KEY"
+    }
+  },
+  "api": {
+    "base_url": "http://localhost:3000",
+    "timeout": 30
+  },
+  "logging": {
+    "level": "DEBUG",
+    "format": "structured"
+  }
+}

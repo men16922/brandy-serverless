@@ -1,0 +1,49 @@
+{
+  "environment": "dev",
+  "aws": {
+    "region": "us-east-1",
+    "dynamodb": {
+      "table_name": "branding-chatbot-sessions-dev"
+    },
+    "s3": {
+      "bucket_name": "branding-chatbot-storage-dev"
+    },
+    "bedrock": {
+      "region": "us-east-1",
+      "knowledge_base_id": "PLACEHOLDER_KB_ID"
+    }
+  },
+  "vector_store": {
+    "type": "bedrock_kb",
+    "config": {
+      "knowledge_base_id": "PLACEHOLDER_KB_ID",
+      "model_id": "amazon.titan-embed-text-v1"
+    }
+  },
+  "ai_providers": {
+    "dalle": {
+      "enabled": true,
+      "api_key_env": "OPENAI_API_KEY"
+    },
+    "sdxl": {
+      "enabled": true,
+      "model_id": "stability.stable-diffusion-xl-v1"
+    },
+    "gemini": {
+      "enabled": true,
+      "api_key_env": "GOOGLE_API_KEY"
+    }
+  },
+  "api": {
+    "base_url": "https://api.branding-chatbot-dev.example.com",
+    "timeout": 30
+  },
+  "logging": {
+    "level": "INFO",
+    "format": "structured"
+  },
+  "step_functions": {
+    "express_workflow_arn": "PLACEHOLDER_EXPRESS_ARN",
+    "standard_workflow_arn": "PLACEHOLDER_STANDARD_ARN"
+  }
+}
