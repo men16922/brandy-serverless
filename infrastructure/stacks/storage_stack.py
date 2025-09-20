@@ -17,7 +17,7 @@ class StorageStack(Stack):
         
         self.environment = environment
         
-        # DynamoDB table for workflow sessions
+        # DynamoDB table for workflow sessions with agent support
         self.sessions_table = dynamodb.Table(
             self, "WorkflowSessions",
             table_name=f"branding-chatbot-sessions-{environment}",
@@ -27,7 +27,36 @@ class StorageStack(Stack):
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             time_to_live_attribute="ttl",
-            removal_policy=RemovalPolicy.DESTROY if environment != "prod" else RemovalPolicy.RETAIN
+            removal_policy=RemovalPolicy.DESTROY if environment != "prod" else RemovalPolicy.RETAIN,
+            point_in_time_recovery=True if environment == "prod" else False
+        )
+        
+        # GSI for querying sessions by status (for Supervisor Agent monitoring)
+        self.sessions_table.add_global_secondary_index(
+            index_name="StatusIndex",
+            partition_key=dynamodb.Attribute(
+                name="status",
+                type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="updatedAt",
+                type=dynamodb.AttributeType.STRING
+            ),
+            projection_type=dynamodb.ProjectionType.ALL
+        )
+        
+        # GSI for querying sessions by current step (for workflow monitoring)
+        self.sessions_table.add_global_secondary_index(
+            index_name="StepIndex", 
+            partition_key=dynamodb.Attribute(
+                name="currentStep",
+                type=dynamodb.AttributeType.NUMBER
+            ),
+            sort_key=dynamodb.Attribute(
+                name="updatedAt", 
+                type=dynamodb.AttributeType.STRING
+            ),
+            projection_type=dynamodb.ProjectionType.ALL
         )
         
         # S3 bucket for images and reports

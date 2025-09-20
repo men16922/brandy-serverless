@@ -1,32 +1,49 @@
-# AI 브랜딩 챗봇
+# AI 브랜딩 챗봇 (Agent-Based Architecture)
 
-5단계 워크플로를 통해 비즈니스 브랜딩을 자동 생성하는 서버리스 시스템입니다.
+5단계 워크플로를 통해 비즈니스 브랜딩을 자동 생성하는 에이전트 기반 서버리스 시스템입니다.
 
-## 아키텍처
+## 에이전트 기반 아키텍처
+
+- **Supervisor Agent**: 전체 워크플로 감시, Step Functions 실행 상태 추적, 에이전트 간 조정
+- **Product Insight Agent**: 업종/지역/규모 기반 비즈니스 분석, Bedrock KB 조회
+- **Market Analyst Agent**: 시장 동향 및 경쟁사 분석, KB 데이터 검색
+- **Reporter Agent**: 3개 상호명 후보 생성, 중복 회피, 발음/검색 점수 산출
+- **Signboard Agent**: DALL-E, SDXL, Gemini 병렬 간판 이미지 생성
+- **Interior Agent**: 간판 스타일 기반 인테리어 추천 생성
+- **Report Generator Agent**: PDF 보고서 생성
+
+## 기술 스택
 
 - **프론트엔드**: Streamlit (AWS App Runner)
-- **API**: API Gateway HTTP API + Lambda Functions
-- **오케스트레이션**: Step Functions (Express + Standard)
-- **데이터**: DynamoDB (세션) + S3 (이미지/보고서)
-- **AI**: Bedrock + OpenAI + Google Gemini
+- **API**: API Gateway HTTP API + Agent Lambda Functions
+- **오케스트레이션**: Step Functions (Express + Standard) + Supervisor Agent
+- **데이터**: DynamoDB (세션) + S3 (이미지/보고서) + Bedrock Knowledge Base
+- **AI**: Bedrock (SDXL + KB) + OpenAI (DALL-E) + Google Gemini
+- **모니터링**: CloudWatch (에이전트 단위) + X-Ray (분산 추적)
 
 ## 프로젝트 구조
 
 ```
 ├── src/
-│   ├── lambda/                 # Lambda 함수들
-│   │   ├── session-manager/    # 세션 관리
-│   │   ├── business-analyzer/  # 비즈니스 분석
-│   │   ├── name-suggester/     # 상호명 제안
-│   │   ├── image-generator/    # 이미지 생성
-│   │   ├── report-generator/   # PDF 보고서 생성
-│   │   └── shared/            # 공통 유틸리티
-│   └── streamlit/             # Streamlit 앱
-├── infrastructure/            # AWS CDK 인프라 코드
-│   └── stacks/               # CDK 스택들
-├── config/                   # 환경별 설정
-├── scripts/                  # 배포/설정 스크립트
-└── data/                     # 로컬 개발용 데이터
+│   ├── lambda/
+│   │   ├── agents/                    # Agent Lambda 함수들
+│   │   │   ├── supervisor/            # Supervisor Agent (워크플로 감시/제어)
+│   │   │   ├── product-insight/       # Product Insight Agent (비즈니스 분석)
+│   │   │   ├── market-analyst/        # Market Analyst Agent (시장 분석)
+│   │   │   ├── reporter/              # Reporter Agent (상호명 제안)
+│   │   │   ├── signboard-agent/       # Signboard Agent (간판 생성)
+│   │   │   ├── interior-agent/        # Interior Agent (인테리어 생성)
+│   │   │   └── report-generator-agent/ # Report Generator Agent (PDF 생성)
+│   │   └── shared/                    # 공통 Agent 유틸리티
+│   │       ├── utils.py               # Agent-aware 로깅, AWS 클라이언트
+│   │       ├── agent_communication.py # Agent 간 통신 인터페이스
+│   │       └── knowledge_base.py      # KB 추상화 (Bedrock/Chroma)
+│   └── streamlit/                     # Streamlit 앱 (Agent 통합)
+├── infrastructure/                    # AWS CDK 인프라 코드
+│   └── stacks/                       # CDK 스택들 (Agent 기반)
+├── config/                           # 환경별 Agent 설정
+├── scripts/                          # Agent 배포/설정 스크립트
+└── data/                             # 로컬 개발용 데이터
 ```
 
 ## 환경 설정
@@ -71,13 +88,15 @@
    ./scripts/deploy-dev.sh
    ```
 
-## 5단계 워크플로
+## 5단계 Agent 워크플로
 
-1. **비즈니스 분석**: 업종/지역/규모 → 분석 요약/점수
-2. **상호명 제안**: 3개 후보 생성 (최대 3회 재생성)
-3. **간판 디자인**: DALL-E, SDXL, Gemini 병렬 생성
-4. **인테리어 추천**: 간판 스타일 기반 3개 옵션
-5. **PDF 보고서**: 모든 선택사항 포함 보고서 생성
+1. **비즈니스 분석**: Product Insight + Market Analyst Agent → Bedrock KB 조회 → 종합 분석
+2. **상호명 제안**: Reporter Agent → 3개 후보 생성 (최대 3회 재생성) → 발음/검색 점수
+3. **간판 디자인**: Signboard Agent → DALL-E, SDXL, Gemini 병렬 생성 → Supervisor 감시
+4. **인테리어 추천**: Interior Agent → 간판 스타일 기반 3개 옵션 → 병렬 AI 모델
+5. **PDF 보고서**: Report Generator Agent → 모든 선택사항 포함 보고서 생성
+
+**Supervisor Agent**: 전 단계에서 워크플로 상태 감시, 실패 시 재시도/폴백 트리거
 
 ## 환경별 구성
 

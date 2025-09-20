@@ -20,6 +20,42 @@
       "model_id": "amazon.titan-embed-text-v1"
     }
   },
+  "agents": {
+    "supervisor": {
+      "enabled": true,
+      "timeout": 30,
+      "monitoring_interval": 10
+    },
+    "product_insight": {
+      "enabled": true,
+      "timeout": 10,
+      "knowledge_base": "bedrock_kb"
+    },
+    "market_analyst": {
+      "enabled": true,
+      "timeout": 10,
+      "knowledge_base": "bedrock_kb"
+    },
+    "reporter": {
+      "enabled": true,
+      "timeout": 10,
+      "max_regenerations": 3
+    },
+    "signboard": {
+      "enabled": true,
+      "timeout": 35,
+      "ai_providers": ["dalle", "sdxl", "gemini"]
+    },
+    "interior": {
+      "enabled": true,
+      "timeout": 35,
+      "ai_providers": ["dalle", "sdxl", "gemini"]
+    },
+    "report_generator": {
+      "enabled": true,
+      "timeout": 60
+    }
+  },
   "ai_providers": {
     "dalle": {
       "enabled": true,

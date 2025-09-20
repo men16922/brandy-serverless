@@ -18,6 +18,41 @@
       "collection_name": "business_knowledge"
     }
   },
+  "agents": {
+    "supervisor": {
+      "enabled": true,
+      "timeout": 30
+    },
+    "product_insight": {
+      "enabled": true,
+      "timeout": 10,
+      "knowledge_base": "chroma"
+    },
+    "market_analyst": {
+      "enabled": true,
+      "timeout": 10,
+      "knowledge_base": "chroma"
+    },
+    "reporter": {
+      "enabled": true,
+      "timeout": 10,
+      "max_regenerations": 3
+    },
+    "signboard": {
+      "enabled": true,
+      "timeout": 35,
+      "ai_providers": ["dalle", "gemini"]
+    },
+    "interior": {
+      "enabled": true,
+      "timeout": 35,
+      "ai_providers": ["dalle", "gemini"]
+    },
+    "report_generator": {
+      "enabled": true,
+      "timeout": 60
+    }
+  },
   "ai_providers": {
     "dalle": {
       "enabled": true,

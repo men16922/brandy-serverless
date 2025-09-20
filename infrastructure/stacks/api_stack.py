@@ -27,55 +27,75 @@ class ApiStack(Stack):
             "REGION": self.region
         }
         
-        # Lambda layer for shared utilities
+        # Lambda layer for shared Agent utilities
         self.shared_layer = _lambda.LayerVersion(
-            self, "SharedLayer",
+            self, "SharedAgentLayer",
             code=_lambda.Code.from_asset("src/lambda/shared"),
             compatible_runtimes=[_lambda.Runtime.PYTHON_3_11],
-            description="Shared utilities for branding chatbot Lambda functions"
+            description="Shared utilities for Agent Lambda functions"
         )
         
-        # Session Manager Lambda
-        self.session_manager = self._create_lambda_function(
-            "SessionManager",
-            "src/lambda/session-manager",
-            common_env
-        )
-        
-        # Business Analyzer Lambda
-        self.business_analyzer = self._create_lambda_function(
-            "BusinessAnalyzer", 
-            "src/lambda/business-analyzer",
-            common_env
-        )
-        
-        # Name Suggester Lambda
-        self.name_suggester = self._create_lambda_function(
-            "NameSuggester",
-            "src/lambda/name-suggester", 
-            common_env
-        )
-        
-        # Image Generator Lambda
-        self.image_generator = self._create_lambda_function(
-            "ImageGenerator",
-            "src/lambda/image-generator",
+        # Supervisor Agent Lambda (최우선)
+        self.supervisor_agent = self._create_lambda_function(
+            "SupervisorAgent",
+            "src/lambda/agents/supervisor",
             common_env,
-            timeout=Duration.seconds(30)
+            timeout=Duration.seconds(30),
+            memory_size=1024
         )
         
-        # Report Generator Lambda (Container)
-        self.report_generator = self._create_lambda_function(
-            "ReportGenerator",
-            "src/lambda/report-generator",
+        # Product Insight Agent Lambda
+        self.product_insight_agent = self._create_lambda_function(
+            "ProductInsightAgent",
+            "src/lambda/agents/product-insight",
+            {**common_env, "BEDROCK_KNOWLEDGE_BASE_ID": os.getenv("BEDROCK_KNOWLEDGE_BASE_ID", "")},
+            timeout=Duration.seconds(10)
+        )
+        
+        # Market Analyst Agent Lambda
+        self.market_analyst_agent = self._create_lambda_function(
+            "MarketAnalystAgent",
+            "src/lambda/agents/market-analyst",
+            {**common_env, "BEDROCK_KNOWLEDGE_BASE_ID": os.getenv("BEDROCK_KNOWLEDGE_BASE_ID", "")},
+            timeout=Duration.seconds(10)
+        )
+        
+        # Reporter Agent Lambda
+        self.reporter_agent = self._create_lambda_function(
+            "ReporterAgent",
+            "src/lambda/agents/reporter",
+            common_env,
+            timeout=Duration.seconds(10)
+        )
+        
+        # Signboard Agent Lambda
+        self.signboard_agent = self._create_lambda_function(
+            "SignboardAgent",
+            "src/lambda/signboard-agent",  # 구현 예정
+            common_env,
+            timeout=Duration.seconds(35)
+        )
+        
+        # Interior Agent Lambda
+        self.interior_agent = self._create_lambda_function(
+            "InteriorAgent",
+            "src/lambda/interior-agent",  # 구현 예정
+            common_env,
+            timeout=Duration.seconds(35)
+        )
+        
+        # Report Generator Agent Lambda (Container)
+        self.report_generator_agent = self._create_lambda_function(
+            "ReportGeneratorAgent",
+            "src/lambda/report-generator-agent",  # 구현 예정
             common_env,
             timeout=Duration.seconds(60)
         )
         
-        # Grant permissions to Lambda functions
-        self._grant_permissions()
+        # Grant permissions to Agent Lambda functions
+        self._grant_agent_permissions()
         
-        # HTTP API Gateway
+        # HTTP API Gateway with Agent endpoints
         self.api = apigw.HttpApi(
             self, "BrandingChatbotApi",
             api_name=f"branding-chatbot-api-{environment}",
@@ -86,7 +106,8 @@ class ApiStack(Stack):
             )
         )
         
-        # API routes will be added in later tasks
+        # Agent API routes
+        self._setup_agent_routes()
         
     def _create_lambda_function(self, name: str, code_path: str, environment: dict, timeout: Duration = Duration.seconds(5)) -> _lambda.Function:
         """Create a Lambda function with common configuration"""
@@ -102,17 +123,19 @@ class ApiStack(Stack):
             memory_size=512
         )
     
-    def _grant_permissions(self):
-        """Grant necessary permissions to Lambda functions"""
-        functions = [
-            self.session_manager,
-            self.business_analyzer, 
-            self.name_suggester,
-            self.image_generator,
-            self.report_generator
+    def _grant_agent_permissions(self):
+        """Grant necessary permissions to Agent Lambda functions"""
+        agent_functions = [
+            self.supervisor_agent,
+            self.product_insight_agent,
+            self.market_analyst_agent,
+            self.reporter_agent,
+            self.signboard_agent,
+            self.interior_agent,
+            self.report_generator_agent
         ]
         
-        for func in functions:
+        for func in agent_functions:
             # DynamoDB permissions
             self.storage_stack.sessions_table.grant_read_write_data(func)
             
@@ -121,6 +144,7 @@ class ApiStack(Stack):
             
             # Bedrock permissions (for dev environment)
             if self.environment != "local":
+                # Bedrock model invocation
                 func.add_to_role_policy(
                     iam.PolicyStatement(
                         effect=iam.Effect.ALLOW,
@@ -131,3 +155,101 @@ class ApiStack(Stack):
                         resources=["*"]
                     )
                 )
+                
+                # Bedrock Knowledge Base permissions
+                func.add_to_role_policy(
+                    iam.PolicyStatement(
+                        effect=iam.Effect.ALLOW,
+                        actions=[
+                            "bedrock:Retrieve",
+                            "bedrock:RetrieveAndGenerate"
+                        ],
+                        resources=["*"]
+                    )
+                )
+            
+            # Step Functions permissions (for Supervisor Agent)
+            if func == self.supervisor_agent:
+                func.add_to_role_policy(
+                    iam.PolicyStatement(
+                        effect=iam.Effect.ALLOW,
+                        actions=[
+                            "states:DescribeExecution",
+                            "states:DescribeStateMachine",
+                            "states:ListExecutions",
+                            "states:StartExecution",
+                            "states:StopExecution"
+                        ],
+                        resources=["*"]
+                    )
+                )
+    
+    def _setup_agent_routes(self):
+        """Setup API routes for Agent endpoints"""
+        # Supervisor Agent routes
+        self.api.add_routes(
+            path="/status/{id}",
+            methods=[apigw.HttpMethod.GET],
+            integration=integrations.HttpLambdaIntegration(
+                "SupervisorStatusIntegration",
+                self.supervisor_agent
+            )
+        )
+        
+        self.api.add_routes(
+            path="/workflow/monitor",
+            methods=[apigw.HttpMethod.POST],
+            integration=integrations.HttpLambdaIntegration(
+                "SupervisorMonitorIntegration", 
+                self.supervisor_agent
+            )
+        )
+        
+        # Product Insight Agent routes
+        self.api.add_routes(
+            path="/analysis/product",
+            methods=[apigw.HttpMethod.POST],
+            integration=integrations.HttpLambdaIntegration(
+                "ProductInsightIntegration",
+                self.product_insight_agent
+            )
+        )
+        
+        # Market Analyst Agent routes
+        self.api.add_routes(
+            path="/analysis/market",
+            methods=[apigw.HttpMethod.POST],
+            integration=integrations.HttpLambdaIntegration(
+                "MarketAnalystIntegration",
+                self.market_analyst_agent
+            )
+        )
+        
+        # Reporter Agent routes
+        self.api.add_routes(
+            path="/names/suggest",
+            methods=[apigw.HttpMethod.POST],
+            integration=integrations.HttpLambdaIntegration(
+                "ReporterIntegration",
+                self.reporter_agent
+            )
+        )
+        
+        # 기본 세션 관리 routes (Supervisor를 통해 처리)
+        self.api.add_routes(
+            path="/sessions",
+            methods=[apigw.HttpMethod.POST],
+            integration=integrations.HttpLambdaIntegration(
+                "SessionCreateIntegration",
+                self.supervisor_agent
+            )
+        )
+        
+        self.api.add_routes(
+            path="/sessions/{id}",
+            methods=[apigw.HttpMethod.GET],
+            integration=integrations.HttpLambdaIntegration(
+                "SessionGetIntegration",
+                self.supervisor_agent
+            )
+        )
