@@ -615,21 +615,92 @@ class SignboardAgent(BaseAgent):
         style_keywords = ", ".join(style_info["keywords"][:3])  # 처음 3개 키워드만
         style_colors = ", ".join(style_info["colors"][:2])  # 처음 2개 색상만
         
-        # 최종 프롬프트 조합
+        # 영어 번역 추가로 텍스트 표시 개선
+        english_name = self._translate_to_english(business_name)
+        
+        # 최종 프롬프트 조합 (텍스트 표시 강조)
         prompt = (
-            f"{base_prompt}, {style_keywords} design style, "
+            f"Restaurant storefront with a large signboard that clearly shows the text '{english_name}' "
+            f"in bold, readable letters. {style_keywords} design style, "
             f"incorporating {industry_elements}, {mood} atmosphere, "
-            f"using {style_colors} color scheme, "
-            f"high quality, professional signage, clean typography, "
-            f"suitable for {industry} business, Korean text friendly, "
-            f"realistic lighting, 3D rendered appearance"
+            f"using {style_colors} color scheme. "
+            f"The signboard must prominently display '{english_name}' as the main text. "
+            f"High quality typography, professional restaurant signage, "
+            f"storefront exterior view, realistic lighting, commercial signage, "
+            f"the business name '{english_name}' should be the focal point of the sign"
         )
+        
+        # 프롬프트 로깅 (디버깅용)
+        self.logger.info(f"Generated prompt for {business_name}: {prompt[:200]}...")
         
         # 프롬프트 길이 제한 (DALL-E 3 제한: 4000자)
         if len(prompt) > 1000:
             prompt = prompt[:1000] + "..."
         
         return prompt
+    
+    def _translate_to_english(self, korean_name: str) -> str:
+        """한국어 상호명을 영어로 간단 번역"""
+        # 간단한 번역 매핑 (실제로는 더 정교한 번역 서비스 사용 가능)
+        translations = {
+            '좋은키친': 'Good Kitchen',
+            '서울집': 'Seoul House',
+            '명동하우스': 'Myeongdong House',
+            '365테이블': '365 Table',
+            '1번키친': 'Number 1 Kitchen',
+            'Royal원': 'Royal Garden',
+            'Neo키친': 'Neo Kitchen',
+            '루비집': 'Ruby House',
+            '예쁜향': 'Pretty Scent',
+            '유니크맛': 'Unique Taste',
+            '더 플레이스': 'The Place',
+            '어반 스페이스': 'Urban Space',
+            '코지 코너': 'Cozy Corner',
+            '모던 키친': 'Modern Kitchen',
+            '모던 테이블': 'Modern Table',
+            '클래식향': 'Classic Scent',
+            '좋은맛': 'Good Taste',
+            '24시테이블': '24H Table'
+        }
+        
+        # 매핑에 있으면 사용, 없으면 간단한 변환
+        if korean_name in translations:
+            return translations[korean_name]
+        
+        # 기본 변환 로직
+        if '키친' in korean_name:
+            base = korean_name.replace('키친', '').strip()
+            return f"{base} Kitchen"
+        elif '하우스' in korean_name or '집' in korean_name:
+            base = korean_name.replace('하우스', '').replace('집', '').strip()
+            return f"{base} House"
+        elif '테이블' in korean_name:
+            base = korean_name.replace('테이블', '').strip()
+            return f"{base} Table"
+        elif '가든' in korean_name:
+            base = korean_name.replace('가든', '').strip()
+            return f"{base} Garden"
+        elif '원' in korean_name:
+            base = korean_name.replace('원', '').strip()
+            return f"{base} Garden"
+        else:
+            # 간단한 음성 변환
+            simple_translations = {
+                '위너': 'Winner',
+                '다이아': 'Diamond', 
+                '빠른': 'Quick',
+                '좋은': 'Good',
+                '예쁜': 'Pretty',
+                '클래식': 'Classic',
+                '모던': 'Modern'
+            }
+            
+            for korean, english in simple_translations.items():
+                if korean in korean_name:
+                    return korean_name.replace(korean, english)
+            
+            # 그냥 로마자 표기
+            return korean_name
     
     async def _download_and_upload_image(self, image_url: str, session_id: str, style: str) -> str:
         """이미지 다운로드 및 S3/MinIO 업로드"""

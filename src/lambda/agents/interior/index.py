@@ -413,9 +413,9 @@ class InteriorAgent(BaseAgent):
             
             business_info = BusinessInfo(**business_info_data)
             
-            # 인테리어 추천 생성
+            # 인테리어 추천 생성 (이미지 포함)
             if action == 'recommend':
-                result = self._generate_interior_recommendations(session_id, business_info, selected_signboard)
+                result = self._generate_interior_recommendations_with_images_sync(session_id, business_info, selected_signboard)
             else:
                 raise ValueError(f"Unknown action: {action}")
             
@@ -494,6 +494,334 @@ class InteriorAgent(BaseAgent):
         except Exception as e:
             self.logger.error(f"Failed to generate interior recommendations: {str(e)}")
             raise
+    
+    async def _generate_interior_recommendations_with_images(self, session_id: str, business_info: BusinessInfo, 
+                                                           selected_signboard: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """인테리어 추천 생성 (이미지 포함)"""
+        try:
+            # 기본 텍스트 추천 생성
+            text_recommendations = self._generate_interior_recommendations(session_id, business_info, selected_signboard)
+            
+            # OpenAI API 키 확인
+            from shared.env_loader import get_openai_api_key
+            api_key = get_openai_api_key()
+            
+            if not api_key:
+                self.logger.warning("OpenAI API key not available, returning text-only recommendations")
+                return text_recommendations
+            
+            # 상호명 추출 (테스트에서 전달되는 경우)
+            business_name = getattr(business_info, 'name', None) or "모던 레스토랑"
+            
+            # 이미지 생성을 위한 스타일 정보
+            recommendations = text_recommendations.get('recommendations', [])
+            enhanced_recommendations = []
+            
+            import openai
+            import aiohttp
+            import uuid
+            from datetime import datetime
+            
+            client = openai.AsyncOpenAI(api_key=api_key)
+            
+            for rec in recommendations:
+                try:
+                    style_name = rec.get('styleName', rec.get('style', 'modern'))
+                    description = rec.get('description', '')
+                    
+                    # 인테리어 이미지 생성 프롬프트
+                    prompt = self._create_interior_prompt(business_name, business_info, style_name, description)
+                    
+                    self.logger.info(f"Generating interior image for {style_name} style")
+                    
+                    # OpenAI DALL-E 이미지 생성
+                    response = await client.images.generate(
+                        model="dall-e-3",
+                        prompt=prompt,
+                        size="1024x1024",
+                        quality="standard",
+                        n=1
+                    )
+                    
+                    if response.data:
+                        image_url = response.data[0].url
+                        
+                        # S3/MinIO에 저장
+                        stored_url = await self._store_interior_image(
+                            image_url, business_name, style_name, session_id
+                        )
+                        
+                        # 추천에 이미지 정보 추가
+                        rec['imageUrl'] = stored_url or image_url
+                        rec['isGenerated'] = True
+                        rec['prompt'] = prompt
+                        
+                        self.logger.info(f"Successfully generated {style_name} interior image")
+                    else:
+                        rec['imageUrl'] = None
+                        rec['isGenerated'] = False
+                        
+                except Exception as img_error:
+                    self.logger.error(f"Failed to generate image for {style_name}: {str(img_error)}")
+                    rec['imageUrl'] = None
+                    rec['isGenerated'] = False
+                
+                enhanced_recommendations.append(rec)
+            
+            # 결과 업데이트
+            text_recommendations['recommendations'] = enhanced_recommendations
+            
+            # 생성된 이미지 수 추가
+            generated_count = sum(1 for rec in enhanced_recommendations if rec.get('isGenerated'))
+            text_recommendations['generatedImages'] = generated_count
+            
+            return text_recommendations
+            
+        except Exception as e:
+            self.logger.error(f"Error in interior image generation: {str(e)}")
+            # 폴백으로 텍스트 기반 추천 반환
+            return self._generate_interior_recommendations(session_id, business_info, selected_signboard)
+    
+    def _create_interior_prompt(self, business_name: str, business_info: BusinessInfo, 
+                              style_name: str, description: str) -> str:
+        """인테리어 이미지 생성 프롬프트 생성"""
+        industry = business_info.industry.lower()
+        size = business_info.size.lower()
+        
+        # 스타일별 키워드 매핑
+        style_keywords = {
+            'modern': 'modern minimalist interior, clean lines, neutral colors, sleek furniture',
+            'cozy': 'cozy warm interior, comfortable seating, wood elements, soft lighting',
+            'industrial': 'industrial interior, exposed brick, metal fixtures, urban style',
+            'scandinavian': 'scandinavian interior, light wood, white walls, natural lighting',
+            'vintage': 'vintage interior, antique furniture, warm colors, classic elements'
+        }
+        
+        # 업종별 키워드
+        industry_keywords = {
+            'restaurant': 'restaurant dining area, tables and chairs, kitchen visible',
+            'cafe': 'cafe interior, coffee bar, comfortable seating area',
+            'retail': 'retail store interior, product displays, shopping area',
+            'service': 'service office interior, reception area, professional setting'
+        }
+        
+        style_desc = style_keywords.get(style_name.lower(), 'modern interior design')
+        industry_desc = industry_keywords.get(industry, 'business interior')
+        
+        prompt = f"""
+        Interior design for '{business_name}', a {industry} business.
+        {style_desc}, {industry_desc}.
+        Professional interior photography, realistic lighting, high quality,
+        {size} space, Korean modern style, inviting atmosphere,
+        suitable for {industry} business, well-designed layout,
+        architectural photography style, wide angle view
+        """.strip()
+        
+        # 프롬프트 길이 제한
+        if len(prompt) > 1000:
+            prompt = prompt[:1000] + "..."
+        
+        return prompt
+    
+    async def _store_interior_image(self, image_url: str, business_name: str, 
+                                  style: str, session_id: str) -> str:
+        """인테리어 이미지를 S3/MinIO에 저장"""
+        try:
+            from shared.s3_client import get_s3_client
+            import aiohttp
+            import uuid
+            from datetime import datetime
+            
+            s3_client = get_s3_client()
+            if not s3_client:
+                self.logger.warning("S3 client not available, returning original URL")
+                return image_url
+            
+            # 이미지 다운로드
+            async with aiohttp.ClientSession() as session:
+                async with session.get(image_url) as response:
+                    if response.status == 200:
+                        image_data = await response.read()
+                    else:
+                        self.logger.error(f"Failed to download image: HTTP {response.status}")
+                        return image_url
+            
+            # S3 키 생성
+            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+            unique_id = str(uuid.uuid4())[:8]
+            safe_business_name = ''.join(c for c in business_name if c.isalnum() or c in '-_').lower()
+            s3_key = f"interiors/{session_id}/{style}_{timestamp}_{unique_id}.png"
+            
+            # 메타데이터
+            metadata = {
+                'business_name': business_name,
+                'style': style,
+                'session_id': session_id,
+                'generated_by': 'openai-dalle3',
+                'original_url': image_url
+            }
+            
+            # 업로드
+            upload_result = s3_client.upload_file(
+                file_content=image_data,
+                key=s3_key,
+                content_type='image/png',
+                metadata=metadata
+            )
+            
+            if upload_result.get('success'):
+                self.logger.info(f"Successfully stored interior image: {s3_key}")
+                return upload_result.get('url')
+            else:
+                self.logger.error(f"Failed to upload interior image: {upload_result}")
+                return image_url
+                
+        except Exception as e:
+            self.logger.error(f"Error storing interior image: {str(e)}")
+            return image_url
+    
+    def _generate_interior_recommendations_with_images_sync(self, session_id: str, business_info: BusinessInfo, 
+                                                          selected_signboard: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """인테리어 추천 생성 (동기적 이미지 생성)"""
+        try:
+            # 기본 텍스트 추천 생성
+            text_recommendations = self._generate_interior_recommendations(session_id, business_info, selected_signboard)
+            
+            # OpenAI API 키 확인
+            from shared.env_loader import get_openai_api_key
+            api_key = get_openai_api_key()
+            
+            if not api_key:
+                self.logger.warning("OpenAI API key not available, returning text-only recommendations")
+                return text_recommendations
+            
+            # 상호명 추출
+            business_name = getattr(business_info, 'name', None) or "모던 레스토랑"
+            
+            # 이미지 생성을 위한 스타일 정보
+            recommendations = text_recommendations.get('recommendations', [])
+            enhanced_recommendations = []
+            
+            import openai
+            import requests
+            import uuid
+            from datetime import datetime
+            
+            client = openai.OpenAI(api_key=api_key)
+            
+            for rec in recommendations:
+                try:
+                    style_name = rec.get('styleName', rec.get('style', 'modern'))
+                    description = rec.get('description', '')
+                    
+                    # 인테리어 이미지 생성 프롬프트
+                    prompt = self._create_interior_prompt(business_name, business_info, style_name, description)
+                    
+                    self.logger.info(f"Generating interior image for {style_name} style")
+                    
+                    # OpenAI DALL-E 이미지 생성 (동기적)
+                    response = client.images.generate(
+                        model="dall-e-3",
+                        prompt=prompt,
+                        size="1024x1024",
+                        quality="standard",
+                        n=1
+                    )
+                    
+                    if response.data:
+                        image_url = response.data[0].url
+                        
+                        # S3/MinIO에 저장 (동기적)
+                        stored_url = self._store_interior_image_sync(
+                            image_url, business_name, style_name, session_id
+                        )
+                        
+                        # 추천에 이미지 정보 추가
+                        rec['imageUrl'] = stored_url or image_url
+                        rec['isGenerated'] = True
+                        rec['prompt'] = prompt
+                        
+                        self.logger.info(f"Successfully generated {style_name} interior image")
+                    else:
+                        rec['imageUrl'] = None
+                        rec['isGenerated'] = False
+                        
+                except Exception as img_error:
+                    self.logger.error(f"Failed to generate image for {style_name}: {str(img_error)}")
+                    rec['imageUrl'] = None
+                    rec['isGenerated'] = False
+                
+                enhanced_recommendations.append(rec)
+            
+            # 결과 업데이트
+            text_recommendations['recommendations'] = enhanced_recommendations
+            
+            # 생성된 이미지 수 추가
+            generated_count = sum(1 for rec in enhanced_recommendations if rec.get('isGenerated'))
+            text_recommendations['generatedImages'] = generated_count
+            
+            return text_recommendations
+            
+        except Exception as e:
+            self.logger.error(f"Error in interior image generation: {str(e)}")
+            # 폴백으로 텍스트 기반 추천 반환
+            return self._generate_interior_recommendations(session_id, business_info, selected_signboard)
+    
+    def _store_interior_image_sync(self, image_url: str, business_name: str, 
+                                 style: str, session_id: str) -> str:
+        """인테리어 이미지를 S3/MinIO에 저장 (동기적)"""
+        try:
+            from shared.s3_client import get_s3_client
+            import requests
+            import uuid
+            from datetime import datetime
+            
+            s3_client = get_s3_client()
+            if not s3_client:
+                self.logger.warning("S3 client not available, returning original URL")
+                return image_url
+            
+            # 이미지 다운로드 (동기적)
+            response = requests.get(image_url, timeout=30)
+            if response.status_code == 200:
+                image_data = response.content
+            else:
+                self.logger.error(f"Failed to download image: HTTP {response.status_code}")
+                return image_url
+            
+            # S3 키 생성
+            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+            unique_id = str(uuid.uuid4())[:8]
+            safe_business_name = ''.join(c for c in business_name if c.isalnum() or c in '-_').lower()
+            s3_key = f"interiors/{session_id}/{style}_{timestamp}_{unique_id}.png"
+            
+            # 메타데이터
+            metadata = {
+                'business_name': business_name,
+                'style': style,
+                'session_id': session_id,
+                'generated_by': 'openai-dalle3',
+                'original_url': image_url
+            }
+            
+            # 업로드
+            upload_result = s3_client.upload_file(
+                file_content=image_data,
+                key=s3_key,
+                content_type='image/png',
+                metadata=metadata
+            )
+            
+            if upload_result.get('success'):
+                self.logger.info(f"Successfully stored interior image: {s3_key}")
+                return upload_result.get('url')
+            else:
+                self.logger.error(f"Failed to upload interior image: {upload_result}")
+                return image_url
+                
+        except Exception as e:
+            self.logger.error(f"Error storing interior image: {str(e)}")
+            return image_url
     
     def _determine_recommended_styles(self, industry_info: Dict[str, Any], 
                                     regional_info: Dict[str, Any], 
