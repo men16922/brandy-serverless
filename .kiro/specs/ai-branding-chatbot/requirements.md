@@ -128,11 +128,14 @@
 - 비밀/키: AWS Secrets Manager/Parameter Store 관리
 
 ### 운영/배포
-- IaC: AWS SAM/Serverless Framework/CDK 중 택1 (스택: API, Lambdas, Step Functions, DynamoDB, S3, Cognito)
-- 배포 전략: 분리된 스테이지(local/dev), 기능 플래그로 모델별 on/off
+- IaC: **AWS SAM (Serverless Application Model)** 완전 서버리스 배포
+- SAM 템플릿: template.yaml로 모든 리소스 정의 (API Gateway, Lambda Functions, Step Functions, DynamoDB, S3, IAM)
+- 배포 전략: sam deploy --guided로 스테이지별 배포 (local/dev/prod)
+- 환경별 파라미터: samconfig.toml로 환경별 설정 관리
 - 관측: CloudWatch 대시보드(성능/오류율/재시도), 알람(SNS)
-- 에이전트별 Lambda 분리 배포(Product/Market/Reporter/Sign/Interior/Supervisor)
+- 에이전트별 Lambda 분리 배포: SAM 템플릿에서 각 Agent별 Lambda Function 정의
 - CloudWatch 대시보드에서 Agent 단위 성능/실패율 추적 가능
+- SAM Local: sam local start-api로 로컬 API Gateway + Lambda 테스트
 
 ## API 엔드포인트 (예시)
 

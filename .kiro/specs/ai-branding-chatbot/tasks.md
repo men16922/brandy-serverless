@@ -6,18 +6,20 @@
 
 ## 구현 태스크
 
-- [x] 1. 프로젝트 구조 및 기본 설정
-  - 프로젝트 디렉토리 구조 생성
-  - AWS CDK 또는 SAM 템플릿 초기화
-  - 환경별 설정 파일 구성 (local/dev)
-  - _요구사항: 1.1, 7.1_
+- [x] 1. SAM 기반 프로젝트 구조 및 기본 설정
+  - SAM 프로젝트 디렉토리 구조 생성
+  - template.yaml SAM 템플릿 초기화 (API Gateway, Lambda Functions, DynamoDB, S3, Step Functions)
+  - samconfig.toml 환경별 배포 설정 구성 (local/dev/prod)
+  - sam build 및 sam deploy 스크립트 작성
+  - _요구사항: 1.1, 7.1, SAM 완전 서버리스 배포_
 
 - [x] 2. 데이터 모델 및 DynamoDB 설정
-  - [x] 2.1 DynamoDB 테이블 스키마 정의
-    - WorkflowSessions 테이블 CDK 리소스 생성
-    - TTL 설정 및 인덱스 구성
-    - 로컬 개발용 DynamoDB Local 설정
-    - _요구사항: 1.1, 7.1_
+  - [x] 2.1 DynamoDB 테이블 SAM 리소스 정의
+    - template.yaml에 AWS::Serverless::SimpleTable로 WorkflowSessions 테이블 정의
+    - TTL 설정 및 GSI 인덱스 구성
+    - 로컬 개발용 DynamoDB Local 설정 (docker-compose.local.yml)
+    - DynamoDB Admin UI 추가로 로컬 데이터 시각화
+    - _요구사항: 1.1, 7.1, DynamoDB 스키마 생성 및 UI 확인_
 
   - [x] 2.2 세션 데이터 모델 구현
     - TypeScript/Python 데이터 모델 클래스 작성

@@ -41,6 +41,21 @@ services:
     networks:
       - branding-local
 
+  dynamodb-admin:
+    image: aaronshaf/dynamodb-admin:latest
+    container_name: branding-chatbot-dynamodb-admin
+    ports:
+      - "8002:8001"
+    environment:
+      - DYNAMO_ENDPOINT=http://dynamodb-local:8000
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=dummy
+      - AWS_SECRET_ACCESS_KEY=dummy
+    depends_on:
+      - dynamodb-local
+    networks:
+      - branding-local
+
 volumes:
   minio_data:
   chroma_data:

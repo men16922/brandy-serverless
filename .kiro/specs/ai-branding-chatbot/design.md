@@ -535,14 +535,112 @@ class AgentCommunication:
                                 [결과를 Slack으로 전송]
 ```
 
+## SAM 기반 서버리스 아키텍처
+
+### SAM 템플릿 구조
+```yaml
+# template.yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [local, dev, prod]
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 30
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+        DYNAMODB_TABLE: !Ref WorkflowSessionsTable
+        S3_BUCKET: !Ref BrandingAssetsBucket
+
+Resources:
+  # API Gateway
+  BrandingApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'*'"
+        AllowHeaders: "'*'"
+        AllowOrigin: "'*'"
+
+  # Agent Lambda Functions
+  SupervisorAgent:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambda/agents/supervisor/
+      Handler: index.lambda_handler
+      Events:
+        StatusApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref BrandingApi
+            Path: /status/{id}
+            Method: get
+
+  ProductInsightAgent:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambda/agents/product-insight/
+      Handler: index.lambda_handler
+      Events:
+        AnalysisApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref BrandingApi
+            Path: /analysis
+            Method: post
+
+  # Step Functions
+  BrandingWorkflow:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      DefinitionUri: statemachine/branding-workflow.asl.json
+      Role: !GetAtt StepFunctionsRole.Arn
+
+  # DynamoDB
+  WorkflowSessionsTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: sessionId
+        Type: String
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  # S3
+  BrandingAssetsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+```
+
+### SAM 배포 전략
+- **sam build**: 소스 코드 빌드 및 의존성 패키징
+- **sam deploy --guided**: 대화형 배포 설정
+- **samconfig.toml**: 환경별 배포 파라미터 관리
+- **sam local start-api**: 로컬 API Gateway + Lambda 테스트
+- **sam logs**: 실시간 CloudWatch 로그 스트리밍
+
 ## 발표용 핵심 포인트
 
 ### 아키텍처 하이라이트
-- **Serverless 100% AWS**: App Runner + CloudFront + Lambda + Step Functions + DynamoDB + S3
+- **SAM 기반 완전 서버리스**: template.yaml 하나로 모든 AWS 리소스 정의 및 배포
 - **Express/Standard 혼합 + Supervisor**: 빠른 병렬 처리 + 사용자 대기 지원 + 워크플로 감시
 - **Bedrock KB + Agent 기반 확장**: 지식 기반 분석 + 유연한 에이전트 아키텍처
-- **에이전트 단위 배포/관측**: 독립적인 Agent Lambda 배포 및 성능 추적
-- **Slack 통합**: 팀 협업 환경에서의 브랜딩 워크플로 실행
+- **에이전트 단위 배포/관측**: SAM 템플릿에서 각 Agent별 Lambda Function 독립 정의
+- **통합 테스트 우선**: Docker Compose + pytest로 실제 환경 시뮬레이션
 
 ### 에이전트 아키텍처 장점
 - **독립적 확장**: 각 Agent별 개별 배포 및 스케일링
