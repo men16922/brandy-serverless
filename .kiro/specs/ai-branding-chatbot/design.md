@@ -1,33 +1,32 @@
-# 설계 문서
+# AI 브랜딩 챗봇 설계 문서
 
 ## 개요
 
-AI 브랜딩 챗봇은 5단계 워크플로를 통해 사용자가 비즈니스 브랜딩을 생성할 수 있도록 돕는 완전 서버리스 시스템입니다. AWS의 관리형 서비스들을 활용하여 확장성, 안정성, 비용 효율성을 동시에 달성하며, 에이전트 기반 아키텍처로 유연하고 확장 가능한 AI 워크플로를 제공합니다.
+AI 브랜딩 챗봇은 **6개의 전문 AI 에이전트**와 **1개의 감독 에이전트**가 협력하여 사업자의 브랜딩을 자동 생성하는 완전 서버리스 시스템입니다. 
+
+**핵심 특징**:
+- 🤖 **에이전트 기반 아키텍처**: 각 전문 분야별 독립적인 AI 에이전트
+- 🔄 **자동화된 워크플로**: 입력 → 분석 → 생성 → 보고서 (5분 내 완료)
+- 🛡️ **장애 복구**: Supervisor Agent의 실시간 감시 및 자동 폴백
+- 🚀 **완전 서버리스**: AWS SAM 기반 Lambda + Step Functions
+- 🧪 **NO MOCKS 테스트**: Docker Compose 기반 실제 환경 통합 테스트
 
 ## 아키텍처
 
 ### 전체 시스템 아키텍처
 
-![AI 브랜딩 챗봇 아키텍처](ai-branding-architecture.png)
+![AI 브랜딩 챗봇 에이전트 아키텍처](ai-branding-architecture.png)
 
-**아키텍처 플로우**:
-```
-[사용자] 
-    ↓
-[CloudFront + S3 (정적 웹)] + [App Runner (Streamlit)]
-    ↓
-[API Gateway (HTTP API)]
-    ↓
-[Agent Lambda Functions] ←→ [Step Functions (Express + Standard)]
-    ↑                              ↑
-[Supervisor Agent]          [Workflow Monitoring]
-    ↓
-[DynamoDB (세션)] + [S3 (이미지/보고서)] + [Bedrock KB]
-    ↓
-[Bedrock + OpenAI + Gemini (AI 모델)]
-    ↓
-[CloudWatch + X-Ray (에이전트 단위 모니터링)]
-```
+### 5단계 워크플로
+
+![AI 브랜딩 챗봇 워크플로](ai-branding-workflow.png)
+
+**에이전트 기반 아키텍처 특징**:
+- 🎯 **Supervisor Agent**: 전체 워크플로 감시 및 제어
+- 🤖 **6개 전문 에이전트**: 각 단계별 독립적인 AI 처리
+- 🔄 **자동 워크플로**: 사용자 입력 → AI 분석 → 자동 생성 → 보고서
+- 🛡️ **장애 복구**: 실시간 감시 및 폴백 처리
+- 📊 **구조화 로깅**: agent, tool, latency_ms 단위 추적
 
 ### 핵심 구성 요소
 

@@ -1,0 +1,334 @@
+{
+  "Comment": "AI Branding Chatbot - 5-Step Workflow with Agent-Based Architecture",
+  "StartAt": "InitializeWorkflow",
+  "States": {
+    "InitializeWorkflow": {
+      "Type": "Pass",
+      "Comment": "Initialize workflow with session validation",
+      "Parameters": {
+        "sessionId.$": "$.sessionId",
+        "currentStep": 1,
+        "timestamp.$": "$$.State.EnteredTime"
+      },
+      "Next": "BusinessAnalysis"
+    },
+    
+    "BusinessAnalysis": {
+      "Type": "Parallel",
+      "Comment": "Parallel business analysis by Product Insight and Market Analyst agents",
+      "Branches": [
+        {
+          "StartAt": "ProductInsightAnalysis",
+          "States": {
+            "ProductInsightAnalysis": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${ProductInsightAgentArn}",
+                "Payload": {
+                  "sessionId.$": "$.sessionId",
+                  "businessInfo.$": "$.businessInfo",
+                  "action": "analyze"
+                }
+              },
+              "ResultPath": "$.productInsight",
+              "TimeoutSeconds": 30,
+              "Retry": [
+                {
+                  "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "Next": "ProductInsightFallback",
+                  "ResultPath": "$.error"
+                }
+              ],
+              "End": true
+            },
+            "ProductInsightFallback": {
+              "Type": "Pass",
+              "Comment": "Fallback result for Product Insight analysis",
+              "Parameters": {
+                "analysis": "기본 분석 결과",
+                "score": 70,
+                "fallback": true
+              },
+              "ResultPath": "$.productInsight",
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "MarketAnalystAnalysis",
+          "States": {
+            "MarketAnalystAnalysis": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${MarketAnalystAgentArn}",
+                "Payload": {
+                  "sessionId.$": "$.sessionId",
+                  "businessInfo.$": "$.businessInfo",
+                  "action": "analyze_market"
+                }
+              },
+              "ResultPath": "$.marketAnalysis",
+              "TimeoutSeconds": 30,
+              "Retry": [
+                {
+                  "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "Next": "MarketAnalysisFallback",
+                  "ResultPath": "$.error"
+                }
+              ],
+              "End": true
+            },
+            "MarketAnalysisFallback": {
+              "Type": "Pass",
+              "Comment": "Fallback result for Market Analysis",
+              "Parameters": {
+                "trends": "기본 시장 동향",
+                "competition": "보통",
+                "fallback": true
+              },
+              "ResultPath": "$.marketAnalysis",
+              "End": true
+            }
+          }
+        }
+      ],
+      "Next": "BusinessNameSuggestion",
+      "ResultPath": "$.analysisResults"
+    },
+
+    "BusinessNameSuggestion": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Comment": "Generate business name suggestions using Reporter Agent",
+      "Parameters": {
+        "FunctionName": "${ReporterAgentArn}",
+        "Payload": {
+          "sessionId.$": "$.sessionId",
+          "analysisResults.$": "$.analysisResults",
+          "action": "suggest_names"
+        }
+      },
+      "ResultPath": "$.namesSuggestion",
+      "TimeoutSeconds": 30,
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "NameSuggestionFallback",
+          "ResultPath": "$.error"
+        }
+      ],
+      "Next": "WaitForNameSelection"
+    },
+
+    "NameSuggestionFallback": {
+      "Type": "Pass",
+      "Comment": "Fallback business names",
+      "Parameters": {
+        "suggestions": [
+          {"name": "비즈니스플러스", "score": 75, "description": "기본 제안 1"},
+          {"name": "스마트솔루션", "score": 70, "description": "기본 제안 2"},
+          {"name": "프로서비스", "score": 65, "description": "기본 제안 3"}
+        ],
+        "fallback": true
+      },
+      "ResultPath": "$.namesSuggestion",
+      "Next": "WaitForNameSelection"
+    },
+
+    "WaitForNameSelection": {
+      "Type": "Wait",
+      "Comment": "Wait for user to select a business name",
+      "Seconds": 1,
+      "Next": "SignboardGeneration"
+    },
+
+    "SignboardGeneration": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Comment": "Generate signboard designs using Signboard Agent with parallel AI models",
+      "Parameters": {
+        "FunctionName": "${SignboardAgentArn}",
+        "Payload": {
+          "sessionId.$": "$.sessionId",
+          "selectedName.$": "$.selectedName",
+          "businessInfo.$": "$.businessInfo",
+          "action": "generate_signboards"
+        }
+      },
+      "ResultPath": "$.signboardResults",
+      "TimeoutSeconds": 90,
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "SignboardFallback",
+          "ResultPath": "$.error"
+        }
+      ],
+      "Next": "WaitForSignboardSelection"
+    },
+
+    "SignboardFallback": {
+      "Type": "Pass",
+      "Comment": "Fallback signboard images",
+      "Parameters": {
+        "signboards": [
+          {"id": "fallback-1", "url": "s3://fallbacks/signboard-1.png", "description": "기본 간판 1"},
+          {"id": "fallback-2", "url": "s3://fallbacks/signboard-2.png", "description": "기본 간판 2"},
+          {"id": "fallback-3", "url": "s3://fallbacks/signboard-3.png", "description": "기본 간판 3"}
+        ],
+        "fallback": true
+      },
+      "ResultPath": "$.signboardResults",
+      "Next": "WaitForSignboardSelection"
+    },
+
+    "WaitForSignboardSelection": {
+      "Type": "Wait",
+      "Comment": "Wait for user to select a signboard design",
+      "Seconds": 1,
+      "Next": "InteriorRecommendation"
+    },
+
+    "InteriorRecommendation": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Comment": "Generate interior recommendations using Interior Agent",
+      "Parameters": {
+        "FunctionName": "${InteriorAgentArn}",
+        "Payload": {
+          "sessionId.$": "$.sessionId",
+          "selectedSignboard.$": "$.selectedSignboard",
+          "businessInfo.$": "$.businessInfo",
+          "action": "generate_interiors"
+        }
+      },
+      "ResultPath": "$.interiorResults",
+      "TimeoutSeconds": 90,
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "InteriorFallback",
+          "ResultPath": "$.error"
+        }
+      ],
+      "Next": "WaitForInteriorSelection"
+    },
+
+    "InteriorFallback": {
+      "Type": "Pass",
+      "Comment": "Fallback interior designs",
+      "Parameters": {
+        "interiors": [
+          {"id": "fallback-1", "url": "s3://fallbacks/interior-1.png", "description": "기본 인테리어 1", "budget": "중간"},
+          {"id": "fallback-2", "url": "s3://fallbacks/interior-2.png", "description": "기본 인테리어 2", "budget": "경제적"},
+          {"id": "fallback-3", "url": "s3://fallbacks/interior-3.png", "description": "기본 인테리어 3", "budget": "고급"}
+        ],
+        "fallback": true
+      },
+      "ResultPath": "$.interiorResults",
+      "Next": "WaitForInteriorSelection"
+    },
+
+    "WaitForInteriorSelection": {
+      "Type": "Wait",
+      "Comment": "Wait for user to select interior design",
+      "Seconds": 1,
+      "Next": "GenerateFinalReport"
+    },
+
+    "GenerateFinalReport": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Comment": "Generate final PDF report using Report Generator Agent",
+      "Parameters": {
+        "FunctionName": "${ReportGeneratorAgentArn}",
+        "Payload": {
+          "sessionId.$": "$.sessionId",
+          "selectedName.$": "$.selectedName",
+          "selectedSignboard.$": "$.selectedSignboard",
+          "selectedInterior.$": "$.selectedInterior",
+          "analysisResults.$": "$.analysisResults",
+          "action": "generate_report"
+        }
+      },
+      "ResultPath": "$.reportResult",
+      "TimeoutSeconds": 180,
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "IntervalSeconds": 10,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "ReportGenerationFailed",
+          "ResultPath": "$.error"
+        }
+      ],
+      "Next": "WorkflowComplete"
+    },
+
+    "ReportGenerationFailed": {
+      "Type": "Fail",
+      "Comment": "Report generation failed after retries",
+      "Cause": "Unable to generate final PDF report"
+    },
+
+    "WorkflowComplete": {
+      "Type": "Pass",
+      "Comment": "Workflow completed successfully",
+      "Parameters": {
+        "status": "completed",
+        "completedAt.$": "$$.State.EnteredTime",
+        "sessionId.$": "$.sessionId",
+        "reportUrl.$": "$.reportResult.Payload.reportUrl"
+      },
+      "End": true
+    }
+  }
+}

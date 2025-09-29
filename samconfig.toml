@@ -1,0 +1,108 @@
+version = 0.1
+
+# Local development configuration
+[local]
+[local.global]
+[local.global.parameters]
+stack_name = "ai-branding-chatbot-local"
+
+[local.build]
+[local.build.parameters]
+cached = true
+parallel = true
+
+[local.validate]
+[local.validate.parameters]
+lint = true
+
+[local.local_start_api]
+[local.local_start_api.parameters]
+warm_containers = "EAGER"
+parameter_overrides = "Environment=local ProjectName=ai-branding-chatbot"
+env_vars = """
+ENVIRONMENT=local
+DYNAMODB_ENDPOINT=http://host.docker.internal:8000
+S3_ENDPOINT=http://host.docker.internal:9000
+CHROMA_ENDPOINT=http://host.docker.internal:8001
+DYNAMODB_TABLE=ai-branding-chatbot-sessions-local
+S3_BUCKET=ai-branding-chatbot-assets-local
+AWS_ACCESS_KEY_ID=dummy
+AWS_SECRET_ACCESS_KEY=dummy
+AWS_DEFAULT_REGION=us-east-1
+LOG_LEVEL=DEBUG
+"""
+
+[local.local_start_lambda]
+[local.local_start_lambda.parameters]
+warm_containers = "EAGER"
+env_vars = """
+ENVIRONMENT=local
+DYNAMODB_ENDPOINT=http://host.docker.internal:8000
+S3_ENDPOINT=http://host.docker.internal:9000
+CHROMA_ENDPOINT=http://host.docker.internal:8001
+DYNAMODB_TABLE=ai-branding-chatbot-sessions-local
+S3_BUCKET=ai-branding-chatbot-assets-local
+AWS_ACCESS_KEY_ID=dummy
+AWS_SECRET_ACCESS_KEY=dummy
+AWS_DEFAULT_REGION=us-east-1
+LOG_LEVEL=DEBUG
+"""
+
+# Development environment configuration
+[dev]
+[dev.global]
+[dev.global.parameters]
+stack_name = "ai-branding-chatbot-dev"
+
+[dev.build]
+[dev.build.parameters]
+cached = true
+parallel = true
+
+[dev.validate]
+[dev.validate.parameters]
+lint = true
+
+[dev.deploy]
+[dev.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false
+resolve_s3 = true
+s3_prefix = "ai-branding-chatbot-dev"
+region = "us-east-1"
+parameter_overrides = "Environment=dev ProjectName=ai-branding-chatbot"
+image_repositories = []
+
+[dev.package]
+[dev.package.parameters]
+resolve_s3 = true
+
+[dev.sync]
+[dev.sync.parameters]
+watch = true
+
+# Production environment configuration (for future use)
+[prod]
+[prod.global]
+[prod.global.parameters]
+stack_name = "ai-branding-chatbot-prod"
+
+[prod.build]
+[prod.build.parameters]
+cached = true
+parallel = true
+
+[prod.validate]
+[prod.validate.parameters]
+lint = true
+
+[prod.deploy]
+[prod.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
+s3_prefix = "ai-branding-chatbot-prod"
+region = "us-east-1"
+parameter_overrides = "Environment=prod ProjectName=ai-branding-chatbot"
+fail_on_empty_changeset = false
+image_repositories = []

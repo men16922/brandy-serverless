@@ -37,6 +37,9 @@ venv.bak/
 *.swo
 *~
 
+# AWS SAM
+.aws-sam/
+
 # AWS CDK
 cdk.out/
 *.d.ts

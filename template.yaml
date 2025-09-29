@@ -1,0 +1,379 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AI Branding Chatbot - Complete Serverless Agent-Based Architecture
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [local, dev, prod]
+    Description: Deployment environment
+  
+  ProjectName:
+    Type: String
+    Default: ai-branding-chatbot
+    Description: Project name for resource naming
+
+Globals:
+  Function:
+    Runtime: python3.9
+    Timeout: 30
+    MemorySize: 512
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+        PROJECT_NAME: !Ref ProjectName
+        DYNAMODB_TABLE: !Ref WorkflowSessionsTable
+        S3_BUCKET: !Ref BrandingAssetsBucket
+        LOG_LEVEL: INFO
+    Layers:
+      - !Ref SharedUtilitiesLayer
+
+Resources:
+  # API Gateway HTTP API (cost-optimized)
+  BrandingApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref Environment
+      CorsConfiguration:
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+          - X-Amz-Date
+          - X-Api-Key
+          - X-Amz-Security-Token
+        AllowOrigins:
+          - "*"
+      Tags:
+        Environment: !Ref Environment
+        Project: !Ref ProjectName
+
+  # Shared Lambda Layer for common utilities
+  SharedUtilitiesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub "${ProjectName}-shared-utilities-${Environment}"
+      Description: Shared utilities for all agent functions
+      ContentUri: src/lambda/shared/
+      CompatibleRuntimes:
+        - python3.9
+      RetentionPolicy: Delete
+
+  # Agent Lambda Functions
+  SupervisorAgent:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-supervisor-agent-${Environment}"
+      CodeUri: src/lambda/agents/supervisor/
+      Handler: index.lambda_handler
+      Description: Supervisor Agent - Workflow monitoring and control
+      Events:
+        StatusApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BrandingApi
+            Path: /status/{id}
+            Method: get
+        SessionsApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BrandingApi
+            Path: /sessions
+            Method: post
+        SessionGetApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BrandingApi
+            Path: /sessions/{id}
+            Method: get
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WorkflowSessionsTable
+        - S3ReadPolicy:
+            BucketName: !Ref BrandingAssetsBucket
+        - StepFunctionsExecutionPolicy:
+            StateMachineName: !GetAtt BrandingWorkflow.Name
+
+  ProductInsightAgent:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-product-insight-agent-${Environment}"
+      CodeUri: src/lambda/agents/product-insight/
+      Handler: index.lambda_handler
+      Description: Product Insight Agent - Business analysis
+      Events:
+        AnalysisApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BrandingApi
+            Path: /analysis
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WorkflowSessionsTable
+        - S3ReadPolicy:
+            BucketName: !Ref BrandingAssetsBucket
+
+  MarketAnalystAgent:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-market-analyst-agent-${Environment}"
+      CodeUri: src/lambda/agents/market-analyst/
+      Handler: index.lambda_handler
+      Description: Market Analyst Agent - Market trends analysis
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WorkflowSessionsTable
+
+  ReporterAgent:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-reporter-agent-${Environment}"
+      CodeUri: src/lambda/agents/reporter/
+      Handler: index.lambda_handler
+      Description: Reporter Agent - Business name suggestions
+      Events:
+        NamesApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BrandingApi
+            Path: /names/suggest
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WorkflowSessionsTable
+
+  SignboardAgent:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-signboard-agent-${Environment}"
+      CodeUri: src/lambda/agents/signboard/
+      Handler: index.lambda_handler
+      Description: Signboard Agent - Signboard design generation
+      Timeout: 60
+      MemorySize: 1024
+      Events:
+        SignboardsApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BrandingApi
+            Path: /signboards/generate
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WorkflowSessionsTable
+        - S3CrudPolicy:
+            BucketName: !Ref BrandingAssetsBucket
+
+  InteriorAgent:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-interior-agent-${Environment}"
+      CodeUri: src/lambda/agents/interior/
+      Handler: index.lambda_handler
+      Description: Interior Agent - Interior design recommendations
+      Timeout: 60
+      MemorySize: 1024
+      Events:
+        InteriorsApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BrandingApi
+            Path: /interiors/generate
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WorkflowSessionsTable
+        - S3CrudPolicy:
+            BucketName: !Ref BrandingAssetsBucket
+
+  ReportGeneratorAgent:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-report-generator-agent-${Environment}"
+      CodeUri: src/lambda/agents/report-generator/
+      Handler: index.lambda_handler
+      Description: Report Generator Agent - PDF report generation
+      Timeout: 120
+      MemorySize: 2048
+      PackageType: Zip
+      Events:
+        ReportApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BrandingApi
+            Path: /report/generate
+            Method: post
+        ReportUrlApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BrandingApi
+            Path: /report/url
+            Method: get
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WorkflowSessionsTable
+        - S3CrudPolicy:
+            BucketName: !Ref BrandingAssetsBucket
+
+  # Step Functions State Machine
+  BrandingWorkflow:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: !Sub "${ProjectName}-workflow-${Environment}"
+      DefinitionUri: statemachine/branding-workflow.asl.json
+      DefinitionSubstitutions:
+        ProductInsightAgentArn: !GetAtt ProductInsightAgent.Arn
+        MarketAnalystAgentArn: !GetAtt MarketAnalystAgent.Arn
+        ReporterAgentArn: !GetAtt ReporterAgent.Arn
+        SignboardAgentArn: !GetAtt SignboardAgent.Arn
+        InteriorAgentArn: !GetAtt InteriorAgent.Arn
+        ReportGeneratorAgentArn: !GetAtt ReportGeneratorAgent.Arn
+      Policies:
+        - LambdaInvokePolicy:
+            FunctionName: !Ref ProductInsightAgent
+        - LambdaInvokePolicy:
+            FunctionName: !Ref MarketAnalystAgent
+        - LambdaInvokePolicy:
+            FunctionName: !Ref ReporterAgent
+        - LambdaInvokePolicy:
+            FunctionName: !Ref SignboardAgent
+        - LambdaInvokePolicy:
+            FunctionName: !Ref InteriorAgent
+        - LambdaInvokePolicy:
+            FunctionName: !Ref ReportGeneratorAgent
+
+  # DynamoDB Table for session management
+  WorkflowSessionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${ProjectName}-sessions-${Environment}"
+      AttributeDefinitions:
+        - AttributeName: sessionId
+          AttributeType: S
+        - AttributeName: currentStep
+          AttributeType: N
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sessionId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      GlobalSecondaryIndexes:
+        - IndexName: StepIndex
+          KeySchema:
+            - AttributeName: currentStep
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # S3 Bucket for assets storage
+  BrandingAssetsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ProjectName}-assets-${Environment}-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # CloudWatch Log Groups for structured logging
+  SupervisorAgentLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${SupervisorAgent}"
+      RetentionInDays: 14
+
+  ProductInsightAgentLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ProductInsightAgent}"
+      RetentionInDays: 14
+
+  MarketAnalystAgentLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${MarketAnalystAgent}"
+      RetentionInDays: 14
+
+  ReporterAgentLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ReporterAgent}"
+      RetentionInDays: 14
+
+  SignboardAgentLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${SignboardAgent}"
+      RetentionInDays: 14
+
+  InteriorAgentLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${InteriorAgent}"
+      RetentionInDays: 14
+
+  ReportGeneratorAgentLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ReportGeneratorAgent}"
+      RetentionInDays: 14
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway HTTP API endpoint
+    Value: !Sub "https://${BrandingApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
+    Export:
+      Name: !Sub "${ProjectName}-api-endpoint-${Environment}"
+
+  DynamoDBTableName:
+    Description: DynamoDB table name for sessions
+    Value: !Ref WorkflowSessionsTable
+    Export:
+      Name: !Sub "${ProjectName}-dynamodb-table-${Environment}"
+
+  S3BucketName:
+    Description: S3 bucket name for assets
+    Value: !Ref BrandingAssetsBucket
+    Export:
+      Name: !Sub "${ProjectName}-s3-bucket-${Environment}"
+
+  StateMachineArn:
+    Description: Step Functions state machine ARN
+    Value: !Ref BrandingWorkflow
+    Export:
+      Name: !Sub "${ProjectName}-statemachine-arn-${Environment}"

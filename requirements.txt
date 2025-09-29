@@ -50,12 +50,12 @@ Pillow>=10.0.0
 python-magic>=0.4.27
 
 # File validation and security
-python-magic-bin>=0.4.14  # For Windows compatibility
+# python-magic-bin>=0.4.14  # For Windows compatibility - removed for macOS
 
-# Testing
+# Testing (NO MOCKS - Real services only)
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
-moto>=4.2.0
+# moto>=4.2.0  # REMOVED - No mocks allowed
 
 # Code quality
 black>=23.9.0

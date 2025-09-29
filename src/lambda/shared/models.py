@@ -282,7 +282,7 @@ class WorkflowSession:
         
         if error_message:
             error_log = AgentLog(
-                agent=self.current_agent or "system",
+                agent=self.current_agent or AgentType.SUPERVISOR.value,
                 tool="session_management",
                 latency_ms=0,
                 status="error",
