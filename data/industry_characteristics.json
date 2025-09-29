@@ -1,0 +1,98 @@
+{
+  "restaurant": {
+    "priority_factors": ["위생성", "편안함", "분위기", "효율성"],
+    "recommended_styles": ["modern", "cozy", "scandinavian"],
+    "avoid_styles": ["industrial"],
+    "special_requirements": [
+      "위생적인 소재 사용",
+      "청소가 용이한 구조",
+      "적절한 조명 설계",
+      "소음 차단 고려"
+    ],
+    "customer_considerations": [
+      "식사 시간 고려한 편안한 좌석",
+      "음식과 어울리는 색상",
+      "가족 단위 고객 배려"
+    ]
+  },
+  "retail": {
+    "priority_factors": ["상품 진열", "고객 동선", "브랜드 이미지", "조명"],
+    "recommended_styles": ["modern", "scandinavian", "industrial"],
+    "avoid_styles": [],
+    "special_requirements": [
+      "상품이 돋보이는 조명",
+      "효율적인 진열 공간",
+      "고객 동선 최적화",
+      "브랜드 컬러 반영"
+    ],
+    "customer_considerations": [
+      "쇼핑하기 편한 환경",
+      "상품 체험 공간",
+      "대기 공간 마련"
+    ]
+  },
+  "service": {
+    "priority_factors": ["전문성", "신뢰감", "편안함", "프라이버시"],
+    "recommended_styles": ["modern", "scandinavian"],
+    "avoid_styles": ["industrial", "vintage"],
+    "special_requirements": [
+      "전문적인 이미지 연출",
+      "상담 공간 분리",
+      "차분한 색상 사용",
+      "소음 차단"
+    ],
+    "customer_considerations": [
+      "프라이버시 보호",
+      "편안한 상담 환경",
+      "신뢰감 조성"
+    ]
+  },
+  "healthcare": {
+    "priority_factors": ["위생성", "안전성", "편안함", "접근성"],
+    "recommended_styles": ["modern", "scandinavian"],
+    "avoid_styles": ["industrial", "vintage"],
+    "special_requirements": [
+      "의료용 소재 사용",
+      "항균 처리",
+      "안전한 구조",
+      "휠체어 접근성"
+    ],
+    "customer_considerations": [
+      "환자 심리적 안정",
+      "대기 공간 편의성",
+      "가족 동반 고려"
+    ]
+  },
+  "education": {
+    "priority_factors": ["집중력", "창의성", "안전성", "기능성"],
+    "recommended_styles": ["scandinavian", "modern", "cozy"],
+    "avoid_styles": ["industrial"],
+    "special_requirements": [
+      "학습에 도움되는 조명",
+      "집중력 향상 색상",
+      "안전한 가구",
+      "수납 공간 충분"
+    ],
+    "customer_considerations": [
+      "연령대별 맞춤 설계",
+      "부모 대기 공간",
+      "활동적인 공간 구성"
+    ]
+  },
+  "technology": {
+    "priority_factors": ["혁신성", "기능성", "미래지향성", "효율성"],
+    "recommended_styles": ["modern", "industrial"],
+    "avoid_styles": ["vintage", "cozy"],
+    "special_requirements": [
+      "첨단 기술 반영",
+      "케이블 관리",
+      "작업 효율성",
+      "확장 가능성"
+    ],
+    "customer_considerations": [
+      "혁신적 이미지",
+      "전문성 어필",
+      "미래지향적 분위기"
+    ]
+  }
+}

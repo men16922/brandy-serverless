@@ -1,0 +1,83 @@
+{
+  "small": {
+    "budget_constraint": "높음",
+    "space_efficiency": "매우 중요",
+    "recommended_approaches": [
+      "다기능 가구 활용",
+      "밝은 색상으로 공간감 확대",
+      "수직 공간 활용",
+      "DIY 요소 활용"
+    ],
+    "cost_saving_tips": [
+      "기존 구조 최대한 활용",
+      "포인트 컬러로 변화 주기",
+      "조명으로 분위기 연출",
+      "식물로 자연스러운 장식"
+    ],
+    "typical_area": {
+      "min": 20,
+      "max": 40,
+      "average": 30,
+      "unit": "sqm"
+    },
+    "budget_range": {
+      "min": 6000000,
+      "max": 20000000,
+      "currency": "KRW"
+    }
+  },
+  "medium": {
+    "budget_constraint": "보통",
+    "space_efficiency": "중요",
+    "recommended_approaches": [
+      "구역별 테마 설정",
+      "브랜드 아이덴티티 강화",
+      "고객 동선 최적화",
+      "전문 디자이너 부분 활용"
+    ],
+    "investment_priorities": [
+      "핵심 공간 집중 투자",
+      "내구성 있는 소재 선택",
+      "확장 가능한 구조",
+      "에너지 효율성 고려"
+    ],
+    "typical_area": {
+      "min": 40,
+      "max": 80,
+      "average": 60,
+      "unit": "sqm"
+    },
+    "budget_range": {
+      "min": 20000000,
+      "max": 64000000,
+      "currency": "KRW"
+    }
+  },
+  "large": {
+    "budget_constraint": "낮음",
+    "space_efficiency": "보통",
+    "recommended_approaches": [
+      "통합적 브랜드 경험 설계",
+      "프리미엄 소재 활용",
+      "전문 디자이너 전면 활용",
+      "최신 트렌드 적극 반영"
+    ],
+    "luxury_elements": [
+      "고급 마감재 사용",
+      "맞춤형 가구 제작",
+      "스마트 시스템 도입",
+      "아트워크 및 조각품 활용"
+    ],
+    "typical_area": {
+      "min": 80,
+      "max": 150,
+      "average": 100,
+      "unit": "sqm"
+    },
+    "budget_range": {
+      "min": 64000000,
+      "max": 180000000,
+      "currency": "KRW"
+    }
+  }
+}

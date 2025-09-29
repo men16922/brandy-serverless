@@ -1,0 +1,62 @@
+{
+  "seoul": {
+    "trending_styles": ["modern", "scandinavian"],
+    "characteristics": ["트렌디", "세련됨", "효율성"],
+    "budget_range": "높음",
+    "customer_preferences": ["인스타그래머블", "브랜드 가치", "차별화"]
+  },
+  "busan": {
+    "trending_styles": ["cozy", "scandinavian"],
+    "characteristics": ["편안함", "자연친화적", "실용성"],
+    "budget_range": "중간",
+    "customer_preferences": ["편안함", "가성비", "지역 특색"]
+  },
+  "gyeonggi": {
+    "trending_styles": ["modern", "cozy"],
+    "characteristics": ["가족친화적", "실용적", "모던함"],
+    "budget_range": "중간",
+    "customer_preferences": ["가족 단위", "편의성", "안전성"]
+  },
+  "jeju": {
+    "trending_styles": ["scandinavian", "cozy"],
+    "characteristics": ["자연친화적", "힐링", "여유로움"],
+    "budget_range": "높음",
+    "customer_preferences": ["자연 소재", "힐링 공간", "특별함"]
+  },
+  "incheon": {
+    "trending_styles": ["modern", "industrial"],
+    "characteristics": ["국제적", "역동적", "실용성"],
+    "budget_range": "중간",
+    "customer_preferences": ["글로벌 감각", "효율성", "접근성"]
+  },
+  "daegu": {
+    "trending_styles": ["cozy", "vintage"],
+    "characteristics": ["전통적", "안정적", "품격"],
+    "budget_range": "중간",
+    "customer_preferences": ["전통 가치", "품질", "신뢰성"]
+  },
+  "daejeon": {
+    "trending_styles": ["modern", "scandinavian"],
+    "characteristics": ["과학적", "혁신적", "깔끔함"],
+    "budget_range": "중간",
+    "customer_preferences": ["기술적 우수성", "합리성", "미래지향성"]
+  },
+  "gwangju": {
+    "trending_styles": ["cozy", "scandinavian"],
+    "characteristics": ["문화적", "예술적", "따뜻함"],
+    "budget_range": "중간",
+    "customer_preferences": ["예술성", "창의성", "인간미"]
+  },
+  "ulsan": {
+    "trending_styles": ["industrial", "modern"],
+    "characteristics": ["산업적", "역동적", "실용성"],
+    "budget_range": "높음",
+    "customer_preferences": ["견고함", "기능성", "효율성"]
+  },
+  "sejong": {
+    "trending_styles": ["modern", "scandinavian"],
+    "characteristics": ["계획적", "체계적", "미래지향적"],
+    "budget_range": "높음",
+    "customer_preferences": ["혁신성", "지속가능성", "품질"]
+  }
+}

@@ -89,6 +89,10 @@ class AnalysisResult:
             0 <= self.score <= 100 and
             len(self.insights) > 0
         )
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary"""
+        return asdict(self)
 
 
 @dataclass

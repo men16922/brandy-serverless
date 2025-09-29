@@ -48,6 +48,13 @@ source venv/bin/activate
 ```bash
 ./scripts/dev.sh setup     # Docker 서비스 시작
 ./scripts/dev.sh validate  # 환경 검증
+
+# 인테리어 데이터 초기화 (최초 1회)
+python scripts/initialize_interior_data.py
+
+# API 키 설정 (OpenAI)
+cp .env.example .env
+# .env 파일을 열어서 실제 API 키로 수정하세요
 ./scripts/dev.sh test      # 테스트 실행 (29개 모두 통과)
 ./scripts/dev.sh api       # API 서버 시작
 ```
