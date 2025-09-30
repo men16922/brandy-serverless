@@ -264,6 +264,60 @@ class S3Client:
         except ClientError as e:
             logger.error(f"Failed to list objects in {self.bucket_name}: {e}")
             return []
+    
+    def generate_presigned_url(self, key: str, expiration: int = 600, method: str = 'get_object') -> str:
+        """
+        Presigned URL 생성 (10분 기본 유효기간)
+        
+        Args:
+            key: S3 객체 키
+            expiration: URL 만료 시간 (초, 기본 10분)
+            method: HTTP 메서드 ('get_object', 'put_object' 등)
+            
+        Returns:
+            Presigned URL
+        """
+        try:
+            url = self.client.generate_presigned_url(
+                method,
+                Params={'Bucket': self.bucket_name, 'Key': key},
+                ExpiresIn=expiration
+            )
+            logger.info(f"Generated presigned URL for {key}, expires in {expiration} seconds")
+            return url
+            
+        except ClientError as e:
+            logger.error(f"Failed to generate presigned URL for {key}: {e}")
+            # 폴백: 직접 URL 구성 (보안상 권장하지 않음)
+            if self.environment == 'local':
+                endpoint = os.getenv('S3_ENDPOINT', 'http://localhost:9000')
+                return f"{endpoint}/{self.bucket_name}/{key}"
+            else:
+                region = os.getenv('AWS_REGION', 'us-east-1')
+                return f"https://{self.bucket_name}.s3.{region}.amazonaws.com/{key}"
+    
+    def get_object_metadata(self, key: str) -> Dict[str, Any]:
+        """
+        객체 메타데이터 조회
+        
+        Args:
+            key: S3 객체 키
+            
+        Returns:
+            객체 메타데이터
+        """
+        try:
+            response = self.client.head_object(Bucket=self.bucket_name, Key=key)
+            return {
+                'content_length': response.get('ContentLength', 0),
+                'content_type': response.get('ContentType', ''),
+                'last_modified': response.get('LastModified'),
+                'metadata': response.get('Metadata', {}),
+                'etag': response.get('ETag', '')
+            }
+        except ClientError as e:
+            logger.error(f"Failed to get metadata for {key}: {e}")
+            return {}
 
 
 # 싱글톤 인스턴스

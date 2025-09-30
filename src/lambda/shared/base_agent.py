@@ -10,9 +10,15 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 from abc import ABC, abstractmethod
 
-from .agent_communication import get_agent_communication
-from .models import AgentLog, AgentType
-from .utils import setup_logging, get_aws_clients, create_response
+try:
+    from .agent_communication import get_agent_communication
+    from .models import AgentLog, AgentType
+    from .utils import setup_logging, get_aws_clients, create_response
+except ImportError:
+    # 절대 import로 시도
+    from agent_communication import get_agent_communication
+    from models import AgentLog, AgentType
+    from utils import setup_logging, get_aws_clients, create_response
 
 
 class BaseAgent(ABC):

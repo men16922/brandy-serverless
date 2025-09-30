@@ -1,0 +1,144 @@
+{
+  "metadata": {
+    "report_type": "branding_report",
+    "format": "json",
+    "generated_at": "2025-09-30T11:55:28.330807",
+    "session_id": "test-formats",
+    "version": "1.0"
+  },
+  "business_info": {
+    "industry": "카페",
+    "region": "서울 강남구",
+    "size": "소규모",
+    "description": "아늑한 분위기의 스페셜티 커피 전문점"
+  },
+  "analysis_result": {
+    "overall_score": 87,
+    "market_potential": "높음",
+    "competition_level": "중간",
+    "insights": [
+      "강남 지역의 높은 유동인구로 접근성이 우수합니다",
+      "스페셜티 커피 시장의 성장으로 차별화 기회가 있습니다",
+      "주변 경쟁업체 대비 프리미엄 포지셔닝이 가능합니다"
+    ]
+  },
+  "business_names": [
+    {
+      "name": "카페 모먼트",
+      "total_score": 91,
+      "description": "특별한 순간을 만드는 커피 공간"
+    },
+    {
+      "name": "브루잉 스토리",
+      "total_score": 88,
+      "description": "한 잔의 커피에 담긴 이야기"
+    },
+    {
+      "name": "빈 하우스",
+      "total_score": 88,
+      "description": "신선한 원두의 집"
+    }
+  ],
+  "selections": {
+    "selected_name": "카페 모먼트",
+    "selected_signboard": "premium_modern_signboard.jpg",
+    "selected_interior": "cozy_professional_interior.jpg"
+  },
+  "assets": {
+    "signboard_images": [
+      {
+        "key": "signboards/test-session/premium_modern_signboard.jpg",
+        "size": 2048000,
+        "url": "https://example.com/signboard1.jpg"
+      },
+      {
+        "key": "signboards/test-session/classic_elegant_signboard.jpg",
+        "size": 1856000,
+        "url": "https://example.com/signboard2.jpg"
+      },
+      {
+        "key": "signboards/test-session/minimalist_chic_signboard.jpg",
+        "size": 1792000,
+        "url": "https://example.com/signboard3.jpg"
+      }
+    ],
+    "interior_images": [
+      {
+        "key": "interiors/test-session/cozy_professional_interior.jpg",
+        "size": 2304000,
+        "url": "https://example.com/interior1.jpg"
+      },
+      {
+        "key": "interiors/test-session/scandinavian_warm_interior.jpg",
+        "size": 2176000,
+        "url": "https://example.com/interior2.jpg"
+      },
+      {
+        "key": "interiors/test-session/industrial_modern_interior.jpg",
+        "size": 2240000,
+        "url": "https://example.com/interior3.jpg"
+      }
+    ],
+    "uploaded_images": []
+  },
+  "design_elements": {
+    "color_palette": {
+      "primary": {
+        "name": "따뜻한 브라운",
+        "hex": "#8B4513",
+        "usage": "로고, 간판"
+      },
+      "secondary": {
+        "name": "크림 베이지",
+        "hex": "#F5F5DC",
+        "usage": "배경, 인테리어"
+      },
+      "accent": {
+        "name": "골드",
+        "hex": "#FFD700",
+        "usage": "포인트 요소"
+      }
+    },
+    "budget_guide": {
+      "signboard": {
+        "min": 1200000,
+        "recommended": 2000000,
+        "max": 3500000
+      },
+      "interior": {
+        "min": 8000000,
+        "recommended": 15000000,
+        "max": 30000000
+      },
+      "branding": {
+        "min": 800000,
+        "recommended": 1500000,
+        "max": 3000000
+      },
+      "marketing": {
+        "min": 500000,
+        "recommended": 1200000,
+        "max": 2500000
+      },
+      "total": {
+        "min": 10500000,
+        "recommended": 19700000,
+        "max": 39000000
+      }
+    },
+    "recommendations": [
+      "편안하고 아늑한 분위기 조성에 집중하세요",
+      "SNS 친화적인 포토존 설치를 고려하세요",
+      "계절별 메뉴와 연계한 인테리어 변화를 계획하세요",
+      "자연광을 최대한 활용한 좌석 배치를 권장합니다",
+      "높은 잠재력을 바탕으로 적극적인 마케팅을 추진하세요"
+    ]
+  },
+  "summary": {
+    "total_signboard_images": 3,
+    "total_interior_images": 3,
+    "has_analysis": true,
+    "has_color_palette": true,
+    "has_budget_guide": true
+  }
+}
