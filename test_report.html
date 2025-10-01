@@ -130,6 +130,27 @@
             color: #6c757d;
             margin-bottom: 10px;
         }
+        .actual-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            border: 2px solid #dee2e6;
+        }
+        .image-error {
+            width: 100%;
+            height: 150px;
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #721c24;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
         .color-palette {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -303,27 +324,24 @@
         <div class="images-grid">
             
             <div class="image-card selected">
-                <div class="image-placeholder">
-                    🖼️ 간판 이미지<br>모던
-                </div>
+                <img src="https://picsum.photos/400/300?random=1" alt="간판 이미지 - 모던" class="actual-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="image-placeholder" style="display:none;">🖼️ 간판 이미지<br>모던</div>
                 <div><strong>premium_modern_signboard.jpg</strong><span class="status-badge status-selected">✓ 선택됨</span></div>
                 <div>크기: 2.0MB</div>
                 <div>스타일: 모던</div>
             </div>
             
             <div class="image-card ">
-                <div class="image-placeholder">
-                    🖼️ 간판 이미지<br>클래식
-                </div>
+                <img src="https://picsum.photos/400/300?random=2" alt="간판 이미지 - 클래식" class="actual-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="image-placeholder" style="display:none;">🖼️ 간판 이미지<br>클래식</div>
                 <div><strong>classic_elegant_signboard.jpg</strong><span class="status-badge status-generated">생성됨</span></div>
                 <div>크기: 1.8MB</div>
                 <div>스타일: 클래식</div>
             </div>
             
             <div class="image-card ">
-                <div class="image-placeholder">
-                    🖼️ 간판 이미지<br>미니멀
-                </div>
+                <img src="https://picsum.photos/400/300?random=3" alt="간판 이미지 - 미니멀" class="actual-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="image-placeholder" style="display:none;">🖼️ 간판 이미지<br>미니멀</div>
                 <div><strong>minimalist_chic_signboard.jpg</strong><span class="status-badge status-generated">생성됨</span></div>
                 <div>크기: 1.7MB</div>
                 <div>스타일: 미니멀</div>
@@ -338,27 +356,24 @@
         <div class="images-grid">
             
             <div class="image-card selected">
-                <div class="image-placeholder">
-                    🏠 인테리어 이미지<br>아늑한
-                </div>
+                <img src="https://picsum.photos/400/300?random=4" alt="인테리어 이미지 - 아늑한" class="actual-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="image-placeholder" style="display:none;">🏠 인테리어 이미지<br>아늑한</div>
                 <div><strong>cozy_professional_interior.jpg</strong><span class="status-badge status-selected">✓ 선택됨</span></div>
                 <div>크기: 2.2MB</div>
                 <div>스타일: 아늑한</div>
             </div>
             
             <div class="image-card ">
-                <div class="image-placeholder">
-                    🏠 인테리어 이미지<br>스칸디나비안
-                </div>
+                <img src="https://picsum.photos/400/300?random=5" alt="인테리어 이미지 - 스칸디나비안" class="actual-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="image-placeholder" style="display:none;">🏠 인테리어 이미지<br>스칸디나비안</div>
                 <div><strong>scandinavian_warm_interior.jpg</strong><span class="status-badge status-generated">생성됨</span></div>
                 <div>크기: 2.1MB</div>
                 <div>스타일: 스칸디나비안</div>
             </div>
             
             <div class="image-card ">
-                <div class="image-placeholder">
-                    🏠 인테리어 이미지<br>모던
-                </div>
+                <img src="https://picsum.photos/400/300?random=6" alt="인테리어 이미지 - 모던" class="actual-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="image-placeholder" style="display:none;">🏠 인테리어 이미지<br>모던</div>
                 <div><strong>industrial_modern_interior.jpg</strong><span class="status-badge status-generated">생성됨</span></div>
                 <div>크기: 2.1MB</div>
                 <div>스타일: 모던</div>
@@ -464,7 +479,7 @@
         
         
         <div class="footer">
-            <p>Generated by AI Branding Chatbot on 2025-09-30 20:55:28</p>
+            <p>Generated by AI Branding Chatbot on 2025-09-30 21:31:12</p>
             <p>Session ID: test-formats</p>
         </div>
     </div>

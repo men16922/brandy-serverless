@@ -2,7 +2,7 @@
   "metadata": {
     "report_type": "branding_report",
     "format": "json",
-    "generated_at": "2025-09-30T11:55:28.330807",
+    "generated_at": "2025-09-30T12:31:12.835183",
     "session_id": "test-formats",
     "version": "1.0"
   },
@@ -49,34 +49,40 @@
       {
         "key": "signboards/test-session/premium_modern_signboard.jpg",
         "size": 2048000,
-        "url": "https://example.com/signboard1.jpg"
+        "url": "https://picsum.photos/400/300?random=1",
+        "presigned_url": "https://picsum.photos/400/300?random=1"
       },
       {
         "key": "signboards/test-session/classic_elegant_signboard.jpg",
         "size": 1856000,
-        "url": "https://example.com/signboard2.jpg"
+        "url": "https://picsum.photos/400/300?random=2",
+        "presigned_url": "https://picsum.photos/400/300?random=2"
       },
       {
         "key": "signboards/test-session/minimalist_chic_signboard.jpg",
         "size": 1792000,
-        "url": "https://example.com/signboard3.jpg"
+        "url": "https://picsum.photos/400/300?random=3",
+        "presigned_url": "https://picsum.photos/400/300?random=3"
       }
     ],
     "interior_images": [
       {
         "key": "interiors/test-session/cozy_professional_interior.jpg",
         "size": 2304000,
-        "url": "https://example.com/interior1.jpg"
+        "url": "https://picsum.photos/400/300?random=4",
+        "presigned_url": "https://picsum.photos/400/300?random=4"
       },
       {
         "key": "interiors/test-session/scandinavian_warm_interior.jpg",
         "size": 2176000,
-        "url": "https://example.com/interior2.jpg"
+        "url": "https://picsum.photos/400/300?random=5",
+        "presigned_url": "https://picsum.photos/400/300?random=5"
       },
       {
         "key": "interiors/test-session/industrial_modern_interior.jpg",
         "size": 2240000,
-        "url": "https://example.com/interior3.jpg"
+        "url": "https://picsum.photos/400/300?random=6",
+        "presigned_url": "https://picsum.photos/400/300?random=6"
       }
     ],
     "uploaded_images": []

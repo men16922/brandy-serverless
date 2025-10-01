@@ -163,6 +163,27 @@ class AlternativeReportGenerator:
             color: #6c757d;
             margin-bottom: 10px;
         }}
+        .actual-image {{
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            border: 2px solid #dee2e6;
+        }}
+        .image-error {{
+            width: 100%;
+            height: 150px;
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #721c24;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }}
         .color-palette {{
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -392,11 +413,25 @@ class AlternativeReportGenerator:
             selected_class = "selected" if filename == selected_signboard else ""
             status_badge = '<span class="status-badge status-selected">✓ 선택됨</span>' if filename == selected_signboard else '<span class="status-badge status-generated">생성됨</span>'
             
+            # 실제 이미지 URL 가져오기
+            image_url = img.get('url', '')
+            presigned_url = img.get('presigned_url', '')
+            
+            # 이미지 표시 로직
+            if presigned_url:
+                image_html = f'<img src="{presigned_url}" alt="간판 이미지 - {style}" class="actual-image" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">'
+                fallback_html = f'<div class="image-placeholder" style="display:none;">🖼️ 간판 이미지<br>{style}</div>'
+            elif image_url:
+                image_html = f'<img src="{image_url}" alt="간판 이미지 - {style}" class="actual-image" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">'
+                fallback_html = f'<div class="image-placeholder" style="display:none;">🖼️ 간판 이미지<br>{style}</div>'
+            else:
+                image_html = f'<div class="image-placeholder">🖼️ 간판 이미지<br>{style}</div>'
+                fallback_html = ''
+            
             images_html += f"""
             <div class="image-card {selected_class}">
-                <div class="image-placeholder">
-                    🖼️ 간판 이미지<br>{style}
-                </div>
+                {image_html}
+                {fallback_html}
                 <div><strong>{filename}</strong>{status_badge}</div>
                 <div>크기: {size_mb:.1f}MB</div>
                 <div>스타일: {style}</div>
@@ -425,11 +460,25 @@ class AlternativeReportGenerator:
             selected_class = "selected" if filename == selected_interior else ""
             status_badge = '<span class="status-badge status-selected">✓ 선택됨</span>' if filename == selected_interior else '<span class="status-badge status-generated">생성됨</span>'
             
+            # 실제 이미지 URL 가져오기
+            image_url = img.get('url', '')
+            presigned_url = img.get('presigned_url', '')
+            
+            # 이미지 표시 로직
+            if presigned_url:
+                image_html = f'<img src="{presigned_url}" alt="인테리어 이미지 - {style}" class="actual-image" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">'
+                fallback_html = f'<div class="image-placeholder" style="display:none;">🏠 인테리어 이미지<br>{style}</div>'
+            elif image_url:
+                image_html = f'<img src="{image_url}" alt="인테리어 이미지 - {style}" class="actual-image" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">'
+                fallback_html = f'<div class="image-placeholder" style="display:none;">🏠 인테리어 이미지<br>{style}</div>'
+            else:
+                image_html = f'<div class="image-placeholder">🏠 인테리어 이미지<br>{style}</div>'
+                fallback_html = ''
+            
             images_html += f"""
             <div class="image-card {selected_class}">
-                <div class="image-placeholder">
-                    🏠 인테리어 이미지<br>{style}
-                </div>
+                {image_html}
+                {fallback_html}
                 <div><strong>{filename}</strong>{status_badge}</div>
                 <div>크기: {size_mb:.1f}MB</div>
                 <div>스타일: {style}</div>
