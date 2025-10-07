@@ -2,45 +2,45 @@
 
 ## Introduction
 
-이 문서는 **AI 브랜딩 챗봇 프로젝트**를 AWS AI Agent Global Hackathon 요구사항에 맞춰 수정하기 위한 통합 요구사항을 정의합니다.
+This document defines the integrated requirements for adapting the AI Branding Chatbot project to meet AWS AI Agent Global Hackathon requirements.
 
-### 프로젝트 개요
+### Project Overview
 
-**목표**: 사업자가 업종/지역/규모만 입력하면 AI가 자동으로 상호명, 간판 디자인, 인테리어 추천, HTML 브랜딩 보고서까지 생성하는 완전 자동화 브랜딩 시스템
+The AI Branding Chatbot is a fully automated branding system where business owners input only their industry, region, and size, and AI automatically generates business names, signboard designs, interior recommendations, and a comprehensive HTML branding report.
 
-**핵심 워크플로**: 5단계 자동 생성 (분석 → 상호명 → 간판 → 인테리어 → 보고서)
+**Core Workflow**: 5-step automated generation (Analysis → Name → Signboard → Interior → Report)
 
-**아키텍처**:
-- 🤖 **6개 전문 AI 에이전트** + 1개 Supervisor Agent
-- 🔄 **자동화된 워크플로**: 5분 내 완료
-- 🛡️ **장애 복구**: 실시간 감시 및 자동 폴백
-- 🚀 **완전 서버리스**: AWS SAM 기반
-- 🧪 **NO MOCKS 테스트**: Docker Compose 기반 통합 테스트
+**Architecture**:
+- 6 specialized AI agents + 1 Supervisor Agent
+- Automated workflow completing within 5 minutes
+- Real-time monitoring with automatic fallback mechanisms
+- Fully serverless architecture using AWS SAM
+- NO MOCKS testing with Docker Compose-based integration tests
 
-### 해커톤 핵심 요구사항
-1. **LLM 호스팅**: AWS Bedrock 또는 Amazon SageMaker AI 사용 (필수)
-2. **AWS 서비스 사용**: Amazon Bedrock AgentCore, Bedrock/Nova, Amazon Q 중 하나 이상 (강력 권장: AgentCore)
-3. **AI Agent 자격 요건**:
-   - Reasoning LLM을 사용한 의사결정
-   - 자율적 작업 실행 능력 (사람 개입 유무 무관)
-   - API, 데이터베이스, 외부 도구 또는 다른 Agent와의 통합
+### Hackathon Core Requirements
+1. **LLM Hosting**: Must use AWS Bedrock or Amazon SageMaker AI
+2. **AWS Services**: Must use at least one of Amazon Bedrock AgentCore, Bedrock/Nova, or Amazon Q (AgentCore strongly recommended)
+3. **AI Agent Qualification**:
+   - Decision-making using Reasoning LLM
+   - Autonomous task execution capability (with or without human intervention)
+   - Integration with APIs, databases, external tools, or other agents
 
-### 현재 프로젝트 상태 (70% 완성)
+### Current Project Status (70% Complete)
 
-**✅ 완료된 부분**:
-- Agent-Based Architecture (6개 전문 Agent + Supervisor)
-- Step Functions 워크플로 관리
-- DynamoDB, S3 통합
-- Docker Compose 로컬 환경
-- 통합 테스트 (29개 테스트 통과)
-- Streamlit 웹 인터페이스
-- HTML 브랜딩 보고서 생성 (한글 폰트 완벽 지원)
+**Completed Components**:
+- Agent-Based Architecture (6 specialized agents + Supervisor)
+- Step Functions workflow management
+- DynamoDB and S3 integration
+- Docker Compose local environment
+- Integration tests (29 tests passing)
+- Streamlit web interface
+- HTML branding report generation with full Korean font support
 
-**❌ 해커톤 요구사항 미충족**:
-- OpenAI DALL-E, Google Gemini 사용 (AWS Bedrock으로 전환 필요)
-- Bedrock AgentCore 미사용 (추가 필요)
-- Reasoning LLM 명시적 사용 부재 (추가 필요)
-- 해커톤 제출 문서 (아키텍처 다이어그램, 데모 비디오)
+**Hackathon Requirements Not Yet Met**:
+- Currently using OpenAI DALL-E and Google Gemini (need to migrate to AWS Bedrock)
+- Bedrock AgentCore not implemented (required)
+- Reasoning LLM not explicitly used (required)
+- Hackathon submission documents missing (architecture diagrams, demo video)
 
 ## Requirements
 
@@ -184,40 +184,105 @@
 6. IF any test fails THEN the CI/CD pipeline SHALL prevent deployment
 7. WHEN running `./scripts/dev.sh test` THEN all integration tests SHALL pass successfully
 
+## Non-Functional Requirements
+
+### Performance Requirements
+- Text generation responses SHALL complete within 5 seconds
+- Image generation SHALL complete within 30 seconds per image
+- Full workflow execution SHALL complete within 5 minutes
+- System SHALL support at least 10 concurrent sessions without degradation
+
+### Scalability Requirements
+- Lambda functions SHALL automatically scale based on demand
+- DynamoDB SHALL use on-demand capacity mode for automatic scaling
+- S3 SHALL handle unlimited file storage with lifecycle policies
+
+### Security Requirements
+- All Bedrock API calls SHALL use IAM role-based authentication
+- API Gateway SHALL implement throttling and rate limiting
+- Sensitive data SHALL be encrypted at rest in DynamoDB and S3
+- CloudWatch logs SHALL not contain PII or API keys
+
+### Reliability Requirements
+- System SHALL implement automatic retry with exponential backoff for Bedrock API failures
+- System SHALL provide graceful degradation with fallback responses when services are unavailable
+- Session data SHALL persist for 24 hours with automatic TTL cleanup
+- CloudWatch alarms SHALL trigger for critical failures
+
 ## Out of Scope
 
-다음 항목들은 이번 해커톤 제출 범위에서 제외됩니다:
+The following items are explicitly excluded from this hackathon submission:
 
-- 프로덕션 레벨 보안 강화 (IAM 세밀 조정, VPC 격리 등)
-- 다국어 지원 (영어 및 한국어만 지원)
-- 모바일 앱 개발
-- 실시간 협업 기능
-- 사용자 인증 및 권한 관리 시스템
-- 결제 시스템 통합
-- A/B 테스팅 프레임워크
-- 고급 분석 대시보드
+- Production-level security hardening (fine-grained IAM policies, VPC isolation)
+- Multi-language support beyond English and Korean
+- Mobile application development
+- Real-time collaboration features
+- User authentication and authorization system
+- Payment system integration
+- A/B testing framework
+- Advanced analytics dashboard
+- Custom domain and SSL certificate setup
+- Multi-region deployment
+- Disaster recovery and backup strategies
 
 ## Success Criteria
 
-프로젝트가 성공적으로 해커톤 요구사항을 충족하려면:
+The project successfully meets hackathon requirements when:
 
-1. ✅ Amazon Bedrock을 주요 LLM 제공자로 사용
-2. ✅ Amazon Bedrock AgentCore를 최소 1개 primitive와 함께 구현
-3. ✅ Reasoning LLM을 사용한 자율적 의사결정 시스템 구현
-4. ✅ 외부 API, 데이터베이스, 도구와의 통합 시연
-5. ✅ 명확한 아키텍처 다이어그램 및 문서 제공
-6. ✅ AWS SAM을 통한 재현 가능한 배포
-7. ✅ 3분 데모 비디오 제작 및 업로드
-8. ✅ 공개 GitHub 저장소에 전체 소스 코드 공개
-9. ✅ 배포된 프로젝트 URL 제공
-10. ✅ 모든 통합 테스트 통과
+1. Amazon Bedrock is used as the primary LLM provider for all text and image generation
+2. Amazon Bedrock AgentCore is implemented with at least one primitive (Tool Use or Memory)
+3. Reasoning LLM system demonstrates autonomous decision-making with stored reasoning chains
+4. Integration with external APIs, databases, and tools is demonstrated
+5. Clear architecture diagram showing Bedrock integration is provided
+6. Reproducible deployment via AWS SAM is documented and tested
+7. 3-minute demo video is created and uploaded to public platform
+8. Complete source code is published to public GitHub repository
+9. Deployed project URL is accessible and functional
+10. All integration tests pass successfully
+
+## Assumptions and Constraints
+
+### Assumptions
+- AWS account has access to Bedrock services in us-east-1 region
+- Bedrock models (Claude 3.5 Sonnet, SDXL) are available in the deployment region
+- Users have basic understanding of AWS services and SAM deployment
+- Docker and Docker Compose are available for local development
+- Internet connectivity is available for API calls to Bedrock
+
+### Constraints
+- Budget limited to $100 AWS credits provided by hackathon
+- Submission deadline: October 21, 2025 @ 9:00am GMT+9
+- Demo video must be exactly 3 minutes or less
+- Must use AWS Bedrock as primary LLM (no other cloud providers)
+- Project must be deployable by judges in their own AWS accounts
 
 ## Dependencies
 
-- AWS 계정 및 Bedrock 서비스 접근 권한
-- AWS SAM CLI 설치
-- Docker 및 Docker Compose 설치
-- Python 3.11+ 환경
-- $100 AWS 크레딧 (해커톤 제공)
-- GitHub 계정 (공개 저장소용)
-- YouTube/Vimeo 계정 (데모 비디오 업로드용)
+### Technical Dependencies
+- AWS account with Bedrock service access enabled
+- AWS SAM CLI (version 1.100.0 or higher)
+- Docker (version 20.10 or higher) and Docker Compose (version 2.0 or higher)
+- Python 3.11 or higher
+- Git for version control
+
+### AWS Service Dependencies
+- Amazon Bedrock (Claude 3.5 Sonnet, SDXL, Knowledge Base)
+- Bedrock AgentCore (Agent Runtime API)
+- AWS Lambda (Python 3.11 runtime)
+- Amazon DynamoDB (on-demand capacity)
+- Amazon S3 (standard storage class)
+- AWS Step Functions (Express and Standard workflows)
+- Amazon API Gateway (HTTP API)
+- Amazon CloudWatch (logs and metrics)
+
+### External Dependencies
+- GitHub account for public repository hosting
+- YouTube or Vimeo account for demo video hosting
+- $100 AWS credits (provided by hackathon organizers)
+
+### Development Dependencies
+- pytest for integration testing
+- boto3 for AWS SDK
+- streamlit for web interface
+- structlog for structured logging
+- pydantic for data validation

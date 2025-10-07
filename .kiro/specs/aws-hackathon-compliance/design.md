@@ -11,77 +11,42 @@
 3. **Hackathon Compliance**: 모든 필수 요구사항 충족 (Bedrock, AgentCore, Reasoning LLM)
 4. **Production Ready**: 해커톤 이후에도 실제 서비스로 운영 가능한 구조
 5. **Well-Architected**: AWS Well-Architected Framework 원칙 준수
+6. **Autonomous Execution**: 최소한의 사용자 개입으로 전체 워크플로 자동 실행
+7. **Reproducible Deployment**: SAM을 통한 원클릭 배포 지원
 
 ## Architecture
 
 ### High-Level Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Streamlit Web UI                          │
-│                     (AWS App Runner)                             │
-└────────────────────────┬────────────────────────────────────────┘
-                         │ HTTPS
-                         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                   API Gateway (HTTP API)                         │
-└────────────────────────┬────────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    Supervisor Agent                              │
-│              (Bedrock AgentCore Orchestrator)                    │
-│                                                                   │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │  Bedrock AgentCore - Reasoning & Orchestration           │  │
-│  │  - Claude 3.5 Sonnet for reasoning                       │  │
-│  │  - Tool Use primitive for agent coordination             │  │
-│  │  - Memory primitive for workflow state                   │  │
-│  └──────────────────────────────────────────────────────────┘  │
-└────────────────────────┬────────────────────────────────────────┘
-                         │
-         ┌───────────────┼───────────────┐
-         │               │               │
-         ▼               ▼               ▼
-┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│  Product     │ │   Market     │ │   Reporter   │
-│  Insight     │ │   Analyst    │ │    Agent     │
-│  Agent       │ │   Agent      │ │              │
-│ (Bedrock)    │ │  (Bedrock)   │ │  (Bedrock)   │
-└──────┬───────┘ └──────┬───────┘ └──────┬───────┘
-       │                │                │
-       └────────────────┼────────────────┘
-                        ▼
-         ┌──────────────────────────────┐
-         │                              │
-         ▼                              ▼
-┌──────────────┐              ┌──────────────┐
-│  Signboard   │              │  Interior    │
-│   Agent      │              │   Agent      │
-│ (Bedrock     │              │  (Bedrock)   │
-│   SDXL)      │              │              │
-└──────┬───────┘              └──────┬───────┘
-       │                             │
-       └──────────────┬──────────────┘
-                      ▼
-              ┌──────────────┐
-              │   Report     │
-              │  Generator   │
-              │   Agent      │
-              │  (Bedrock)   │
-              └──────┬───────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    AWS Services Layer                            │
-│                                                                   │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │  DynamoDB    │  │      S3      │  │   Bedrock    │         │
-│  │  (Sessions)  │  │   (Assets)   │  │  Knowledge   │         │
-│  │              │  │              │  │     Base     │         │
-│  └──────────────┘  └──────────────┘  └──────────────┘         │
-└─────────────────────────────────────────────────────────────────┘
-```
+![AWS Hackathon Architecture](aws-hackathon-architecture.png)
+
+**Key Components**:
+- **Frontend**: Streamlit UI on AWS App Runner
+- **API Layer**: API Gateway HTTP API (cost-optimized)
+- **Orchestration**: Supervisor Agent with Bedrock AgentCore
+- **AI Agents**: 6 specialized agents powered by Bedrock
+- **Data Layer**: DynamoDB (sessions + reasoning), S3 (assets), Bedrock KB
+
+### 5-Step Branding Workflow
+
+![5-Step Workflow with Reasoning](aws-hackathon-workflow.png)
+
+**Workflow Steps**:
+1. **Business Analysis**: Product Insight + Market Analyst with Reasoning LLM
+2. **Name Generation**: Reporter Agent with name evaluation reasoning
+3. **Signboard Design**: Signboard Agent with Bedrock SDXL and style reasoning
+4. **Interior Design**: Interior Agent with style matching reasoning
+5. **Report Generation**: Report Generator with insight synthesis reasoning
+
+### Bedrock Integration Architecture
+
+![Bedrock Integration Detail](bedrock-integration-detail.png)
+
+**Integration Layers**:
+- **Agent Layer**: BaseAgent class with Bedrock integration
+- **Bedrock Services**: Claude 3.5 Sonnet, SDXL, Knowledge Base, AgentCore
+- **Reasoning Engine**: Chain-of-Thought decision making with storage
+- **Fallback System**: OpenAI/Gemini for development only (dashed lines)
 
 ### Key Architectural Changes
 
@@ -224,7 +189,7 @@ class ModernAgent(BaseAgent):
         self.fallback_enabled = os.getenv('ENABLE_FALLBACK', 'true') == 'true'
     
     def execute_with_reasoning(self, input_data: dict) -> dict:
-        """Reasoning LLM을 사용한 작업 실행"""
+        """Reasoning LLM을 사용한 작업 실행 (Requirement 3.1-3.5)"""
         try:
             # 1. Analyze input with reasoning
             analysis = self.reasoning_engine.reason_and_decide(
@@ -236,7 +201,7 @@ class ModernAgent(BaseAgent):
             # 2. Execute based on reasoning
             result = self.execute_task(analysis['decision'])
             
-            # 3. Store reasoning chain
+            # 3. Store reasoning chain (Requirement 3.6)
             self.store_reasoning(analysis)
             
             return result
@@ -244,7 +209,212 @@ class ModernAgent(BaseAgent):
             if self.fallback_enabled:
                 return self.execute_with_fallback(input_data)
             raise
+    
+    def autonomous_error_recovery(self, error: Exception, context: dict) -> dict:
+        """자율적 오류 복구 (Requirement 4.2)"""
+        # Reasoning LLM으로 복구 전략 결정
+        recovery_strategy = self.reasoning_engine.reason_and_decide(
+            context={
+                "error": str(error),
+                "error_type": type(error).__name__,
+                "context": context,
+                "retry_count": context.get('retry_count', 0)
+            },
+            options=['retry', 'fallback', 'human_intervention'],
+            decision_criteria="Select best recovery strategy"
+        )
+        
+        if recovery_strategy['decision'] == 'retry':
+            return self.retry_with_backoff(context)
+        elif recovery_strategy['decision'] == 'fallback':
+            return self.execute_with_fallback(context)
+        else:
+            return self.request_human_intervention(error, context)
 ```
+
+### 5. Autonomous Execution System
+
+**Purpose**: 최소한의 사용자 개입으로 전체 워크플로 자동 실행 (Requirement 4)
+
+**Key Features**:
+
+1. **Autonomous Workflow Execution** (Requirement 4.1)
+   - 5단계 워크플로 자동 실행
+   - 중간 승인 불필요
+   - 실시간 상태 업데이트
+
+2. **Intelligent Error Recovery** (Requirement 4.2)
+   - Reasoning LLM 기반 복구 전략 결정
+   - 자동 재시도 (exponential backoff)
+   - Fallback provider 전환
+   - 필요 시 휴먼 개입 요청
+
+3. **Autonomous Evaluation** (Requirement 4.3)
+   - 여러 옵션 자동 평가 및 순위 결정
+   - Confidence scoring 기반 선택
+   - 학습된 기준 적용
+
+4. **State Management** (Requirement 4.4)
+   - 워크플로 일시 중지/재개
+   - 중간 결과 자동 저장
+   - 데이터 손실 방지
+
+5. **Human-in-the-Loop** (Requirement 4.5)
+   - 낮은 신뢰도 시 휴먼 리뷰 요청
+   - 명확한 의사결정 요구사항 제시
+   - 이유 설명 제공
+
+**Implementation**:
+
+```python
+class AutonomousWorkflowManager:
+    """자율적 워크플로 관리"""
+    
+    def execute_autonomous_workflow(self, session_id: str, business_info: dict) -> dict:
+        """전체 워크플로 자율 실행 (Requirement 4.1)"""
+        workflow_state = {
+            'session_id': session_id,
+            'current_step': 1,
+            'status': 'running',
+            'requires_human_input': False
+        }
+        
+        for step in range(1, 6):
+            try:
+                # 각 단계 자율 실행
+                result = self.execute_step_autonomously(step, workflow_state)
+                workflow_state = self.update_state(workflow_state, result)
+                
+                # 낮은 신뢰도 체크 (Requirement 3.7, 4.5)
+                if result.get('confidence', 1.0) < 0.7:
+                    workflow_state['requires_human_input'] = True
+                    workflow_state['human_input_reason'] = result.get('reasoning')
+                    break
+                    
+            except Exception as e:
+                # 자율적 오류 복구 (Requirement 4.2)
+                recovery_result = self.autonomous_error_recovery(e, workflow_state)
+                if recovery_result['requires_human_input']:
+                    workflow_state['requires_human_input'] = True
+                    break
+        
+        return workflow_state
+    
+    def save_and_resume_workflow(self, session_id: str) -> dict:
+        """워크플로 저장 및 재개 (Requirement 4.4)"""
+        # DynamoDB에서 상태 복원
+        saved_state = self.load_workflow_state(session_id)
+        
+        # 중단된 지점부터 재개
+        return self.execute_autonomous_workflow(
+            session_id=session_id,
+            business_info=saved_state['business_info']
+        )
+```
+
+## External Tool and API Integration
+
+**Purpose**: 외부 도구, API, 데이터베이스 통합 시연 (Requirement 5)
+
+### Integration Points
+
+1. **DynamoDB Integration** (Requirement 5.1)
+   - **Purpose**: 시장 데이터 및 세션 관리
+   - **Tables**: WorkflowSessions, MarketData, IndustryTrends
+   - **Operations**: Query, Scan, PutItem, UpdateItem
+   - **Usage**: 업종별 트렌드, 지역 multipliers, 세션 상태
+
+2. **Amazon Bedrock SDXL API** (Requirement 5.2)
+   - **Purpose**: 간판 이미지 생성
+   - **Model**: stability.stable-diffusion-xl-v1
+   - **Parameters**: prompt, negative_prompt, width, height
+   - **Integration**: `bedrock_client.invoke_sdxl()`
+
+3. **S3 API Integration** (Requirement 5.3)
+   - **Purpose**: 생성된 자산 저장
+   - **Operations**: PutObject, GetObject, GeneratePresignedUrl
+   - **Buckets**: branding-assets-{environment}
+   - **Usage**: 이미지, PDF 보고서 저장
+
+4. **Pronunciation Scoring API** (Requirement 5.4)
+   - **Purpose**: 상호명 발음 평가
+   - **Library**: `hangul-romanize` (한글 로마자 변환)
+   - **Scoring**: 발음 난이도, 외국인 발음 용이성
+   - **Integration**: Reporter Agent
+
+5. **PDF Generation Library** (Requirement 5.5)
+   - **Library**: `reportlab` or `weasyprint`
+   - **Purpose**: HTML → PDF 변환
+   - **Features**: 한글 폰트 지원, 이미지 임베딩
+   - **Storage**: S3에 업로드 후 presigned URL 생성
+
+6. **Bedrock Knowledge Base** (Requirement 5.6)
+   - **Purpose**: 벡터 검색 (시장 인사이트, 트렌드)
+   - **Production**: Bedrock KB with OpenSearch Serverless
+   - **Local**: Chroma vector database
+   - **Operations**: Retrieve, RetrieveAndGenerate
+   - **Usage**: Market Analyst Agent
+
+### Circuit Breaker Pattern (Requirement 5.7)
+
+```python
+class CircuitBreaker:
+    """API 호출 실패 시 circuit breaker 패턴"""
+    
+    def __init__(self, failure_threshold: int = 5, timeout: int = 60):
+        self.failure_count = 0
+        self.failure_threshold = failure_threshold
+        self.timeout = timeout
+        self.last_failure_time = None
+        self.state = 'CLOSED'  # CLOSED, OPEN, HALF_OPEN
+    
+    def call(self, func, *args, **kwargs):
+        """Circuit breaker로 보호된 API 호출"""
+        if self.state == 'OPEN':
+            if time.time() - self.last_failure_time > self.timeout:
+                self.state = 'HALF_OPEN'
+            else:
+                raise CircuitBreakerOpenError("Circuit breaker is OPEN")
+        
+        try:
+            result = func(*args, **kwargs)
+            self.on_success()
+            return result
+        except Exception as e:
+            self.on_failure()
+            raise
+    
+    def on_success(self):
+        """성공 시 카운터 리셋"""
+        self.failure_count = 0
+        self.state = 'CLOSED'
+    
+    def on_failure(self):
+        """실패 시 카운터 증가"""
+        self.failure_count += 1
+        self.last_failure_time = time.time()
+        
+        if self.failure_count >= self.failure_threshold:
+            self.state = 'OPEN'
+```
+
+### Graceful Degradation Strategy
+
+**Bedrock API 실패 시**:
+1. Exponential backoff로 재시도 (3회)
+2. Fallback provider 사용 (DEV_PROFILE=true 시)
+3. 정적 fallback 응답 제공
+4. 사용자에게 오류 알림
+
+**DynamoDB 실패 시**:
+1. 로컬 캐시 사용
+2. 기본값 제공
+3. 세션 상태 메모리 저장
+
+**S3 실패 시**:
+1. 로컬 파일시스템 저장
+2. 다음 업로드 시 재시도
+3. 임시 URL 제공
 
 ## Data Models
 
@@ -348,9 +518,22 @@ class BedrockErrorHandler:
 
 ## Testing Strategy
 
+### Testing Philosophy
+
+**NO MOCKS 정책**: Docker Compose 기반 실제 서비스를 사용한 통합 테스트만 수행 (Requirement 10.1)
+
+### Test Environment
+
+- **DynamoDB Local**: 세션 데이터 저장 (localhost:8000)
+- **DynamoDB Admin UI**: 데이터 시각화 (localhost:8002)
+- **MinIO**: S3 호환 파일 저장 (localhost:9000/9001)
+- **Chroma**: 벡터 데이터베이스 (localhost:8001)
+
 ### 1. Bedrock Integration Tests
 
 **Location**: `tests/integration/test_bedrock_integration.py`
+
+**Coverage**: Requirement 10.2
 
 ```python
 def test_bedrock_claude_invocation():
@@ -363,12 +546,17 @@ def test_bedrock_knowledge_base_query():
     """Knowledge Base 쿼리 테스트"""
     
 def test_bedrock_error_handling():
-    """Bedrock 오류 처리 테스트"""
+    """Bedrock 오류 처리 및 재시도 로직 테스트"""
+    
+def test_bedrock_response_parsing():
+    """Bedrock API 응답 파싱 테스트"""
 ```
 
 ### 2. AgentCore Tests
 
 **Location**: `tests/integration/test_agentcore.py`
+
+**Coverage**: Requirement 10.3
 
 ```python
 def test_agentcore_orchestration():
@@ -379,11 +567,16 @@ def test_agentcore_tool_use():
     
 def test_agentcore_memory():
     """Memory primitive 테스트"""
+    
+def test_agentcore_inter_agent_communication():
+    """Agent 간 통신 테스트"""
 ```
 
 ### 3. Reasoning Engine Tests
 
 **Location**: `tests/integration/test_reasoning.py`
+
+**Coverage**: Requirement 3.6, 3.7
 
 ```python
 def test_reasoning_decision_making():
@@ -393,60 +586,114 @@ def test_reasoning_confidence_scoring():
     """신뢰도 점수 산정 테스트"""
     
 def test_reasoning_chain_storage():
-    """Reasoning chain 저장 테스트"""
+    """Reasoning chain DynamoDB 저장 테스트"""
+    
+def test_low_confidence_handling():
+    """낮은 신뢰도 결과 처리 테스트"""
 ```
 
 ### 4. End-to-End Workflow Tests
 
 **Location**: `tests/integration/test_hackathon_workflow.py`
 
+**Coverage**: Requirement 10.4
+
 ```python
 def test_full_workflow_with_bedrock():
-    """Bedrock을 사용한 전체 워크플로 테스트"""
+    """Bedrock을 사용한 전체 5단계 워크플로 테스트"""
     
 def test_autonomous_execution():
-    """자율적 작업 실행 테스트"""
+    """자율적 작업 실행 테스트 (Requirement 4.1)"""
     
 def test_fallback_mechanism():
     """Fallback 메커니즘 테스트"""
+    
+def test_pdf_report_generation():
+    """최종 PDF 보고서 생성 검증"""
+    
+def test_concurrent_sessions():
+    """동시 세션 처리 테스트 (Requirement 9.4)"""
 ```
+
+### 5. Test Execution
+
+**Command**: `./scripts/dev.sh test` (Requirement 10.7)
+
+**Expected Results**:
+- All integration tests pass
+- Detailed logs provided (Requirement 10.5)
+- Coverage reports generated
+- CI/CD pipeline integration (Requirement 10.6)
 
 ## Deployment Strategy
 
+### Deployment Requirements
+
+**SAM-Based Deployment** (Requirement 7.1, 7.2):
+- Infrastructure as Code using `template.yaml`
+- One-command deployment: `sam build && sam deploy --guided`
+- Automatic resource creation in target AWS account
+- CloudWatch dashboards included (Requirement 7.7)
+
 ### Phase 1: Bedrock Integration (Week 1)
 
-1. Bedrock 클라이언트 구현
-2. 기존 Agent에 Bedrock 통합
-3. Fallback 메커니즘 구현
-4. 통합 테스트 작성
+**Deliverables**:
+1. Bedrock 클라이언트 구현 (`bedrock_client.py`)
+2. 기존 Agent에 Bedrock 통합 (Primary LLM)
+3. Fallback 메커니즘 구현 (개발 환경용)
+4. 통합 테스트 작성 (Docker Compose 기반)
+
+**Requirements Coverage**: 1.1-1.7, 10.2
 
 ### Phase 2: AgentCore Implementation (Week 1-2)
 
+**Deliverables**:
 1. Supervisor Agent에 AgentCore 통합
-2. Tool Use primitive 구현
-3. Memory primitive 구현
+2. Tool Use primitive 구현 (Agent 간 통신)
+3. Memory primitive 구현 (워크플로 상태)
 4. AgentCore 테스트
+
+**Requirements Coverage**: 2.1-2.7, 10.3
 
 ### Phase 3: Reasoning Engine (Week 2)
 
-1. Reasoning Engine 구현
+**Deliverables**:
+1. Reasoning Engine 구현 (`reasoning_engine.py`)
 2. 각 Agent에 reasoning 추가
-3. Confidence scoring 구현
-4. Reasoning chain 저장
+3. Confidence scoring 구현 (0-1 scale)
+4. Reasoning chain DynamoDB 저장
+
+**Requirements Coverage**: 3.1-3.7, 4.2, 4.3
 
 ### Phase 4: Documentation & Demo (Week 2-3)
 
-1. 아키텍처 다이어그램 작성
-2. README 업데이트
-3. 데모 비디오 제작
-4. 배포 가이드 작성
+**Deliverables**:
+1. 아키텍처 다이어그램 작성 (Bedrock, AgentCore 강조)
+2. README 업데이트 (배포 가이드, Requirement 6.4)
+3. 데모 비디오 제작 (3분, Requirement 8.1-8.7)
+4. Agent 문서 작성 (각 Agent 책임 및 모델 사용)
+
+**Requirements Coverage**: 6.1-6.7, 8.1-8.7
 
 ### Phase 5: Testing & Submission (Week 3)
 
-1. 전체 통합 테스트
-2. 성능 최적화
+**Deliverables**:
+1. 전체 통합 테스트 (Requirement 10.4)
+2. 성능 최적화 (5분 이내 완료, Requirement 9.3)
 3. 문서 최종 검토
-4. 해커톤 제출
+4. 해커톤 제출 (GitHub, Devpost, 데모 비디오)
+
+**Requirements Coverage**: 9.1-9.7, 10.1-10.7
+
+### Deployment Verification
+
+**Pre-Deployment Checklist** (Requirement 7.5, 7.6):
+- [ ] `ENABLE_FALLBACK=false` 설정
+- [ ] Bedrock 모델 가용성 확인
+- [ ] AgentCore Agent ID 설정
+- [ ] IAM 권한 확인
+- [ ] 통합 테스트 통과
+- [ ] CloudWatch 대시보드 설정
 
 ## Performance Considerations
 
@@ -456,12 +703,107 @@ def test_fallback_mechanism():
 - SDXL 이미지 생성: ~10-15초 (평균)
 - Knowledge Base 쿼리: ~1-2초 (평균)
 
+### Performance Requirements (from Requirements Doc)
+
+- **Text responses**: ≤ 5 seconds (Requirement 9.1)
+- **Image generation**: ≤ 30 seconds per image (Requirement 9.2)
+- **Full workflow**: ≤ 5 minutes (Requirement 9.3)
+- **Concurrent sessions**: ≥ 10 simultaneous sessions (Requirement 9.4)
+
 ### Optimization Strategies
 
-1. **Parallel Execution**: Step Functions로 병렬 Agent 실행
-2. **Caching**: DynamoDB에 자주 사용되는 결과 캐싱
+1. **Parallel Execution**: Step Functions로 병렬 Agent 실행 (Product Insight + Market Analyst 동시 실행)
+2. **Caching**: DynamoDB에 자주 사용되는 결과 캐싱 (시장 데이터, 지역 multipliers)
 3. **Batch Processing**: 여러 요청을 배치로 처리
 4. **Connection Pooling**: Bedrock 클라이언트 재사용
+5. **Lambda Optimization**: 메모리 할당 최적화 (1024MB-2048MB)
+6. **HTTP API Gateway**: REST API 대신 HTTP API 사용 (비용 최적화, Requirement 9.7)
+
+## Scalability and Reliability
+
+### Scalability Design (Requirement 9.4, 9.5)
+
+**Lambda Auto-Scaling**:
+- Concurrent execution limit: 1000 (default)
+- Reserved concurrency per agent: 10
+- Automatic scaling based on demand
+- Cold start optimization: 1024MB-2048MB memory
+
+**DynamoDB Scaling**:
+- On-demand capacity mode (automatic scaling)
+- No capacity planning required
+- Handles traffic spikes automatically
+- TTL for automatic session cleanup (24 hours)
+
+**S3 Scalability**:
+- Unlimited storage capacity
+- Automatic partitioning
+- Lifecycle policies for cost optimization
+- Versioning for asset history
+
+**Concurrent Session Support** (Requirement 9.4):
+- Target: ≥ 10 simultaneous sessions
+- Session isolation via session_id
+- No shared state between sessions
+- Independent Lambda invocations
+
+### Reliability Design
+
+**Automatic Retry Logic**:
+- Bedrock API: Exponential backoff (3 retries)
+- DynamoDB: Built-in retry with SDK
+- S3: Automatic retry on transient failures
+- Step Functions: Automatic retry configuration
+
+**Graceful Degradation**:
+- Bedrock failure → Fallback provider (dev only)
+- DynamoDB failure → Local cache
+- S3 failure → Local filesystem
+- Agent failure → Supervisor notification
+
+**Session Persistence** (Requirement 4.4):
+- All state saved to DynamoDB
+- Workflow resumption from any step
+- No data loss on failure
+- 24-hour TTL with automatic cleanup
+
+**CloudWatch Alarms** (Requirement 9.6):
+- Lambda error rate > 5%
+- Bedrock API latency > 10 seconds
+- DynamoDB throttling events
+- S3 upload failures
+- Step Functions execution failures
+
+### Monitoring and Observability
+
+**CloudWatch Metrics**:
+- Bedrock API call count
+- Bedrock API response time (P50, P95, P99)
+- Bedrock API error rate
+- AgentCore orchestration success rate
+- Reasoning confidence average
+- Workflow completion time
+- Concurrent session count
+
+**Structured Logging**:
+```python
+log.info(
+    "agent_execution",
+    agent=agent_name,
+    tool=tool_name,
+    latency_ms=latency,
+    session_id=session_id,
+    reasoning_chain=reasoning_steps,
+    confidence=confidence_score
+)
+```
+
+**CloudWatch Dashboard** (Requirement 7.7):
+- Real-time metrics visualization
+- Agent performance tracking
+- Cost monitoring
+- Error rate tracking
+- Reasoning confidence trends
 
 ## Security Considerations
 
@@ -877,45 +1219,277 @@ CostDashboard:
       }
 ```
 
+## Documentation Requirements (Requirement 6)
+
+### Architecture Diagram Requirements
+
+**Must Include** (Requirement 6.1, 6.2):
+- All AWS services (Bedrock, Lambda, DynamoDB, S3, API Gateway, Step Functions)
+- Agent interactions and data flows
+- Bedrock AgentCore usage (Tool Use, Memory primitives)
+- Reasoning LLM decision points
+- External tool integrations
+
+**Diagrams to Create**:
+1. **High-Level Architecture**: 전체 시스템 개요
+2. **5-Step Workflow**: 단계별 Agent 실행 흐름
+3. **Bedrock Integration Detail**: Bedrock 서비스 통합 상세
+4. **Sequence Diagram**: Happy path & Error recovery
+
+### README Documentation (Requirement 6.4, 6.5)
+
+**Required Sections**:
+1. **Project Overview**: 문제 정의 및 솔루션
+2. **Architecture**: 다이어그램 및 설명
+3. **Prerequisites**: AWS 계정, SAM CLI, Docker
+4. **Deployment Guide**: 
+   - `sam build && sam deploy --guided`
+   - 환경 변수 설정
+   - Bedrock 모델 가용성 확인
+5. **Agent Documentation**: 각 Agent 책임 및 모델 사용
+6. **Testing**: 통합 테스트 실행 방법
+7. **Cost Estimation**: 워크플로당 비용
+8. **Troubleshooting**: 일반적인 문제 해결
+
+### Agent Documentation (Requirement 6.5)
+
+각 Agent별 문서화:
+- **Responsibilities**: Agent 역할 및 책임
+- **Bedrock Model**: 사용하는 Bedrock 모델
+- **Input/Output**: I/O 계약
+- **Reasoning Examples**: 의사결정 예시
+- **Tool Schema**: AgentCore Tool 스키마
+
+### Region Documentation (Requirement 6.6)
+
+**Default Region**: us-east-1
+**Reason**: Bedrock 모델 가용성 최대
+**Alternative Regions**: us-west-2, eu-west-1 (모델 가용성 확인 필요)
+
 ## Demo Video Structure (3-minute timeline)
 
-### 0:00-0:30 - Problem Introduction
+**Requirements Coverage**: Requirement 8.1-8.7
+
+### 0:00-0:30 - Problem Introduction (Requirement 8.2)
 - "Small businesses struggle with branding - it's expensive and time-consuming"
+- "Traditional branding: 2 weeks, $5,000+"
 - "Our AI agent system automates the entire branding process"
 
-### 0:30-1:00 - Solution Overview
-- Show Streamlit UI
+### 0:30-1:00 - Solution Overview (Requirement 8.3)
+- Show Streamlit UI (Requirement 8.5)
 - Input: "Seoul Gangnam, small cafe"
 - Highlight: "6 AI agents working together using Amazon Bedrock"
+- Show real-time status updates
 
-### 1:00-2:00 - Technical Execution
+### 1:00-2:00 - Technical Execution (Requirement 8.4)
 - Show Supervisor Agent with AgentCore orchestration
-- Highlight reasoning LLM decision-making
-- Show parallel agent execution
+- Highlight reasoning LLM decision-making (Chain-of-Thought)
+- Show parallel agent execution (Product Insight + Market Analyst)
 - Display generated assets (names, signboards, interiors)
+- Emphasize autonomous execution
 
-### 2:00-2:30 - Results & Impact
+### 2:00-2:30 - Results & Impact (Requirement 8.6)
 - Show final PDF report
 - Metrics: "5 minutes vs 2 weeks, $0.14 vs $5,000"
-- Emphasize autonomous execution
+- Quality comparison: AI-generated vs traditional
+- Emphasize autonomous execution and reasoning
 
 ### 2:30-3:00 - Architecture & Closing
 - Show architecture diagram with Bedrock integration
+- Highlight: "Bedrock AgentCore, Claude 3.5 Sonnet, SDXL"
 - Mention: "Fully serverless, scalable, reproducible"
 - Call to action: "Try it yourself - deployment guide in README"
+- GitHub repository URL
+
+### Video Production Requirements (Requirement 8.7)
+
+- **Platform**: YouTube (public)
+- **Length**: Exactly 3 minutes or less
+- **Quality**: 1080p minimum
+- **Audio**: Clear narration with background music
+- **Captions**: English subtitles
+- **Thumbnail**: Professional thumbnail with project name
+
+## Success Criteria and Validation
+
+### Hackathon Requirements Compliance
+
+**Requirement 1: Amazon Bedrock 통합** ✅
+- [ ] Bedrock Claude 3.5 Sonnet as primary LLM
+- [ ] Bedrock SDXL for image generation
+- [ ] Bedrock Knowledge Base integration
+- [ ] Error handling with exponential backoff
+- [ ] Fallback mechanism (dev only)
+
+**Requirement 2: Bedrock AgentCore** ✅
+- [ ] AgentCore orchestration in Supervisor Agent
+- [ ] Tool Use primitive implemented
+- [ ] Memory primitive implemented
+- [ ] Inter-agent communication via AgentCore
+- [ ] Reasoning capabilities integrated
+- [ ] Fallback to Step Functions if unavailable
+- [ ] Well-documented in architecture diagram
+
+**Requirement 3: Reasoning LLM** ✅
+- [ ] Supervisor Agent uses reasoning for workflow planning
+- [ ] Market Analyst uses reasoning for viability assessment
+- [ ] Reporter Agent uses reasoning for name evaluation
+- [ ] Signboard selection uses reasoning
+- [ ] Report Generator uses reasoning for synthesis
+- [ ] Reasoning chains stored in DynamoDB
+- [ ] Low-confidence handling implemented
+
+**Requirement 4: Autonomous Execution** ✅
+- [ ] 5-step workflow executes without intermediate approvals
+- [ ] Autonomous error recovery with reasoning
+- [ ] Autonomous option evaluation and ranking
+- [ ] Workflow pause/resume capability
+- [ ] Clear human intervention requests
+- [ ] Autonomous PDF report generation
+- [ ] Real-time status updates
+
+**Requirement 5: External Tool Integration** ✅
+- [ ] DynamoDB integration for market data
+- [ ] Bedrock SDXL API integration
+- [ ] S3 API for asset storage
+- [ ] Pronunciation scoring integration
+- [ ] PDF generation library integration
+- [ ] Bedrock KB / Chroma integration
+- [ ] Circuit breaker pattern implemented
+
+**Requirement 6: Documentation** ✅
+- [ ] Detailed architecture diagram
+- [ ] Agent interactions and data flows documented
+- [ ] Bedrock AgentCore usage highlighted
+- [ ] Step-by-step deployment guide
+- [ ] Agent responsibilities documented
+- [ ] Region specifications included
+- [ ] Demo video shows end-to-end workflow
+
+**Requirement 7: Deployable Project** ✅
+- [ ] SAM infrastructure as code
+- [ ] `sam build && sam deploy --guided` works
+- [ ] API Gateway endpoint output
+- [ ] `sam local start-api` works with Docker
+- [ ] AWS credentials setup documented
+- [ ] Clear error messages on deployment failure
+- [ ] CloudWatch dashboards included
+
+**Requirement 8: Demo Video** ✅
+- [ ] 3 minutes or less
+- [ ] Problem clearly explained
+- [ ] Complete workflow demonstrated
+- [ ] Bedrock AgentCore highlighted
+- [ ] Streamlit UI shown
+- [ ] Measurable benefits provided
+- [ ] Publicly accessible on YouTube
+
+**Requirement 9: Performance** ✅
+- [ ] Text responses ≤ 5 seconds
+- [ ] Image generation ≤ 30 seconds
+- [ ] Full workflow ≤ 5 minutes
+- [ ] ≥ 10 concurrent sessions supported
+- [ ] Lambda auto-scaling configured
+- [ ] CloudWatch alarms configured
+- [ ] HTTP API Gateway used
+
+**Requirement 10: Testing** ✅
+- [ ] Docker Compose integration tests
+- [ ] Bedrock integration tests
+- [ ] Agent coordination tests
+- [ ] Full workflow tests
+- [ ] Detailed logs and coverage
+- [ ] CI/CD pipeline integration
+- [ ] `./scripts/dev.sh test` passes
+
+### Performance Validation
+
+**Latency Targets**:
+- Bedrock Claude: < 5 seconds (P95)
+- Bedrock SDXL: < 30 seconds (P95)
+- Full workflow: < 5 minutes (P95)
+- DynamoDB queries: < 100ms (P95)
+- S3 uploads: < 2 seconds (P95)
+
+**Scalability Targets**:
+- Concurrent sessions: ≥ 10
+- Lambda concurrent executions: ≥ 100
+- DynamoDB throughput: On-demand (unlimited)
+- S3 storage: Unlimited
+
+**Reliability Targets**:
+- Bedrock API success rate: ≥ 95%
+- Workflow completion rate: ≥ 90%
+- Session data persistence: 100%
+- Error recovery success: ≥ 80%
+
+### Cost Validation
+
+**Per Workflow Cost**:
+- Bedrock Claude: ~$0.015 (5 invocations)
+- Bedrock SDXL: ~$0.12 (3 images)
+- Bedrock KB: ~$0.002 (2 queries)
+- Lambda: ~$0.001
+- DynamoDB: ~$0.0001
+- S3: ~$0.0001
+- **Total**: ~$0.14 per workflow
+
+**Monthly Cost (1000 workflows)**:
+- Bedrock: $140
+- Other AWS: $1.30
+- **Total**: ~$141.30/month
+
+### Submission Checklist
+
+**Code Repository**:
+- [ ] Public GitHub repository
+- [ ] Complete source code
+- [ ] README.md with deployment guide
+- [ ] LICENSE file (MIT)
+- [ ] .gitignore configured
+
+**Documentation**:
+- [ ] Architecture diagrams (3 diagrams)
+- [ ] Agent documentation
+- [ ] Deployment guide
+- [ ] Troubleshooting guide
+- [ ] Cost estimation
+
+**Demo Video**:
+- [ ] 3-minute video created
+- [ ] Uploaded to YouTube (public)
+- [ ] URL added to README
+- [ ] Captions included
+
+**Deployment**:
+- [ ] `ENABLE_FALLBACK=false` in production
+- [ ] Bedrock models verified
+- [ ] AgentCore configured
+- [ ] IAM permissions verified
+- [ ] CloudWatch dashboard created
+- [ ] API endpoint tested
+
+**Testing**:
+- [ ] All integration tests pass
+- [ ] Performance targets met
+- [ ] Error handling verified
+- [ ] Reasoning chains validated
 
 ## Updated Design Approval
 
 이제 다음 사항들이 보완되었습니다:
 
-✅ Bedrock Model/Region Matrix 추가
-✅ 강화된 IAM Policy 정의
-✅ Fallback 거버넌스 및 제출 체크리스트
-✅ 상세한 시퀀스 다이어그램 (Happy Path & Error Path)
-✅ 리스크 완화 전략 테이블
-✅ 추가 문서 구조 정의
-✅ 배포 검증 스크립트
-✅ 비용 최적화 전략
-✅ 데모 비디오 타임라인
+✅ **Requirements Coverage**: 모든 10개 요구사항 명시적 매핑
+✅ **Autonomous Execution**: 자율 실행 시스템 상세 설계 추가
+✅ **External Tool Integration**: 6개 통합 포인트 상세 설명
+✅ **Documentation Requirements**: 문서화 요구사항 명확화
+✅ **Demo Video Structure**: 3분 타임라인 상세화
+✅ **Scalability & Reliability**: 확장성 및 안정성 설계 추가
+✅ **Success Criteria**: 검증 가능한 성공 기준 추가
+✅ **Performance Validation**: 성능 목표 및 검증 방법
+✅ **Cost Validation**: 비용 추정 및 검증
+✅ **Submission Checklist**: 제출 전 체크리스트
 
-다음 단계로 Tasks 문서를 작성하시겠습니까?
+**Design Document Status**: ✅ Complete and aligned with all requirements
+
+다음 단계로 Tasks 문서를 검토하시겠습니까?
