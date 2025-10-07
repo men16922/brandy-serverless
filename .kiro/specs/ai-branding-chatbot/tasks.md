@@ -37,7 +37,7 @@
     - 5초 내 응답 최적화
     - _요구사항: 3.4, 3.5, 3.6_
 
-- [ ] 2. Reporter Agent 상호명 생성 구현
+- [x] 2. Reporter Agent 상호명 생성 구현
   - [x] 2.1 상호명 생성 알고리즘
     - 업종 + 지역 + 키워드 조합 로직
     - 발음 점수 계산 (음성학 기반)
@@ -97,33 +97,33 @@
 
 ### 🚀 Phase 2: AI 모델 확장 (1-2주)
 
-- [ ] 6. 다중 AI 모델 지원 (Signboard Agent 확장)
-  - [ ] 6.1 Stability AI SDXL 연동
+- [x] 6. 다중 AI 모델 지원 (Signboard Agent 확장)
+  - [x] 6.1 Stability AI SDXL 연동
     - AWS Bedrock SDXL 모델 호출
     - 프롬프트 최적화 (SDXL 특화)
     - 이미지 품질 향상 로직
     - _요구사항: 5.1, 5.2_
 
-  - [ ] 6.2 Google Gemini 연동
+  - [x] 6.2 Google Gemini 연동
     - Google AI API 클라이언트 설정
     - Gemini 이미지 생성 호출
     - 응답 형식 표준화
     - _요구사항: 5.1, 5.2_
 
-  - [ ] 6.3 병렬 처리 구현
+  - [x] 6.3 병렬 처리 구현
     - Step Functions Express 워크플로
     - 3개 AI 모델 동시 실행
     - 결과 병합 및 폴백 처리
     - _요구사항: 5.1, 5.5_
 
-- [ ] 7. Market Analyst Agent 구현
-  - [ ] 7.1 시장 분석 로직
+- [x] 7. Market Analyst Agent 구현
+  - [x] 7.1 시장 분석 로직
     - 업종별 시장 규모 데이터
     - 경쟁사 현황 분석
     - 성장 잠재력 평가
     - _요구사항: 3.1, 3.2_
 
-  - [ ] 7.2 트렌드 분석 기능
+  - [x] 7.2 트렌드 분석 기능
     - 최신 시장 트렌드 데이터
     - 소비자 선호도 변화
     - 기회 요소 발굴
@@ -131,7 +131,7 @@
 
 ### 🎨 Phase 3: 웹 인터페이스 (1-2주)
 
-- [ ] 8. Streamlit 앱 구현
+- [-] 8. Streamlit 앱 구현
   - [ ] 8.1 5단계 워크플로 UI
     - 단계별 진행 표시
     - 실시간 상태 업데이트
@@ -247,14 +247,14 @@
     - 오류 처리 및 사용자 메시지
     - _요구사항: 3.4, 3.5_
 
-- [ ] 7. AI Provider 추상화 계층
-  - [ ] 7.1 AI Provider 인터페이스 구현
+- [x] 7. AI Provider 추상화 계층
+  - [x] 7.1 AI Provider 인터페이스 구현
     - 공통 AI Provider 인터페이스 정의
     - 이미지 생성 메서드 표준화
     - 오류 처리 및 재시도 로직
     - _요구사항: 4.1, 5.1, 8.4_
 
-  - [ ] 7.2 개별 AI Provider 구현
+  - [x] 7.2 개별 AI Provider 구현
     - DALLEProvider (OpenAI API 연동)
     - SDXLProvider (Bedrock 연동)
     - GeminiProvider (Google API 연동)

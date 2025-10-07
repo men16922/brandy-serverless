@@ -510,7 +510,13 @@ class ReportGeneratorAgent(BaseAgent):
     def _generate_alternative_report(self, session_data: Dict[str, Any]) -> Dict[str, Any]:
         """대안 보고서 생성 - HTML, JSON, 텍스트 형식 지원"""
         try:
-            from alternative_report_generator import AlternativeReportGenerator
+            # 현재 디렉토리에서 alternative_report_generator 임포트
+            import importlib.util
+            alt_gen_path = os.path.join(os.path.dirname(__file__), 'alternative_report_generator.py')
+            spec = importlib.util.spec_from_file_location("alternative_report_generator", alt_gen_path)
+            alt_gen_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(alt_gen_module)
+            AlternativeReportGenerator = alt_gen_module.AlternativeReportGenerator
             
             alt_generator = AlternativeReportGenerator(self.logger)
             

@@ -1,5 +1,6 @@
 """
-Signboard Agent - OpenAI DALL-E 연동 간판 이미지 생성
+Signboard Agent - 다중 AI 모델 연동 간판 이미지 생성
+OpenAI DALL-E, Stability AI SDXL, Google Gemini 지원
 """
 
 import json
@@ -22,6 +23,7 @@ try:
     from shared.utils import create_response
     from shared.env_loader import get_openai_api_key, is_local_environment
     from shared.s3_client import get_s3_client
+    from shared.ai_providers import AIProviderFactory, AIProvider
 except ImportError:
     # For testing purposes, create mock implementations
     from datetime import datetime
@@ -312,17 +314,13 @@ class OpenAIClient:
 
 
 class SignboardAgent(BaseAgent):
-    """Signboard Agent - 간판 이미지 생성"""
+    """Signboard Agent - 다중 AI 모델 간판 이미지 생성"""
     
     def __init__(self):
         super().__init__(AgentType.SIGNBOARD)
         
-        # OpenAI 클라이언트 초기화
-        try:
-            self.openai_client = OpenAIClient()
-        except ValueError as e:
-            self.logger.warning(f"OpenAI client initialization failed: {e}")
-            self.openai_client = None
+        # 다중 AI Provider 초기화
+        self.ai_providers = self._initialize_ai_providers()
         
         # S3/MinIO 클라이언트 초기화
         try:
@@ -387,6 +385,37 @@ class SignboardAgent(BaseAgent):
         # 폴백 이미지 설정
         self.fallback_images = self._initialize_fallback_images()
     
+    def _initialize_ai_providers(self) -> Dict[str, AIProvider]:
+        """AI Provider 초기화"""
+        providers = {}
+        
+        try:
+            # DALL-E Provider
+            dalle_provider = AIProviderFactory.create_provider("dalle")
+            providers["dalle"] = dalle_provider
+            self.logger.info("DALL-E provider initialized successfully")
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize DALL-E provider: {e}")
+        
+        try:
+            # SDXL Provider
+            sdxl_provider = AIProviderFactory.create_provider("sdxl")
+            providers["sdxl"] = sdxl_provider
+            self.logger.info("SDXL provider initialized successfully")
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize SDXL provider: {e}")
+        
+        try:
+            # Gemini Provider
+            gemini_provider = AIProviderFactory.create_provider("gemini")
+            providers["gemini"] = gemini_provider
+            self.logger.info("Gemini provider initialized successfully")
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize Gemini provider: {e}")
+        
+        self.logger.info(f"Initialized {len(providers)} AI providers: {list(providers.keys())}")
+        return providers
+    
     def _initialize_fallback_images(self) -> Dict[str, str]:
         """폴백 이미지 URL 초기화"""
         # 환경별 폴백 이미지 URL 설정
@@ -429,6 +458,31 @@ class SignboardAgent(BaseAgent):
             # 간판 이미지 생성
             if action == 'generate':
                 result = self._generate_signboard_images(session_id, selected_name, business_info)
+            elif action == 'generate_single':
+                # 단일 Provider로 이미지 생성 (Step Functions용)
+                provider = body.get('provider')
+                style = body.get('style')
+                
+                # 비동기 실행
+                try:
+                    loop = asyncio.get_running_loop()
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(
+                            asyncio.run,
+                            self._generate_single_provider_image(session_id, selected_name, business_info, provider, style)
+                        )
+                        result = future.result(timeout=35)  # 35초 타임아웃
+                except RuntimeError:
+                    result = asyncio.run(
+                        self._generate_single_provider_image(session_id, selected_name, business_info, provider, style)
+                    )
+            elif action == 'merge_results':
+                # 병렬 생성 결과 병합 (Step Functions용)
+                dalle_result = body.get('dalleResult')
+                sdxl_result = body.get('sdxlResult')
+                gemini_result = body.get('geminiResult')
+                result = self._merge_parallel_results(session_id, dalle_result, sdxl_result, gemini_result)
             elif action == 'select':
                 selected_image_url = body.get('selectedImageUrl')
                 result = self._handle_image_selection(session_id, selected_image_url)
@@ -526,12 +580,40 @@ class SignboardAgent(BaseAgent):
     
     async def _generate_images_async(self, session_id: str, selected_name: str, 
                                    business_info: BusinessInfo, styles: List[str]) -> List[ImageResult]:
-        """비동기 이미지 생성"""
-        tasks = []
+        """다중 AI 모델을 사용한 비동기 이미지 생성"""
         
-        for style in styles:
-            task = self._generate_single_image(session_id, selected_name, business_info, style)
-            tasks.append(task)
+        # 사용 가능한 AI Provider 확인
+        available_providers = list(self.ai_providers.keys())
+        if not available_providers:
+            self.logger.warning("No AI providers available, using fallback images")
+            return self._create_fallback_images(session_id, selected_name, business_info)
+        
+        # Provider와 스타일 조합으로 태스크 생성
+        tasks = []
+        provider_style_combinations = []
+        
+        # 각 스타일에 대해 사용 가능한 모든 Provider로 생성
+        for i, style in enumerate(styles[:3]):  # 최대 3개 스타일
+            if i < len(available_providers):
+                # 각 스타일마다 다른 Provider 사용
+                provider_name = available_providers[i]
+                provider = self.ai_providers[provider_name]
+                
+                task = self._generate_single_image_with_provider(
+                    provider, session_id, selected_name, business_info, style
+                )
+                tasks.append(task)
+                provider_style_combinations.append((provider_name, style))
+            else:
+                # Provider가 부족한 경우 첫 번째 Provider 재사용
+                provider_name = available_providers[0]
+                provider = self.ai_providers[provider_name]
+                
+                task = self._generate_single_image_with_provider(
+                    provider, session_id, selected_name, business_info, style
+                )
+                tasks.append(task)
+                provider_style_combinations.append((provider_name, style))
         
         # 모든 이미지를 병렬로 생성 (최대 30초 타임아웃)
         try:
@@ -540,62 +622,88 @@ class SignboardAgent(BaseAgent):
             self.logger.warning("Image generation timed out after 30 seconds")
             results = [None] * len(tasks)
         
-        # 성공한 결과만 반환
+        # 성공한 결과 처리
         images = []
         for i, result in enumerate(results):
+            provider_name, style = provider_style_combinations[i]
+            
             if isinstance(result, ImageResult):
+                # 성공한 경우
                 images.append(result)
+                self.logger.info(f"Successfully generated {style} image with {provider_name}")
             else:
                 # 실패한 경우 폴백 이미지 생성
-                style = styles[i]
+                self.logger.warning(f"Failed to generate {style} image with {provider_name}: {result}")
                 fallback_image = self._create_single_fallback_image(session_id, selected_name, business_info, style)
                 images.append(fallback_image)
         
         return images
     
-    async def _generate_single_image(self, session_id: str, selected_name: str, 
-                                   business_info: BusinessInfo, style: str) -> ImageResult:
-        """단일 이미지 생성"""
+    async def _generate_single_image_with_provider(self, provider: AIProvider, session_id: str, 
+                                                 selected_name: str, business_info: BusinessInfo, 
+                                                 style: str) -> ImageResult:
+        """특정 AI Provider를 사용한 단일 이미지 생성"""
         try:
             # 프롬프트 생성
             prompt = self._create_image_prompt(selected_name, business_info, style)
             
-            # OpenAI API 호출
-            if self.openai_client:
-                result = await self.openai_client.generate_image(
-                    prompt=prompt,
-                    size="1024x1024",
-                    quality="standard",
-                    style="vivid"
+            # Provider별 특화 파라미터 설정
+            provider_params = self._get_provider_params(provider.provider_name, style)
+            
+            # AI Provider를 통한 이미지 생성
+            image_result = await provider.generate_image(
+                prompt=prompt,
+                style=style,
+                **provider_params
+            )
+            
+            # 이미지 다운로드 및 S3 업로드 (URL이 data: 형식이 아닌 경우)
+            if image_result.url.startswith('http'):
+                s3_url = await self._download_and_upload_image(
+                    image_result.url, session_id, f"{provider.provider_name}_{style}"
                 )
-                
-                if result["success"]:
-                    # 이미지 다운로드 및 S3 업로드
-                    s3_url = await self._download_and_upload_image(
-                        result["image_url"], session_id, style
-                    )
-                    
-                    return ImageResult(
-                        url=s3_url,
-                        provider="dalle",
-                        style=style,
-                        prompt=result.get("revised_prompt", prompt),
-                        metadata={
-                            "original_prompt": prompt,
-                            "generation_time": datetime.utcnow().isoformat(),
-                            "business_name": selected_name,
-                            "industry": business_info.industry
-                        }
-                    )
-                else:
-                    raise Exception(result["error"])
-            else:
-                raise Exception("OpenAI client not available")
+                image_result.url = s3_url
+            elif image_result.url.startswith('data:image'):
+                # Base64 데이터인 경우 직접 S3에 업로드
+                s3_url = await self._upload_base64_image(
+                    image_result.url, session_id, f"{provider.provider_name}_{style}"
+                )
+                image_result.url = s3_url
+            
+            # 메타데이터 업데이트
+            image_result.metadata.update({
+                "business_name": selected_name,
+                "industry": business_info.industry,
+                "provider": provider.provider_name
+            })
+            
+            return image_result
                 
         except Exception as e:
-            self.logger.error(f"Failed to generate {style} image: {str(e)}")
-            # 폴백 이미지 반환
-            return self._create_single_fallback_image(session_id, selected_name, business_info, style)
+            self.logger.error(f"Failed to generate {style} image with {provider.provider_name}: {str(e)}")
+            raise e
+    
+    def _get_provider_params(self, provider_name: str, style: str) -> Dict[str, Any]:
+        """Provider별 특화 파라미터 반환"""
+        if provider_name == "dalle":
+            return {
+                "size": "1024x1024",
+                "quality": "standard",
+                "dalle_style": "vivid"
+            }
+        elif provider_name == "sdxl":
+            return {
+                "width": 1024,
+                "height": 1024,
+                "cfg_scale": 7.0,
+                "steps": 30
+            }
+        elif provider_name == "gemini":
+            return {
+                "aspect_ratio": "1:1"
+            }
+        else:
+            return {}
     
     def _create_image_prompt(self, business_name: str, business_info: BusinessInfo, style: str) -> str:
         """이미지 생성 프롬프트 생성"""
@@ -752,8 +860,64 @@ class SignboardAgent(BaseAgent):
             self.logger.error(f"Error downloading and storing image: {str(e)}")
             return image_url
     
+    async def _upload_base64_image(self, base64_data: str, session_id: str, style: str) -> str:
+        """Base64 이미지 데이터를 S3에 업로드"""
+        try:
+            if not self.s3_client:
+                self.logger.warning("S3 client not available, returning base64 data")
+                return base64_data
+            
+            # Base64 데이터 파싱
+            if base64_data.startswith('data:image'):
+                # data:image/png;base64,... 형식에서 실제 데이터 추출
+                header, data = base64_data.split(',', 1)
+                image_data = base64.b64decode(data)
+                
+                # Content-Type 추출
+                if 'png' in header:
+                    content_type = 'image/png'
+                elif 'jpeg' in header or 'jpg' in header:
+                    content_type = 'image/jpeg'
+                else:
+                    content_type = 'image/png'
+            else:
+                # 순수 base64 데이터
+                image_data = base64.b64decode(base64_data)
+                content_type = 'image/png'
+            
+            # S3 키 생성
+            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+            unique_id = str(uuid.uuid4())[:8]
+            s3_key = f"signboards/{session_id}/{style}_{timestamp}_{unique_id}.png"
+            
+            # 메타데이터 준비
+            metadata = {
+                'session_id': session_id,
+                'style': style,
+                'generated_by': 'ai-provider',
+                'source': 'base64'
+            }
+            
+            # S3에 업로드
+            upload_result = self.s3_client.upload_file(
+                file_content=image_data,
+                key=s3_key,
+                content_type=content_type,
+                metadata=metadata
+            )
+            
+            if upload_result.get('success'):
+                stored_url = upload_result.get('url') or upload_result.get('public_url')
+                self.logger.info(f"Successfully uploaded base64 image to S3: {s3_key}")
+                return stored_url
+            else:
+                self.logger.error(f"Failed to upload base64 image: {upload_result}")
+                return base64_data
+                
+        except Exception as e:
+            self.logger.error(f"Failed to upload base64 image to S3: {str(e)}")
+            return base64_data
 
-    
     def _create_fallback_images(self, session_id: str, selected_name: str, 
                               business_info: BusinessInfo) -> List[ImageResult]:
         """폴백 이미지 생성"""
@@ -840,6 +1004,85 @@ class SignboardAgent(BaseAgent):
             "generatedAt": image_result.generated_at,
             "isFallback": image_result.is_fallback
         }
+
+
+    async def _generate_single_provider_image(self, session_id: str, selected_name: str, 
+                                            business_info: BusinessInfo, provider_name: str, 
+                                            style: str) -> Dict[str, Any]:
+        """단일 AI Provider로 이미지 생성 (Step Functions용)"""
+        try:
+            # Provider 확인
+            if provider_name not in self.ai_providers:
+                raise ValueError(f"Provider {provider_name} not available")
+            
+            provider = self.ai_providers[provider_name]
+            
+            # 이미지 생성
+            image_result = await self._generate_single_image_with_provider(
+                provider, session_id, selected_name, business_info, style
+            )
+            
+            return {
+                "success": True,
+                "provider": provider_name,
+                "style": style,
+                "image": self._image_result_to_dict(image_result),
+                "sessionId": session_id
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Failed to generate image with {provider_name}: {str(e)}")
+            
+            # 폴백 이미지 생성
+            fallback_image = self._create_single_fallback_image(session_id, selected_name, business_info, style)
+            
+            return {
+                "success": False,
+                "provider": provider_name,
+                "style": style,
+                "image": self._image_result_to_dict(fallback_image),
+                "error": str(e),
+                "sessionId": session_id
+            }
+    
+    def _merge_parallel_results(self, session_id: str, dalle_result: Dict[str, Any], 
+                              sdxl_result: Dict[str, Any], gemini_result: Dict[str, Any]) -> Dict[str, Any]:
+        """병렬 생성 결과 병합"""
+        try:
+            signboards = []
+            
+            # 각 Provider 결과 처리
+            for result in [dalle_result, sdxl_result, gemini_result]:
+                if result and 'image' in result:
+                    signboards.append(result['image'])
+            
+            # 최소 1개 이상의 이미지가 있어야 함
+            if not signboards:
+                # 모든 Provider가 실패한 경우 폴백 이미지 사용
+                fallback_images = self._create_fallback_images(session_id, "", BusinessInfo(industry="", region="", size=""))
+                signboards = [self._image_result_to_dict(img) for img in fallback_images]
+            
+            return {
+                "sessionId": session_id,
+                "signboards": signboards,
+                "totalGenerated": len(signboards),
+                "canProceed": len(signboards) > 0,
+                "message": f"{len(signboards)}개의 간판 디자인이 생성되었습니다.",
+                "providers_used": [result.get('provider') for result in [dalle_result, sdxl_result, gemini_result] if result]
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Failed to merge parallel results: {str(e)}")
+            
+            # 오류 시 기본 폴백 응답
+            return {
+                "sessionId": session_id,
+                "signboards": [],
+                "totalGenerated": 0,
+                "canProceed": False,
+                "error": str(e),
+                "message": "이미지 생성에 실패했습니다."
+            }
 
 
 # Lambda 핸들러

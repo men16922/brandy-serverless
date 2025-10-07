@@ -1,0 +1,62 @@
+{
+  "seoul": {
+    "multiplier": 1.8,
+    "description": "서울 - 전국 대비 180%",
+    "characteristics": ["높은 소득 수준", "트렌드 선도", "경쟁 치열"],
+    "population_ratio": 0.19
+  },
+  "busan": {
+    "multiplier": 0.6,
+    "description": "부산 - 전국 대비 60%",
+    "characteristics": ["항구 도시", "관광 중심", "지역 특색"],
+    "population_ratio": 0.07
+  },
+  "gyeonggi": {
+    "multiplier": 1.2,
+    "description": "경기 - 전국 대비 120%",
+    "characteristics": ["수도권", "가족 친화", "신도시 발달"],
+    "population_ratio": 0.25
+  },
+  "incheon": {
+    "multiplier": 0.4,
+    "description": "인천 - 전국 대비 40%",
+    "characteristics": ["국제 공항", "물류 중심", "신도시"],
+    "population_ratio": 0.06
+  },
+  "daegu": {
+    "multiplier": 0.3,
+    "description": "대구 - 전국 대비 30%",
+    "characteristics": ["섬유 산업", "전통 문화", "교육 도시"],
+    "population_ratio": 0.05
+  },
+  "daejeon": {
+    "multiplier": 0.2,
+    "description": "대전 - 전국 대비 20%",
+    "characteristics": ["과학 기술", "연구 중심", "대학 도시"],
+    "population_ratio": 0.03
+  },
+  "gwangju": {
+    "multiplier": 0.15,
+    "description": "광주 - 전국 대비 15%",
+    "characteristics": ["문화 예술", "민주화 성지", "광역시"],
+    "population_ratio": 0.03
+  },
+  "ulsan": {
+    "multiplier": 0.15,
+    "description": "울산 - 전국 대비 15%",
+    "characteristics": ["중공업", "석유화학", "고소득"],
+    "population_ratio": 0.02
+  },
+  "sejong": {
+    "multiplier": 0.05,
+    "description": "세종 - 전국 대비 5%",
+    "characteristics": ["행정 중심", "계획 도시", "신생 도시"],
+    "population_ratio": 0.01
+  },
+  "jeju": {
+    "multiplier": 0.08,
+    "description": "제주 - 전국 대비 8%",
+    "characteristics": ["관광 중심", "자연 친화", "특별자치도"],
+    "population_ratio": 0.01
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "restaurant": {
+    "total": "45조원",
+    "growth_rate": "연 3.2%",
+    "maturity": "성숙기",
+    "segments": {
+      "fine_dining": "8조원",
+      "casual_dining": "15조원",
+      "fast_food": "12조원",
+      "cafe": "10조원"
+    },
+    "description": "외식업계 전체 시장 규모"
+  },
+  "retail": {
+    "total": "180조원",
+    "growth_rate": "연 2.8%",
+    "maturity": "성숙기",
+    "segments": {
+      "fashion": "35조원",
+      "electronics": "25조원",
+      "grocery": "80조원",
+      "specialty": "40조원"
+    },
+    "description": "소매업계 전체 시장 규모"
+  },
+  "service": {
+    "total": "95조원",
+    "growth_rate": "연 5.1%",
+    "maturity": "성장기",
+    "segments": {
+      "professional": "30조원",
+      "personal": "25조원",
+      "business": "40조원"
+    },
+    "description": "서비스업계 전체 시장 규모"
+  },
+  "healthcare": {
+    "total": "85조원",
+    "growth_rate": "연 7.2%",
+    "maturity": "성장기",
+    "segments": {
+      "medical": "50조원",
+      "wellness": "20조원",
+      "beauty": "15조원"
+    },
+    "description": "헬스케어업계 전체 시장 규모"
+  },
+  "education": {
+    "total": "25조원",
+    "growth_rate": "연 4.5%",
+    "maturity": "성장기",
+    "segments": {
+      "private": "15조원",
+      "vocational": "6조원",
+      "online": "4조원"
+    },
+    "description": "교육업계 전체 시장 규모"
+  },
+  "technology": {
+    "total": "120조원",
+    "growth_rate": "연 12.8%",
+    "maturity": "급성장기",
+    "segments": {
+      "software": "45조원",
+      "hardware": "35조원",
+      "services": "40조원"
+    },
+    "description": "기술업계 전체 시장 규모"
+  }
+}

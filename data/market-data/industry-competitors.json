@@ -1,0 +1,116 @@
+{
+  "restaurant": {
+    "major_competitors": [
+      {"name": "프랜차이즈 A", "type": "대형 프랜차이즈", "strength": "브랜드 인지도", "market_share": "15%"},
+      {"name": "로컬 맛집 B", "type": "지역 맛집", "strength": "고객 충성도", "market_share": "8%"},
+      {"name": "체인점 C", "type": "중형 체인", "strength": "가성비", "market_share": "12%"}
+    ],
+    "market_share_distribution": {
+      "대형 프랜차이즈": "35%",
+      "중형 체인": "25%",
+      "개인 사업자": "40%"
+    },
+    "competitive_advantages": ["브랜드 인지도", "유통망", "메뉴 개발력"],
+    "competitive_threats": ["가격 경쟁", "신규 진입자", "배달 플랫폼"],
+    "entry_barriers": [
+      {"barrier": "초기 투자비", "level": "중간", "description": "인테리어, 장비 비용"},
+      {"barrier": "위치 선정", "level": "높음", "description": "임대료, 유동인구"},
+      {"barrier": "인허가", "level": "중간", "description": "영업신고, 위생허가"}
+    ]
+  },
+  "retail": {
+    "major_competitors": [
+      {"name": "대형마트 A", "type": "대형 유통업체", "strength": "규모의 경제", "market_share": "20%"},
+      {"name": "온라인몰 B", "type": "이커머스", "strength": "편의성", "market_share": "18%"},
+      {"name": "전문점 C", "type": "전문 소매", "strength": "전문성", "market_share": "10%"}
+    ],
+    "market_share_distribution": {
+      "대형 유통": "45%",
+      "온라인": "30%",
+      "전문/소형": "25%"
+    },
+    "competitive_advantages": ["유통망", "재고 관리", "고객 데이터"],
+    "competitive_threats": ["온라인 전환", "직접 판매", "새로운 플랫폼"],
+    "entry_barriers": [
+      {"barrier": "재고 투자", "level": "높음", "description": "초기 상품 구매비용"},
+      {"barrier": "유통망", "level": "높음", "description": "공급업체 확보"},
+      {"barrier": "브랜드 인지도", "level": "중간", "description": "마케팅 비용"}
+    ]
+  },
+  "service": {
+    "major_competitors": [
+      {"name": "대형 서비스업체 A", "type": "대기업", "strength": "신뢰성", "market_share": "25%"},
+      {"name": "전문 업체 B", "type": "전문 서비스", "strength": "전문성", "market_share": "20%"},
+      {"name": "개인 사업자 C", "type": "소규모", "strength": "맞춤 서비스", "market_share": "15%"}
+    ],
+    "market_share_distribution": {
+      "대기업": "40%",
+      "중견기업": "35%",
+      "소규모": "25%"
+    },
+    "competitive_advantages": ["전문성", "신뢰성", "네트워크"],
+    "competitive_threats": ["자동화", "플랫폼화", "가격 경쟁"],
+    "entry_barriers": [
+      {"barrier": "전문성", "level": "높음", "description": "자격증, 경험"},
+      {"barrier": "신뢰 구축", "level": "높음", "description": "평판, 실적"},
+      {"barrier": "초기 투자", "level": "낮음", "description": "상대적으로 적은 비용"}
+    ]
+  },
+  "healthcare": {
+    "major_competitors": [
+      {"name": "대형 병원 A", "type": "종합병원", "strength": "의료진", "market_share": "30%"},
+      {"name": "전문 클리닉 B", "type": "전문의원", "strength": "전문성", "market_share": "25%"},
+      {"name": "체인 클리닉 C", "type": "프랜차이즈", "strength": "접근성", "market_share": "15%"}
+    ],
+    "market_share_distribution": {
+      "대형 병원": "50%",
+      "전문 클리닉": "30%",
+      "일반 의원": "20%"
+    },
+    "competitive_advantages": ["의료진 전문성", "최신 장비", "시설"],
+    "competitive_threats": ["원격 의료", "AI 진단", "예방 중심"],
+    "entry_barriers": [
+      {"barrier": "면허/자격", "level": "매우 높음", "description": "의료진 확보"},
+      {"barrier": "시설 투자", "level": "매우 높음", "description": "의료장비, 시설"},
+      {"barrier": "규제 준수", "level": "매우 높음", "description": "의료법 준수"}
+    ]
+  },
+  "education": {
+    "major_competitors": [
+      {"name": "대형 학원 A", "type": "프랜차이즈", "strength": "커리큘럼", "market_share": "20%"},
+      {"name": "개인 학원 B", "type": "개인", "strength": "맞춤 교육", "market_share": "25%"},
+      {"name": "온라인 교육 C", "type": "에듀테크", "strength": "편의성", "market_share": "10%"}
+    ],
+    "market_share_distribution": {
+      "대형 학원": "40%",
+      "개인 학원": "45%",
+      "온라인": "15%"
+    },
+    "competitive_advantages": ["강사진", "커리큘럼", "성과"],
+    "competitive_threats": ["온라인 교육", "AI 튜터", "개인화 학습"],
+    "entry_barriers": [
+      {"barrier": "강사 확보", "level": "중간", "description": "우수 강사진"},
+      {"barrier": "커리큘럼", "level": "중간", "description": "교육 프로그램"},
+      {"barrier": "시설 투자", "level": "중간", "description": "교육 시설"}
+    ]
+  },
+  "technology": {
+    "major_competitors": [
+      {"name": "대기업 A", "type": "대기업", "strength": "자본력", "market_share": "25%"},
+      {"name": "스타트업 B", "type": "스타트업", "strength": "혁신성", "market_share": "15%"},
+      {"name": "외국계 C", "type": "글로벌", "strength": "기술력", "market_share": "20%"}
+    ],
+    "market_share_distribution": {
+      "대기업": "45%",
+      "중견기업": "25%",
+      "스타트업": "30%"
+    },
+    "competitive_advantages": ["기술력", "인재", "자본"],
+    "competitive_threats": ["기술 변화", "글로벌 경쟁", "오픈소스"],
+    "entry_barriers": [
+      {"barrier": "기술력", "level": "매우 높음", "description": "R&D 투자"},
+      {"barrier": "인재 확보", "level": "매우 높음", "description": "개발자, 엔지니어"},
+      {"barrier": "자본 조달", "level": "높음", "description": "개발 비용"}
+    ]
+  }
+}
