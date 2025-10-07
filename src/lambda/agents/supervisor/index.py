@@ -195,7 +195,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 except json.JSONDecodeError:
                     pass
         
-        if not session_id:
+        # Session ID is only required for non-creation requests
+        if not session_id and not (http_method == 'POST' and path == '/sessions'):
             return {
                 'statusCode': 400,
                 'headers': {'Content-Type': 'application/json'},

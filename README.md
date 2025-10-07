@@ -56,13 +56,77 @@ python scripts/initialize_interior_data.py
 cp .env.example .env
 # .env 파일을 열어서 실제 API 키로 수정하세요
 ./scripts/dev.sh test      # 테스트 실행 (29개 모두 통과)
-./scripts/dev.sh api       # API 서버 시작
+./scripts/dev.sh api       # API 서버 시작 (별도 터미널)
+./scripts/dev.sh app       # Streamlit 웹 앱 시작 (별도 터미널)
 ```
 
 ### 3. 확인
+- **웹 앱**: http://localhost:8501 (Streamlit UI)
 - **API 테스트**: http://localhost:3000
 - **데이터 확인**: http://localhost:8002 (DynamoDB Admin)
 - **파일 확인**: http://localhost:9001 (MinIO Console)
+
+## 🎨 웹 앱 사용법
+
+### 1. 서버 시작 (2개 터미널 필요)
+```bash
+# 터미널 1: API 서버
+./scripts/dev.sh api
+
+# 터미널 2: Streamlit 앱  
+./scripts/dev.sh app
+```
+
+### 2. 브라우저에서 접속
+- **웹 앱**: http://localhost:8501
+- 업종/지역/규모 선택 → 분석 시작 → 5단계 자동 진행
+
+### 3. 문제 해결
+
+#### API 연결 오류 (`HTTPConnectionPool timeout`)
+```bash
+# 1. 환경 점검
+./scripts/dev.sh validate
+
+# 2. API 서버 상태 확인
+curl http://localhost:3000/
+
+# 3. API 서버 재시작 (코드 변경 후 필수)
+./scripts/dev.sh api
+
+# 4. 전체 환경 재설정
+./scripts/dev.sh setup
+
+# 5. API 연결 테스트
+python test_streamlit_api_connection.py
+```
+
+#### 세션 생성 오류 (`Session ID is required`)
+```bash
+# SAM Local 재시작 (코드 변경사항 반영)
+# 터미널에서 Ctrl+C로 중지 후 다시 시작
+./scripts/dev.sh api
+```
+
+#### 의존성 오류
+```bash
+# 개발환경 재설정
+./scripts/activate-dev.sh
+
+# 수동 설치
+source venv/bin/activate
+pip install -r src/streamlit/requirements.txt
+```
+
+#### 포트 충돌
+```bash
+# 포트 사용 확인
+lsof -i :3000,8501,8000,9000
+
+# 프로세스 종료 후 재시작
+./scripts/dev.sh cleanup
+./scripts/dev.sh setup
+```
 
 ## 🧪 테스트 (실제 DB 사용)
 
