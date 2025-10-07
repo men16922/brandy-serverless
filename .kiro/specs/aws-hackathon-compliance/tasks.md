@@ -126,7 +126,7 @@
   - _Requirements: 2.3, 2.5_
   - _기존 코드: BaseAgent.update_session_data() 활용_
 
-- [ ] 8. Supervisor Agent에 AgentCore 통합
+- [x] 8. Supervisor Agent에 AgentCore 통합
   - `src/lambda/agents/supervisor/index.py` 수정:
     - AgentCoreOrchestrator 인스턴스 생성
     - 환경 변수 `USE_AGENTCORE` 확인 (true/false)

@@ -489,6 +489,16 @@ class AgentCommunication:
             Agent execution result
         """
         try:
+            # Check if we should use mock responses for local testing
+            use_mock = os.getenv('USE_MOCK_AGENTS', 'false').lower() == 'true'
+            
+            if use_mock and self.environment == 'local':
+                self.logger.info(
+                    f"Mock: Using mock response for agent '{agent_name}' "
+                    f"(local testing mode)"
+                )
+                return self._get_mock_agent_response(agent_name, input_data, session_id)
+            
             # Get Lambda function name from environment
             function_name = os.getenv(
                 f'{agent_name.upper()}_FUNCTION_NAME',
@@ -532,6 +542,104 @@ class AgentCommunication:
                 f"Lambda invocation failed for '{agent_name}': {str(e)}"
             )
             raise
+    
+    def _get_mock_agent_response(
+        self,
+        agent_name: str,
+        input_data: Dict[str, Any],
+        session_id: Optional[str]
+    ) -> Dict[str, Any]:
+        """
+        Generate mock agent response for local testing.
+        
+        Args:
+            agent_name: Name of agent
+            input_data: Input data
+            session_id: Session ID
+        
+        Returns:
+            Mock agent response
+        """
+        mock_responses = {
+            'product_insight': {
+                'status': 'success',
+                'result': {
+                    'summary': 'Mock restaurant analysis for Seoul',
+                    'score': 85.5,
+                    'insights': [
+                        'High competition in Seoul restaurant market',
+                        'Growing demand for healthy food options',
+                        'Small size suitable for niche market'
+                    ],
+                    'recommendations': [
+                        'Focus on unique healthy menu items',
+                        'Target health-conscious customers',
+                        'Consider delivery partnerships'
+                    ]
+                },
+                'latency_ms': 100
+            },
+            'market_analyst': {
+                'status': 'success',
+                'result': {
+                    'market_trends': [
+                        'Plant-based food trend',
+                        'Local sourcing preference',
+                        'Instagram-worthy presentation'
+                    ],
+                    'competition_level': 'medium',
+                    'target_demographics': ['20-40 age group', 'Health-conscious', 'Urban professionals']
+                },
+                'latency_ms': 150
+            },
+            'reporter': {
+                'status': 'success',
+                'result': {
+                    'suggestions': [
+                        {'name': 'GreenLeaf', 'score': 92.5, 'description': 'Fresh and natural'},
+                        {'name': 'HealthyBite', 'score': 88.0, 'description': 'Nutritious meals'},
+                        {'name': 'FreshTable', 'score': 85.5, 'description': 'Farm to table'}
+                    ]
+                },
+                'latency_ms': 200
+            },
+            'signboard': {
+                'status': 'success',
+                'result': {
+                    'images': [
+                        {'url': 'mock://signboard1.png', 'provider': 'mock', 'style': 'modern'},
+                        {'url': 'mock://signboard2.png', 'provider': 'mock', 'style': 'classic'},
+                        {'url': 'mock://signboard3.png', 'provider': 'mock', 'style': 'minimalist'}
+                    ]
+                },
+                'latency_ms': 300
+            },
+            'interior': {
+                'status': 'success',
+                'result': {
+                    'designs': [
+                        {'style': 'Scandinavian', 'description': 'Clean and bright'},
+                        {'style': 'Industrial', 'description': 'Urban and modern'},
+                        {'style': 'Natural', 'description': 'Organic materials'}
+                    ]
+                },
+                'latency_ms': 250
+            },
+            'report_generator': {
+                'status': 'success',
+                'result': {
+                    'report_path': 'mock://report.pdf',
+                    'format': 'pdf'
+                },
+                'latency_ms': 400
+            }
+        }
+        
+        return mock_responses.get(agent_name, {
+            'status': 'success',
+            'result': {'message': f'Mock response for {agent_name}'},
+            'latency_ms': 100
+        })
     
     def parse_tool_result(
         self,
