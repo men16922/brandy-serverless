@@ -93,7 +93,7 @@
 
 ### 🤖 Phase 2: Bedrock AgentCore 통합 (Week 1-2)
 
-- [ ] 5. AgentCore Orchestrator 클래스 구현
+- [x] 5. AgentCore Orchestrator 클래스 구현
   - `src/lambda/agents/supervisor/agentcore_orchestrator.py` 생성
   - `AgentCoreOrchestrator` 클래스 구현:
     - `__init__()` - BedrockClient 초기화, Agent ID/Alias 설정
