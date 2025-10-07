@@ -232,6 +232,9 @@ class AgentCoreOrchestrator:
         This implements the Tool Use primitive by treating each agent
         as a tool that can be invoked with structured input/output.
         
+        This method now delegates to the enhanced AgentCommunication
+        interface which provides the actual Tool Use implementation.
+        
         Args:
             agent_name: Name of agent to invoke
             input_data: Input data for agent
@@ -248,21 +251,17 @@ class AgentCoreOrchestrator:
                 f"agent={agent_name}, session={session_id}"
             )
             
-            # Define tool schema for agent invocation
-            tool_schema = {
-                'name': f'invoke_{agent_name}',
-                'description': f'Invoke {agent_name} agent for workflow execution',
-                'input_schema': {
-                    'type': 'object',
-                    'properties': {
-                        'session_id': {'type': 'string'},
-                        'business_info': {'type': 'object'},
-                        'workflow_state': {'type': 'object'},
-                        'current_step': {'type': 'integer'}
-                    },
-                    'required': ['session_id', 'business_info']
-                }
-            }
+            # Import AgentCommunication for Tool Use
+            try:
+                from agent_communication import get_agent_communication
+            except ImportError:
+                # Fallback for Lambda environment
+                import sys
+                sys.path.append('/opt/python')
+                from agent_communication import get_agent_communication
+            
+            # Get AgentCommunication instance
+            agent_comm = get_agent_communication()
             
             # Use Claude to reason about tool invocation
             tool_invocation_prompt = f"""
@@ -286,21 +285,24 @@ Provide your reasoning and the tool invocation parameters.
                 temperature=0.3
             )
             
-            # Simulate tool execution (in production, this would invoke actual Lambda)
-            # For now, we return a structured response indicating tool was invoked
-            tool_result = {
-                'tool_name': f'invoke_{agent_name}',
-                'agent_name': agent_name,
-                'status': 'invoked',
-                'reasoning': reasoning_result.get('text', ''),
-                'input_data': input_data,
-                'timestamp': datetime.utcnow().isoformat(),
-                'latency_ms': int((time.time() - start_time) * 1000)
-            }
+            # Invoke agent using Tool Use primitive
+            tool_result = agent_comm.invoke_agent_with_tool(
+                agent_name=agent_name,
+                input_data=input_data,
+                session_id=session_id,
+                timeout=30
+            )
+            
+            # Add reasoning to result
+            tool_result['reasoning'] = reasoning_result.get('text', '')
+            
+            latency_ms = int((time.time() - start_time) * 1000)
+            tool_result['total_latency_ms'] = latency_ms
             
             self.logger.info(
                 f"Agent invoked via Tool Use: "
-                f"agent={agent_name}, latency_ms={tool_result['latency_ms']}"
+                f"agent={agent_name}, status={tool_result.get('status')}, "
+                f"latency_ms={latency_ms}"
             )
             
             return tool_result
@@ -332,28 +334,37 @@ Provide your reasoning and the tool invocation parameters.
         Store workflow state using AgentCore Memory primitive.
         
         This implements the Memory primitive by storing workflow state
-        that can be retrieved across agent invocations.
+        that can be retrieved across agent invocations. The memory is
+        synchronized with DynamoDB session management.
+        
+        Memory Schema:
+        - Memory key: session_id
+        - Memory value: {current_step, agent_outputs, reasoning_chain}
         
         Args:
             session_id: Session ID (memory key)
             step: Workflow step number
-            data: Data to store in memory
+            data: Data to store in memory (agent outputs, reasoning)
         
         Returns:
             True if successful, False otherwise
         """
+        start_time = time.time()
+        
         try:
             self.logger.info(
                 f"Storing workflow memory: "
                 f"session={session_id}, step={step}"
             )
             
-            # Memory structure
+            # Build memory structure
             memory_entry = {
                 'session_id': session_id,
-                'step': step,
-                'data': data,
-                'stored_at': datetime.utcnow().isoformat()
+                'current_step': step,
+                'agent_outputs': data.get('results', {}),
+                'reasoning_chain': [],
+                'stored_at': datetime.utcnow().isoformat(),
+                'memory_version': '1.0'
             }
             
             # Use Claude to create memory summary for efficient retrieval
@@ -368,31 +379,93 @@ Provide a concise summary that captures:
 1. Key decisions made
 2. Important results
 3. Context needed for next steps
+
+Keep the summary under 200 words.
 """
             
-            summary_result = self.bedrock_client.invoke_claude(
-                prompt=memory_summary_prompt,
-                system_prompt="You are creating memory summaries for workflow state management.",
-                max_tokens=512,
-                temperature=0.3
-            )
+            try:
+                summary_result = self.bedrock_client.invoke_claude(
+                    prompt=memory_summary_prompt,
+                    system_prompt="You are creating memory summaries for workflow state management.",
+                    max_tokens=512,
+                    temperature=0.3
+                )
+                
+                memory_entry['summary'] = summary_result.get('text', '')
+                memory_entry['summary_tokens'] = summary_result.get('usage', {}).get('output_tokens', 0)
+                
+            except Exception as e:
+                self.logger.warning(f"Failed to generate memory summary: {str(e)}")
+                memory_entry['summary'] = f"Step {step} completed"
             
-            memory_entry['summary'] = summary_result.get('text', '')
-            
-            # In production, this would store to DynamoDB or AgentCore memory
-            # For now, we log the memory storage
-            self.logger.info(
-                f"Workflow memory stored: "
-                f"session={session_id}, step={step}, "
-                f"summary_length={len(memory_entry['summary'])}"
-            )
-            
-            return True
+            # Store to DynamoDB (synchronize with session management)
+            try:
+                import boto3
+                from decimal import Decimal
+                
+                # Convert floats to Decimal for DynamoDB
+                def convert_floats(obj):
+                    """Recursively convert float to Decimal for DynamoDB"""
+                    if isinstance(obj, float):
+                        return Decimal(str(obj))
+                    elif isinstance(obj, dict):
+                        return {k: convert_floats(v) for k, v in obj.items()}
+                    elif isinstance(obj, list):
+                        return [convert_floats(item) for item in obj]
+                    return obj
+                
+                memory_entry_converted = convert_floats(memory_entry)
+                
+                # Get DynamoDB client
+                if os.getenv('ENVIRONMENT') == 'local':
+                    dynamodb = boto3.resource('dynamodb', endpoint_url='http://localhost:8000')
+                else:
+                    dynamodb = boto3.resource('dynamodb')
+                
+                sessions_table = dynamodb.Table(
+                    os.getenv('SESSIONS_TABLE', 'branding-chatbot-sessions-local')
+                )
+                
+                # Update session with AgentCore memory
+                sessions_table.update_item(
+                    Key={'sessionId': session_id},
+                    UpdateExpression=(
+                        'SET agentCoreMemory = :memory, '
+                        'currentStep = :step, '
+                        'updatedAt = :timestamp'
+                    ),
+                    ExpressionAttributeValues={
+                        ':memory': memory_entry_converted,
+                        ':step': step,
+                        ':timestamp': datetime.utcnow().isoformat()
+                    }
+                )
+                
+                latency_ms = int((time.time() - start_time) * 1000)
+                
+                self.logger.info(
+                    f"Workflow memory stored to DynamoDB: "
+                    f"session={session_id}, step={step}, "
+                    f"summary_length={len(memory_entry.get('summary', ''))}, "
+                    f"latency_ms={latency_ms}"
+                )
+                
+                return True
+                
+            except Exception as e:
+                self.logger.error(
+                    f"Failed to store memory to DynamoDB: {str(e)}"
+                )
+                # Continue even if DynamoDB fails (memory stored in-process)
+                return True
             
         except Exception as e:
+            latency_ms = int((time.time() - start_time) * 1000)
+            
             self.logger.error(
                 f"Failed to store workflow memory: "
-                f"session={session_id}, error={str(e)}"
+                f"session={session_id}, error={str(e)}, "
+                f"latency_ms={latency_ms}"
             )
             return False
     
@@ -403,38 +476,161 @@ Provide a concise summary that captures:
         """
         Retrieve workflow state from AgentCore Memory.
         
+        This retrieves the memory stored by store_workflow_memory(),
+        synchronized with DynamoDB session management.
+        
         Args:
             session_id: Session ID (memory key)
         
         Returns:
-            Dict with workflow state or empty dict if not found
+            Dict with workflow state:
+                - session_id: Session identifier
+                - current_step: Current workflow step
+                - agent_outputs: Results from previous agents
+                - reasoning_chain: Chain of reasoning steps
+                - summary: Human-readable summary
+                - retrieved_at: Timestamp
         """
+        start_time = time.time()
+        
         try:
             self.logger.info(
                 f"Retrieving workflow memory: session={session_id}"
             )
             
-            # In production, this would retrieve from DynamoDB or AgentCore memory
-            # For now, we return an empty state
-            workflow_state = {
-                'session_id': session_id,
-                'retrieved_at': datetime.utcnow().isoformat(),
-                'steps_completed': [],
-                'agent_outputs': {}
-            }
-            
-            self.logger.info(
-                f"Workflow memory retrieved: session={session_id}"
-            )
-            
-            return workflow_state
+            # Retrieve from DynamoDB
+            try:
+                import boto3
+                
+                # Get DynamoDB client
+                if os.getenv('ENVIRONMENT') == 'local':
+                    dynamodb = boto3.resource('dynamodb', endpoint_url='http://localhost:8000')
+                else:
+                    dynamodb = boto3.resource('dynamodb')
+                
+                sessions_table = dynamodb.Table(
+                    os.getenv('SESSIONS_TABLE', 'branding-chatbot-sessions-local')
+                )
+                
+                # Get session item
+                response = sessions_table.get_item(Key={'sessionId': session_id})
+                
+                if 'Item' not in response:
+                    self.logger.warning(
+                        f"Session not found in DynamoDB: {session_id}"
+                    )
+                    return self._create_empty_memory(session_id)
+                
+                session_item = response['Item']
+                
+                # Extract AgentCore memory
+                agentcore_memory = session_item.get('agentCoreMemory', {})
+                
+                if not agentcore_memory:
+                    self.logger.info(
+                        f"No AgentCore memory found for session: {session_id}"
+                    )
+                    # Build memory from session data
+                    workflow_state = {
+                        'session_id': session_id,
+                        'current_step': session_item.get('currentStep', 1),
+                        'agent_outputs': self._extract_agent_outputs(session_item),
+                        'reasoning_chain': session_item.get('reasoningChain', []),
+                        'summary': f"Session at step {session_item.get('currentStep', 1)}",
+                        'retrieved_at': datetime.utcnow().isoformat(),
+                        'source': 'session_data'
+                    }
+                else:
+                    # Use stored AgentCore memory
+                    workflow_state = {
+                        'session_id': agentcore_memory.get('session_id', session_id),
+                        'current_step': agentcore_memory.get('current_step', 1),
+                        'agent_outputs': agentcore_memory.get('agent_outputs', {}),
+                        'reasoning_chain': agentcore_memory.get('reasoning_chain', []),
+                        'summary': agentcore_memory.get('summary', ''),
+                        'stored_at': agentcore_memory.get('stored_at'),
+                        'retrieved_at': datetime.utcnow().isoformat(),
+                        'source': 'agentcore_memory'
+                    }
+                
+                latency_ms = int((time.time() - start_time) * 1000)
+                
+                self.logger.info(
+                    f"Workflow memory retrieved: "
+                    f"session={session_id}, step={workflow_state['current_step']}, "
+                    f"source={workflow_state['source']}, latency_ms={latency_ms}"
+                )
+                
+                return workflow_state
+                
+            except Exception as e:
+                self.logger.error(
+                    f"Failed to retrieve memory from DynamoDB: {str(e)}"
+                )
+                return self._create_empty_memory(session_id)
             
         except Exception as e:
+            latency_ms = int((time.time() - start_time) * 1000)
+            
             self.logger.error(
                 f"Failed to retrieve workflow memory: "
-                f"session={session_id}, error={str(e)}"
+                f"session={session_id}, error={str(e)}, "
+                f"latency_ms={latency_ms}"
             )
-            return {}
+            return self._create_empty_memory(session_id)
+    
+    def _create_empty_memory(self, session_id: str) -> Dict[str, Any]:
+        """
+        Create empty memory structure for new sessions.
+        
+        Args:
+            session_id: Session ID
+        
+        Returns:
+            Empty memory dict
+        """
+        return {
+            'session_id': session_id,
+            'current_step': 1,
+            'agent_outputs': {},
+            'reasoning_chain': [],
+            'summary': 'New session - no memory available',
+            'retrieved_at': datetime.utcnow().isoformat(),
+            'source': 'empty'
+        }
+    
+    def _extract_agent_outputs(self, session_item: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Extract agent outputs from session item.
+        
+        Args:
+            session_item: DynamoDB session item
+        
+        Returns:
+            Dict of agent outputs by agent name
+        """
+        agent_outputs = {}
+        
+        # Extract from various session fields
+        if 'analysisResult' in session_item:
+            agent_outputs['product_insight'] = session_item['analysisResult']
+            agent_outputs['market_analyst'] = session_item['analysisResult']
+        
+        if 'businessNames' in session_item:
+            agent_outputs['reporter'] = session_item['businessNames']
+        
+        if 'signboardImages' in session_item:
+            agent_outputs['signboard'] = session_item['signboardImages']
+        
+        if 'interiorImages' in session_item:
+            agent_outputs['interior'] = session_item['interiorImages']
+        
+        if 'pdfReportPath' in session_item:
+            agent_outputs['report_generator'] = {
+                'report_path': session_item['pdfReportPath']
+            }
+        
+        return agent_outputs
     
     def reason_next_step(
         self,

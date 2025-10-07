@@ -1,11 +1,13 @@
 # Agent Communication Interface
 # Agent 간 메시지 전송, Supervisor Agent 상태 브로드캐스트
+# Enhanced with Bedrock AgentCore Tool Use primitive support
 
 import json
 import boto3
 import logging
+import time
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import os
 
 class AgentCommunication:
@@ -20,19 +22,26 @@ class AgentCommunication:
         self.supervisor_queue_url = os.getenv('SUPERVISOR_QUEUE_URL')
         self.agent_communication_topic = os.getenv('AGENT_COMMUNICATION_TOPIC')
         
+        # AgentCore Tool Use configuration
+        self.use_agentcore = os.getenv('USE_AGENTCORE', 'false').lower() == 'true'
+        self.bedrock_agent_id = os.getenv('BEDROCK_AGENT_ID')
+        self.bedrock_agent_alias_id = os.getenv('BEDROCK_AGENT_ALIAS_ID', 'TSTALIASID')
+        
     def _get_aws_clients(self):
         """AWS 클라이언트 초기화"""
         if self.environment == 'local':
             return {
                 'sqs': boto3.client('sqs', endpoint_url='http://localhost:9324'),
                 'sns': boto3.client('sns', endpoint_url='http://localhost:4566'),
-                'dynamodb': boto3.resource('dynamodb', endpoint_url='http://localhost:8000')
+                'dynamodb': boto3.resource('dynamodb', endpoint_url='http://localhost:8000'),
+                'bedrock_agent_runtime': boto3.client('bedrock-agent-runtime')  # No local endpoint
             }
         else:
             return {
                 'sqs': boto3.client('sqs'),
                 'sns': boto3.client('sns'),
-                'dynamodb': boto3.resource('dynamodb')
+                'dynamodb': boto3.resource('dynamodb'),
+                'bedrock_agent_runtime': boto3.client('bedrock-agent-runtime')
             }
     
     def send_to_supervisor(self, agent_id: str, status: str, result: Any, session_id: str = None):
@@ -223,6 +232,499 @@ class AgentCommunication:
             
         except Exception as e:
             self.logger.error(f"Failed to update agent status: {str(e)}")
+    
+    # ========================================================================
+    # AgentCore Tool Use Primitive Implementation (Requirement 2.2, 2.3)
+    # ========================================================================
+    
+    def invoke_agent_with_tool(
+        self,
+        agent_name: str,
+        input_data: Dict[str, Any],
+        session_id: Optional[str] = None,
+        timeout: int = 30
+    ) -> Dict[str, Any]:
+        """
+        Invoke agent using AgentCore Tool Use primitive.
+        
+        This implements the Tool Use primitive by treating each agent
+        as a tool that can be invoked with structured input/output.
+        
+        Tool Schema:
+        - Tool name: "invoke_agent"
+        - Input schema: {agent_name, input_data, session_id}
+        - Output schema: {result, status, latency_ms}
+        
+        Args:
+            agent_name: Name of agent to invoke (e.g., "reporter", "signboard")
+            input_data: Input data for agent execution
+            session_id: Session ID for tracking and context
+            timeout: Maximum execution time in seconds
+        
+        Returns:
+            Dict with:
+                - result: Agent execution result
+                - status: 'success', 'error', or 'timeout'
+                - latency_ms: Execution time in milliseconds
+                - agent_name: Name of invoked agent
+                - session_id: Session ID
+                - timestamp: ISO timestamp
+        
+        Raises:
+            ValueError: If agent_name is invalid
+            TimeoutError: If execution exceeds timeout
+        """
+        start_time = time.time()
+        
+        try:
+            # Validate agent name
+            valid_agents = [
+                'supervisor', 'product_insight', 'market_analyst',
+                'reporter', 'signboard', 'interior', 'report_generator'
+            ]
+            
+            if agent_name not in valid_agents:
+                raise ValueError(
+                    f"Invalid agent name: {agent_name}. "
+                    f"Valid agents: {', '.join(valid_agents)}"
+                )
+            
+            self.logger.info(
+                f"Tool Use: Invoking agent '{agent_name}' "
+                f"(session={session_id}, use_agentcore={self.use_agentcore})"
+            )
+            
+            # Define tool invocation schema
+            tool_invocation = {
+                'tool_name': 'invoke_agent',
+                'tool_version': '1.0',
+                'input_schema': {
+                    'agent_name': agent_name,
+                    'input_data': input_data,
+                    'session_id': session_id,
+                    'timestamp': datetime.utcnow().isoformat()
+                },
+                'output_schema': {
+                    'result': None,
+                    'status': 'pending',
+                    'latency_ms': 0
+                }
+            }
+            
+            # Execute agent invocation
+            if self.use_agentcore and self.bedrock_agent_id:
+                # Use Bedrock AgentCore for invocation
+                result = self._invoke_via_agentcore(
+                    agent_name=agent_name,
+                    input_data=input_data,
+                    session_id=session_id,
+                    timeout=timeout
+                )
+            else:
+                # Fallback to direct Lambda invocation
+                result = self._invoke_via_lambda(
+                    agent_name=agent_name,
+                    input_data=input_data,
+                    session_id=session_id,
+                    timeout=timeout
+                )
+            
+            latency_ms = int((time.time() - start_time) * 1000)
+            
+            # Build tool output
+            tool_output = {
+                'result': result,
+                'status': 'success',
+                'latency_ms': latency_ms,
+                'agent_name': agent_name,
+                'session_id': session_id,
+                'timestamp': datetime.utcnow().isoformat(),
+                'invocation_method': 'agentcore' if self.use_agentcore else 'lambda'
+            }
+            
+            # Log tool execution
+            self._log_tool_execution(
+                tool_name='invoke_agent',
+                agent_name=agent_name,
+                session_id=session_id,
+                latency_ms=latency_ms,
+                status='success'
+            )
+            
+            self.logger.info(
+                f"Tool Use: Agent '{agent_name}' invoked successfully "
+                f"(latency_ms={latency_ms})"
+            )
+            
+            return tool_output
+            
+        except TimeoutError as e:
+            latency_ms = int((time.time() - start_time) * 1000)
+            
+            self.logger.error(
+                f"Tool Use: Agent '{agent_name}' timed out "
+                f"(timeout={timeout}s, latency_ms={latency_ms})"
+            )
+            
+            return {
+                'result': None,
+                'status': 'timeout',
+                'latency_ms': latency_ms,
+                'agent_name': agent_name,
+                'session_id': session_id,
+                'error': str(e),
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            
+        except Exception as e:
+            latency_ms = int((time.time() - start_time) * 1000)
+            
+            self.logger.error(
+                f"Tool Use: Agent '{agent_name}' failed: {str(e)} "
+                f"(latency_ms={latency_ms})"
+            )
+            
+            # Log tool execution failure
+            self._log_tool_execution(
+                tool_name='invoke_agent',
+                agent_name=agent_name,
+                session_id=session_id,
+                latency_ms=latency_ms,
+                status='error',
+                error_message=str(e)
+            )
+            
+            return {
+                'result': None,
+                'status': 'error',
+                'latency_ms': latency_ms,
+                'agent_name': agent_name,
+                'session_id': session_id,
+                'error': str(e),
+                'timestamp': datetime.utcnow().isoformat()
+            }
+    
+    def _invoke_via_agentcore(
+        self,
+        agent_name: str,
+        input_data: Dict[str, Any],
+        session_id: Optional[str],
+        timeout: int
+    ) -> Dict[str, Any]:
+        """
+        Invoke agent via Bedrock AgentCore.
+        
+        This uses the Bedrock Agent Runtime API to invoke agents
+        through the AgentCore orchestration layer.
+        
+        Args:
+            agent_name: Name of agent to invoke
+            input_data: Input data for agent
+            session_id: Session ID
+            timeout: Timeout in seconds
+        
+        Returns:
+            Agent execution result
+        """
+        try:
+            # Build AgentCore invocation request
+            request = {
+                'agentId': self.bedrock_agent_id,
+                'agentAliasId': self.bedrock_agent_alias_id,
+                'sessionId': session_id or f"session-{datetime.utcnow().timestamp()}",
+                'inputText': json.dumps({
+                    'action': 'invoke_agent',
+                    'agent_name': agent_name,
+                    'input_data': input_data
+                })
+            }
+            
+            self.logger.info(
+                f"AgentCore: Invoking agent '{agent_name}' via Bedrock "
+                f"(agent_id={self.bedrock_agent_id})"
+            )
+            
+            # Invoke Bedrock Agent
+            response = self.aws_clients['bedrock_agent_runtime'].invoke_agent(**request)
+            
+            # Parse streaming response
+            result_text = ""
+            for event in response.get('completion', []):
+                if 'chunk' in event:
+                    chunk = event['chunk']
+                    if 'bytes' in chunk:
+                        result_text += chunk['bytes'].decode('utf-8')
+            
+            # Parse result
+            try:
+                result = json.loads(result_text) if result_text else {}
+            except json.JSONDecodeError:
+                result = {'text': result_text}
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(
+                f"AgentCore invocation failed for '{agent_name}': {str(e)}"
+            )
+            raise
+    
+    def _invoke_via_lambda(
+        self,
+        agent_name: str,
+        input_data: Dict[str, Any],
+        session_id: Optional[str],
+        timeout: int
+    ) -> Dict[str, Any]:
+        """
+        Invoke agent via direct Lambda invocation (fallback).
+        
+        Args:
+            agent_name: Name of agent to invoke
+            input_data: Input data for agent
+            session_id: Session ID
+            timeout: Timeout in seconds
+        
+        Returns:
+            Agent execution result
+        """
+        try:
+            # Get Lambda function name from environment
+            function_name = os.getenv(
+                f'{agent_name.upper()}_FUNCTION_NAME',
+                f'branding-chatbot-{agent_name}-{self.environment}'
+            )
+            
+            self.logger.info(
+                f"Lambda: Invoking agent '{agent_name}' "
+                f"(function={function_name})"
+            )
+            
+            # Build Lambda payload
+            payload = {
+                'action': 'execute',
+                'agent_name': agent_name,
+                'input_data': input_data,
+                'session_id': session_id
+            }
+            
+            # Invoke Lambda function
+            lambda_client = boto3.client('lambda')
+            response = lambda_client.invoke(
+                FunctionName=function_name,
+                InvocationType='RequestResponse',
+                Payload=json.dumps(payload)
+            )
+            
+            # Parse response
+            response_payload = json.loads(response['Payload'].read())
+            
+            # Check for Lambda errors
+            if 'FunctionError' in response:
+                raise Exception(
+                    f"Lambda function error: {response_payload.get('errorMessage')}"
+                )
+            
+            return response_payload
+            
+        except Exception as e:
+            self.logger.error(
+                f"Lambda invocation failed for '{agent_name}': {str(e)}"
+            )
+            raise
+    
+    def parse_tool_result(
+        self,
+        tool_output: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Parse and validate tool execution result.
+        
+        This ensures the tool output conforms to the expected schema
+        and extracts key information for downstream processing.
+        
+        Args:
+            tool_output: Raw tool execution output
+        
+        Returns:
+            Parsed and validated result with:
+                - success: Boolean indicating success
+                - data: Extracted result data
+                - error: Error message if failed
+                - metadata: Additional metadata
+        """
+        try:
+            # Validate required fields
+            required_fields = ['status', 'agent_name', 'latency_ms']
+            missing_fields = [
+                field for field in required_fields
+                if field not in tool_output
+            ]
+            
+            if missing_fields:
+                raise ValueError(
+                    f"Tool output missing required fields: {', '.join(missing_fields)}"
+                )
+            
+            # Extract status
+            status = tool_output.get('status')
+            success = status == 'success'
+            
+            # Extract result data
+            result_data = tool_output.get('result', {})
+            
+            # Build parsed result
+            parsed = {
+                'success': success,
+                'data': result_data,
+                'error': tool_output.get('error'),
+                'metadata': {
+                    'agent_name': tool_output.get('agent_name'),
+                    'session_id': tool_output.get('session_id'),
+                    'latency_ms': tool_output.get('latency_ms'),
+                    'timestamp': tool_output.get('timestamp'),
+                    'invocation_method': tool_output.get('invocation_method')
+                }
+            }
+            
+            self.logger.info(
+                f"Tool result parsed: agent={parsed['metadata']['agent_name']}, "
+                f"success={success}, latency_ms={parsed['metadata']['latency_ms']}"
+            )
+            
+            return parsed
+            
+        except Exception as e:
+            self.logger.error(f"Failed to parse tool result: {str(e)}")
+            
+            return {
+                'success': False,
+                'data': None,
+                'error': f"Tool result parsing failed: {str(e)}",
+                'metadata': {}
+            }
+    
+    def handle_tool_error(
+        self,
+        tool_output: Dict[str, Any],
+        retry_count: int = 0,
+        max_retries: int = 3
+    ) -> Dict[str, Any]:
+        """
+        Handle tool execution errors with retry logic.
+        
+        Args:
+            tool_output: Failed tool execution output
+            retry_count: Current retry attempt
+            max_retries: Maximum retry attempts
+        
+        Returns:
+            Dict with error handling decision:
+                - should_retry: Boolean
+                - retry_delay: Delay before retry (seconds)
+                - fallback_action: Alternative action if retries exhausted
+        """
+        try:
+            status = tool_output.get('status')
+            error = tool_output.get('error', '')
+            agent_name = tool_output.get('agent_name')
+            
+            self.logger.warning(
+                f"Tool error for agent '{agent_name}': status={status}, "
+                f"error={error}, retry_count={retry_count}/{max_retries}"
+            )
+            
+            # Determine if error is retryable
+            retryable_errors = [
+                'timeout', 'throttling', 'service_unavailable',
+                'connection_error', 'temporary_failure'
+            ]
+            
+            is_retryable = (
+                status in ['timeout', 'error'] and
+                any(err_type in error.lower() for err_type in retryable_errors)
+            )
+            
+            should_retry = is_retryable and retry_count < max_retries
+            
+            # Calculate retry delay (exponential backoff)
+            retry_delay = 2 ** retry_count if should_retry else 0
+            
+            # Determine fallback action
+            if not should_retry:
+                if retry_count >= max_retries:
+                    fallback_action = 'use_cached_result'
+                elif status == 'timeout':
+                    fallback_action = 'skip_agent'
+                else:
+                    fallback_action = 'request_human_intervention'
+            else:
+                fallback_action = None
+            
+            decision = {
+                'should_retry': should_retry,
+                'retry_delay': retry_delay,
+                'fallback_action': fallback_action,
+                'retry_count': retry_count,
+                'max_retries': max_retries,
+                'error_type': status,
+                'is_retryable': is_retryable
+            }
+            
+            self.logger.info(
+                f"Tool error handling decision: should_retry={should_retry}, "
+                f"retry_delay={retry_delay}s, fallback_action={fallback_action}"
+            )
+            
+            return decision
+            
+        except Exception as e:
+            self.logger.error(f"Failed to handle tool error: {str(e)}")
+            
+            return {
+                'should_retry': False,
+                'retry_delay': 0,
+                'fallback_action': 'request_human_intervention',
+                'error': str(e)
+            }
+    
+    def _log_tool_execution(
+        self,
+        tool_name: str,
+        agent_name: str,
+        session_id: Optional[str],
+        latency_ms: int,
+        status: str,
+        error_message: Optional[str] = None
+    ) -> None:
+        """
+        Log tool execution with structured data.
+        
+        Args:
+            tool_name: Name of tool executed
+            agent_name: Name of agent invoked
+            session_id: Session ID
+            latency_ms: Execution latency
+            status: 'success' or 'error'
+            error_message: Error message if failed
+        """
+        log_data = {
+            'tool_execution': tool_name,
+            'agent_name': agent_name,
+            'session_id': session_id,
+            'latency_ms': latency_ms,
+            'status': status,
+            'timestamp': datetime.utcnow().isoformat(),
+            'use_agentcore': self.use_agentcore
+        }
+        
+        if error_message:
+            log_data['error_message'] = error_message
+        
+        if status == 'error':
+            self.logger.error(f"Tool execution failed: {json.dumps(log_data)}")
+        else:
+            self.logger.info(f"Tool execution succeeded: {json.dumps(log_data)}")
 
 # 전역 인스턴스 (Lambda 재사용을 위해)
 _agent_comm_instance = None

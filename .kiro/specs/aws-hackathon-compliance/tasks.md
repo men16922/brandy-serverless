@@ -105,7 +105,7 @@
   - _Requirements: 2.1, 2.2_
   - _기존 코드: BaseAgent 패턴, agent_communication.py 참고_
 
-- [ ] 6. Tool Use primitive 구현
+- [x] 6. Tool Use primitive 구현
   - Agent 간 통신을 위한 Tool Use 스키마 정의:
     - Tool name: "invoke_agent"
     - Input schema: {agent_name, input_data, session_id}
@@ -116,7 +116,7 @@
   - _Requirements: 2.2, 2.3_
   - _기존 코드: src/lambda/shared/agent_communication.py 확장_
 
-- [ ] 7. Memory primitive 구현
+- [x] 7. Memory primitive 구현
   - 워크플로 상태 저장을 위한 Memory 스키마 정의:
     - Memory key: session_id
     - Memory value: {current_step, agent_outputs, reasoning_chain}
