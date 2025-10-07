@@ -42,7 +42,7 @@
 
 ### 🎯 Phase 1: Bedrock 통합 기반 구축 (Week 1)
 
-- [ ] 1. Bedrock 클라이언트 모듈 구현
+- [x] 1. Bedrock 클라이언트 모듈 구현
   - `src/lambda/shared/bedrock_client.py` 파일 생성
   - `BedrockClient` 클래스 구현:
     - `invoke_claude()` - Claude 3.5 Sonnet 호출 (reasoning, text generation)
@@ -54,7 +54,7 @@
   - _Requirements: 1.1, 1.2, 1.7_
   - _기존 코드: BaseAgent 클래스 패턴 참고_
 
-- [ ] 2. Bedrock IAM 정책 및 환경 설정
+- [x] 2. Bedrock IAM 정책 및 환경 설정
   - `template.yaml`에 Bedrock IAM 정책 추가:
     - bedrock:InvokeModel (Claude, SDXL)
     - bedrock:Retrieve (Knowledge Base)
@@ -69,7 +69,7 @@
   - _Requirements: 1.1, 6.5_
   - _기존 코드: template.yaml Globals 섹션 확장_
 
-- [ ] 3. Bedrock 검증 스크립트 작성
+- [x] 3. Bedrock 검증 스크립트 작성
   - `scripts/verify-bedrock-setup.sh` 생성:
     - `aws bedrock list-foundation-models --region us-east-1` 실행
     - Claude, SDXL 모델 가용성 확인
@@ -80,7 +80,7 @@
   - _Requirements: 1.1, 7.2_
   - _기존 코드: scripts/setup-local.sh 패턴 참고_
 
-- [ ]* 4. Bedrock 통합 테스트 작성
+- [x] 4. Bedrock 통합 테스트 작성
   - `tests/integration/test_bedrock_integration.py` 생성:
     - `test_bedrock_claude_invocation()` - Claude 호출 및 응답 파싱
     - `test_bedrock_sdxl_image_generation()` - SDXL 이미지 생성

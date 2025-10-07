@@ -148,10 +148,26 @@ Thumbs.db
 data/chroma/
 data/local/
 
-# Test files
+# Test files (exclude integration tests and specific test scripts)
 test_*.py
+!test_bedrock_image_generation.py
+!test_bedrock_minio_integration.py
 *_test.py
+
+# Generated files
+generated_images/
+generated-diagrams/
+*.png
+*.jpg
+*.jpeg
+!docs/**/*.png
+!docs/**/*.jpg
+
+# Test outputs
+test_report.*
+minio_test_image.*
 
 # Temporary files
 *.tmp
 *.temp
+test_env/
