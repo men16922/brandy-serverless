@@ -8,15 +8,21 @@
 ├── src/
 │   ├── lambda/
 │   │   ├── agents/                    # Agent Lambda functions (핵심)
-│   │   │   ├── supervisor/            # 워크플로 감시
+│   │   │   ├── supervisor/            # 워크플로 감시 + AgentCore
 │   │   │   │   ├── index.py           # Lambda handler
+│   │   │   │   ├── agentcore_orchestrator.py  # Bedrock AgentCore 통합
 │   │   │   │   └── requirements.txt   # Agent별 의존성
-│   │   │   ├── product-insight/       # 비즈니스 분석
-│   │   │   ├── market-analyst/        # 시장 분석
-│   │   │   └── reporter/              # 상호명 제안
+│   │   │   ├── product-insight/       # 비즈니스 분석 (Bedrock Claude)
+│   │   │   ├── market-analyst/        # 시장 분석 (Bedrock KB)
+│   │   │   ├── reporter/              # 상호명 제안 (Reasoning LLM)
+│   │   │   ├── signboard/             # 간판 생성 (Bedrock SDXL)
+│   │   │   ├── interior/              # 인테리어 추천 (Bedrock Claude)
+│   │   │   └── report-generator/      # HTML 보고서 (Bedrock Claude)
 │   │   └── shared/                    # 공통 유틸리티 (Lambda Layer)
 │   │       ├── base_agent.py          # BaseAgent 클래스
-│   │       ├── models.py              # 데이터 모델
+│   │       ├── bedrock_client.py      # Bedrock API 클라이언트 (신규)
+│   │       ├── reasoning_engine.py    # Reasoning LLM 엔진 (신규)
+│   │       ├── models.py              # 데이터 모델 + ReasoningStep
 │   │       └── utils.py               # 공통 함수
 │   └── streamlit/                     # 웹 인터페이스
 │       └── app.py                     # Streamlit 앱
@@ -45,6 +51,12 @@
 - DynamoDB Admin UI 추가로 로컬 데이터 시각화
 - Agent 기반 아키텍처로 통일
 
+**Hackathon 추가사항:**
+- Bedrock 통합 모듈 추가 (bedrock_client.py, reasoning_engine.py)
+- AgentCore 오케스트레이터 추가 (Supervisor Agent)
+- Reasoning chain 저장 (DynamoDB)
+- Fallback 거버넌스 (환경 변수 기반)
+
 ## Code Organization Patterns
 
 ### Agent Structure
@@ -69,7 +81,9 @@ def lambda_handler(event, context):
 
 ### Shared Utilities Location
 - **Base classes**: `src/lambda/shared/base_agent.py`
-- **Data models**: `src/lambda/shared/models.py`
+- **Bedrock integration**: `src/lambda/shared/bedrock_client.py` (신규)
+- **Reasoning engine**: `src/lambda/shared/reasoning_engine.py` (신규)
+- **Data models**: `src/lambda/shared/models.py` (+ ReasoningStep)
 - **Communication**: `src/lambda/shared/agent_communication.py`
 - **Vector store**: `src/lambda/shared/knowledge_base.py`
 - **Common utils**: `src/lambda/shared/utils.py`

@@ -2,7 +2,20 @@
 
 ## Introduction
 
-이 문서는 기존 AI 브랜딩 챗봇 프로젝트를 AWS AI Agent Global Hackathon 요구사항에 맞춰 수정하기 위한 요구사항을 정의합니다. 현재 프로젝트는 이미 Agent-Based Architecture를 사용하고 있지만, 해커톤의 필수 조건인 Amazon Bedrock 통합과 AWS 정의 AI Agent 자격 요건을 충족하도록 개선이 필요합니다.
+이 문서는 **AI 브랜딩 챗봇 프로젝트**를 AWS AI Agent Global Hackathon 요구사항에 맞춰 수정하기 위한 통합 요구사항을 정의합니다.
+
+### 프로젝트 개요
+
+**목표**: 사업자가 업종/지역/규모만 입력하면 AI가 자동으로 상호명, 간판 디자인, 인테리어 추천, HTML 브랜딩 보고서까지 생성하는 완전 자동화 브랜딩 시스템
+
+**핵심 워크플로**: 5단계 자동 생성 (분석 → 상호명 → 간판 → 인테리어 → 보고서)
+
+**아키텍처**:
+- 🤖 **6개 전문 AI 에이전트** + 1개 Supervisor Agent
+- 🔄 **자동화된 워크플로**: 5분 내 완료
+- 🛡️ **장애 복구**: 실시간 감시 및 자동 폴백
+- 🚀 **완전 서버리스**: AWS SAM 기반
+- 🧪 **NO MOCKS 테스트**: Docker Compose 기반 통합 테스트
 
 ### 해커톤 핵심 요구사항
 1. **LLM 호스팅**: AWS Bedrock 또는 Amazon SageMaker AI 사용 (필수)
@@ -12,13 +25,22 @@
    - 자율적 작업 실행 능력 (사람 개입 유무 무관)
    - API, 데이터베이스, 외부 도구 또는 다른 Agent와의 통합
 
-### 현재 프로젝트 상태
-- ✅ Agent-Based Architecture 구현 완료 (6개 전문 Agent)
-- ✅ Step Functions 워크플로 관리
-- ✅ DynamoDB, S3 통합
-- ❌ OpenAI DALL-E, Google Gemini 사용 (AWS Bedrock으로 전환 필요)
-- ❌ Bedrock AgentCore 미사용 (추가 필요)
-- ❌ Reasoning LLM 명시적 사용 부재 (추가 필요)
+### 현재 프로젝트 상태 (70% 완성)
+
+**✅ 완료된 부분**:
+- Agent-Based Architecture (6개 전문 Agent + Supervisor)
+- Step Functions 워크플로 관리
+- DynamoDB, S3 통합
+- Docker Compose 로컬 환경
+- 통합 테스트 (29개 테스트 통과)
+- Streamlit 웹 인터페이스
+- HTML 브랜딩 보고서 생성 (한글 폰트 완벽 지원)
+
+**❌ 해커톤 요구사항 미충족**:
+- OpenAI DALL-E, Google Gemini 사용 (AWS Bedrock으로 전환 필요)
+- Bedrock AgentCore 미사용 (추가 필요)
+- Reasoning LLM 명시적 사용 부재 (추가 필요)
+- 해커톤 제출 문서 (아키텍처 다이어그램, 데모 비디오)
 
 ## Requirements
 

@@ -14,10 +14,17 @@
 - **Streamlit** - Web interface deployed on AWS App Runner
 - **Pause/Resume capability** for cost optimization
 
-### AI & ML
-- **Production**: AWS Bedrock (SDXL, Knowledge Base)
-- **Development**: OpenAI DALL-E, Google Gemini, Chroma vector DB
-- **Local**: Chroma for vector storage
+### AI & ML (Hackathon Compliant)
+- **Primary (Production)**: 
+  - Amazon Bedrock Claude 3.5 Sonnet (reasoning, text generation)
+  - Amazon Bedrock SDXL (image generation)
+  - Amazon Bedrock Knowledge Base (vector search)
+  - Bedrock AgentCore (agent orchestration)
+- **Fallback (Development)**: 
+  - OpenAI DALL-E (image generation fallback)
+  - Google Gemini (image generation fallback)
+  - Chroma vector DB (local development)
+- **Local**: Chroma for vector storage, mock Bedrock responses
 
 ### Development Environment
 - **Docker Compose** - Local services (DynamoDB Local + Admin UI, MinIO, Chroma)
@@ -76,43 +83,65 @@ docker-compose -f docker-compose.local.yml down -v  # 서비스 중지 + 볼륨 
 
 ## Architecture Patterns
 
-### Agent-Based Design
+### Agent-Based Design (Hackathon Compliant)
 - **BaseAgent** class for all agents with common functionality
+- **Bedrock Integration**: BedrockClient module for all Bedrock API calls
+- **AgentCore Orchestrator**: Supervisor Agent uses Bedrock AgentCore
+- **Reasoning Engine**: Claude 3.5 Sonnet for autonomous decision-making
 - **Agent Communication** interface for inter-agent messaging
-- **Structured logging** with agent, tool, latency_ms, session_id
+- **Structured logging** with agent, tool, latency_ms, session_id, reasoning_chain
 - **Environment abstraction** for local/dev/prod configurations
+
+### Bedrock Integration Strategy
+- **Primary**: Bedrock Claude + SDXL for all production workloads
+- **Fallback**: OpenAI/Gemini only when `DEV_PROFILE=true`
+- **Submission Mode**: `ENABLE_FALLBACK=false` for Bedrock-only operation
+- **Reasoning Chain**: Store all LLM decision-making steps in DynamoDB
 
 ### Error Handling
 - **Graceful degradation** with fallback results
-- **Automatic retries** via Step Functions
+- **Automatic retries** via Step Functions + Bedrock exponential backoff
 - **Dead Letter Queues** for failed messages
-- **Supervisor monitoring** of all agent executions
+- **Supervisor monitoring** of all agent executions via AgentCore
+- **Bedrock-specific errors**: ThrottlingException, ValidationException handling
 
 ### Performance Requirements
-- Text responses: ≤ 5 seconds
-- Image generation: ≤ 30 seconds
+- Text responses: ≤ 5 seconds (Bedrock Claude)
+- Image generation: ≤ 30 seconds (Bedrock SDXL)
 - Full workflow: ≤ 5 minutes
 - Session TTL: 24 hours
+- Bedrock API latency: P95 < 3 seconds
 
 ## Dependencies
 
 ### Core Python Packages
-- `boto3` - AWS SDK
+- `boto3` - AWS SDK (Bedrock, DynamoDB, S3)
 - `aws-sam-cli` - SAM CLI for local development and deployment
 - `pydantic` - Data validation
 - `streamlit` - Web interface
 - `structlog` - Structured logging
 
-### AI/ML Packages
-- `openai` - DALL-E integration
-- `google-generativeai` - Gemini integration
-- `chromadb` - Vector database (local)
+### AI/ML Packages (Hackathon Compliant)
+- **Primary**:
+  - `boto3` with `bedrock-runtime` - Bedrock Claude, SDXL, Knowledge Base
+  - `boto3` with `bedrock-agent-runtime` - Bedrock AgentCore
+- **Fallback (Dev only)**:
+  - `openai` - DALL-E integration (fallback)
+  - `google-generativeai` - Gemini integration (fallback)
+  - `chromadb` - Vector database (local development)
 
 ### Development Tools
 - `pytest` - Testing (통합 테스트만 사용)
 - `black` - Code formatting
 - `flake8` - Linting
 - `mypy` - Type checking
+
+### Hackathon-Specific Dependencies
+- Bedrock model IDs:
+  - `anthropic.claude-3-5-sonnet-20241022-v2:0` (reasoning, text)
+  - `stability.stable-diffusion-xl-v1` (image generation)
+- AgentCore primitives: Tool Use, Memory
+- Reasoning Engine: Chain-of-Thought prompting
 
 ## 테스트 정책
 
