@@ -51,7 +51,7 @@ The AI Branding Chatbot is a fully automated branding system where business owne
 #### Acceptance Criteria
 
 1. WHEN the system initializes THEN it SHALL use Amazon Bedrock as the default LLM provider for all text generation tasks
-2. WHEN generating business names THEN the Reporter Agent SHALL use Amazon Bedrock Claude 3.5 Sonnet for reasoning and name generation
+2. WHEN generating business names THEN the Reporter Agent SHALL use Amazon Bedrock Claude 4 Sonnet for reasoning and name generation
 3. WHEN analyzing market data THEN the Market Analyst Agent SHALL use Amazon Bedrock for trend analysis and insights
 4. WHEN generating signboard designs THEN the Signboard Agent SHALL use Amazon Bedrock SDXL 1.0 for image generation
 5. WHEN generating interior recommendations THEN the Interior Agent SHALL use Amazon Bedrock for design suggestions
@@ -244,7 +244,7 @@ The project successfully meets hackathon requirements when:
 
 ### Assumptions
 - AWS account has access to Bedrock services in us-east-1 region
-- Bedrock models (Claude 3.5 Sonnet, SDXL) are available in the deployment region
+- Bedrock models (Claude 4 Sonnet, SDXL) are available in the deployment region
 - Users have basic understanding of AWS services and SAM deployment
 - Docker and Docker Compose are available for local development
 - Internet connectivity is available for API calls to Bedrock
@@ -266,7 +266,7 @@ The project successfully meets hackathon requirements when:
 - Git for version control
 
 ### AWS Service Dependencies
-- Amazon Bedrock (Claude 3.5 Sonnet, SDXL, Knowledge Base)
+- Amazon Bedrock (Claude 4 Sonnet, SDXL, Knowledge Base)
 - Bedrock AgentCore (Agent Runtime API)
 - AWS Lambda (Python 3.11 runtime)
 - Amazon DynamoDB (on-demand capacity)

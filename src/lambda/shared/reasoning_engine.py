@@ -1,6 +1,6 @@
 """
 Reasoning Engine for AI Branding Chatbot
-Provides Chain-of-Thought reasoning and autonomous decision-making using Claude 3.5 Sonnet
+Provides Chain-of-Thought reasoning and autonomous decision-making using Claude 4.0 Sonnet
 """
 
 import json

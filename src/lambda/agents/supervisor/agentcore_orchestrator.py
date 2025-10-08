@@ -639,7 +639,7 @@ Keep the summary under 200 words.
         """
         Use Reasoning LLM to determine next workflow step.
         
-        This uses Claude 3.5 Sonnet for Chain-of-Thought reasoning
+        This uses Claudㄷ 4.0 Sonnet for Chain-of-Thought reasoning
         to decide what should happen next in the workflow.
         
         Args:

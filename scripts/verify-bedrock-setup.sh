@@ -54,7 +54,7 @@ echo ""
 # 환경 변수 로드
 echo "⚙️  환경 변수 확인..."
 BEDROCK_REGION=${BEDROCK_REGION:-us-east-1}
-CLAUDE_MODEL_ID=${CLAUDE_MODEL_ID:-anthropic.claude-3-5-sonnet-20241022-v2:0}
+CLAUDE_MODEL_ID=${CLAUDE_MODEL_ID:-us.anthropic.claude-sonnet-4-20250514-v1:0}
 SDXL_MODEL_ID=${SDXL_MODEL_ID:-stability.stable-diffusion-xl-v1}
 BEDROCK_KB_ID=${BEDROCK_KB_ID:-}
 BEDROCK_AGENT_ID=${BEDROCK_AGENT_ID:-}
@@ -84,7 +84,7 @@ fi
 echo ""
 
 # Claude 모델 가용성 확인
-echo "🤖 Claude 3.5 Sonnet 모델 확인..."
+echo "🤖 Claude 4.0 Sonnet 모델 확인..."
 CLAUDE_AVAILABLE=$(aws bedrock list-foundation-models \
     --region $BEDROCK_REGION \
     --by-provider anthropic \

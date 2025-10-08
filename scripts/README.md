@@ -10,7 +10,7 @@ Verifies Amazon Bedrock configuration and permissions before deployment.
 
 **Purpose:**
 - Validates AWS credentials and Bedrock service access
-- Checks Claude 3.5 Sonnet and SDXL model availability
+- Checks Claude 4.0 Sonnet and SDXL model availability
 - Verifies IAM permissions (bedrock:InvokeModel, bedrock:Retrieve)
 - Confirms Knowledge Base and Agent configurations (if provided)
 - Provides clear error messages for troubleshooting
@@ -34,7 +34,7 @@ BEDROCK_AGENT_ALIAS_ID=your-alias-id \
 
 **Environment Variables:**
 - `BEDROCK_REGION` - AWS region (default: us-east-1)
-- `CLAUDE_MODEL_ID` - Claude model ID (default: anthropic.claude-3-5-sonnet-20241022-v2:0)
+- `CLAUDE_MODEL_ID` - Claude 4 Sonnet model ID (default: us.anthropic.claude-sonnet-4-20250514-v1:0)
 - `SDXL_MODEL_ID` - SDXL model ID (default: stability.stable-diffusion-xl-v1)
 - `BEDROCK_KB_ID` - Knowledge Base ID (optional)
 - `BEDROCK_AGENT_ID` - Agent ID (optional)
@@ -65,7 +65,7 @@ BEDROCK_AGENT_ALIAS_ID=your-alias-id \
 🌐 Bedrock 서비스 가용성 확인 (Region: us-east-1)...
 ✅ Bedrock 서비스 접근 가능
 
-🤖 Claude 3.5 Sonnet 모델 확인...
+🤖 Claude 4.0 Sonnet 모델 확인...
 ✅ Claude 모델 사용 가능: anthropic.claude-3-5-sonnet-20241022-v2:0
 
 🎨 Stable Diffusion XL 모델 확인...

@@ -43,7 +43,7 @@ if issues:
 #### Required Variables
 
 - `BEDROCK_REGION`: AWS region for Bedrock services (default: `us-east-1`)
-- `CLAUDE_MODEL_ID`: Model ID for Claude 3.5 Sonnet (default: `anthropic.claude-3-5-sonnet-20241022-v2:0`)
+- `CLAUDE_MODEL_ID`: Model ID for Claude 4 Sonnet (default: `us.anthropic.claude-sonnet-4-20250514-v1:0`)
 - `SDXL_MODEL_ID`: Model ID for Stable Diffusion XL (default: `stability.stable-diffusion-xl-v1`)
 
 #### Optional Variables
@@ -121,7 +121,7 @@ ENVIRONMENT=local
 DEV_PROFILE=true
 ENABLE_FALLBACK=true
 BEDROCK_REGION=us-east-1
-CLAUDE_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
+CLAUDE_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
 SDXL_MODEL_ID=stability.stable-diffusion-xl-v1
 ```
 
@@ -133,7 +133,7 @@ ENVIRONMENT=prod
 DEV_PROFILE=false
 ENABLE_FALLBACK=false
 BEDROCK_REGION=us-east-1
-CLAUDE_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
+CLAUDE_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
 SDXL_MODEL_ID=stability.stable-diffusion-xl-v1
 BEDROCK_KB_ID=your-knowledge-base-id
 BEDROCK_AGENT_ID=your-agent-id
@@ -152,7 +152,7 @@ Parameters:
   
   ClaudeModelId:
     Type: String
-    Default: anthropic.claude-3-5-sonnet-20241022-v2:0
+    Default: us.anthropic.claude-sonnet-4-20250514-v1:0
   
   # ... other parameters
 ```

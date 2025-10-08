@@ -45,7 +45,7 @@
 - [x] 1. Bedrock 클라이언트 모듈 구현
   - `src/lambda/shared/bedrock_client.py` 파일 생성
   - `BedrockClient` 클래스 구현:
-    - `invoke_claude()` - Claude 3.5 Sonnet 호출 (reasoning, text generation)
+    - `invoke_claude()` - Claude 4 Sonnet 호출 (reasoning, text generation)
     - `invoke_sdxl()` - SDXL 이미지 생성
     - `query_knowledge_base()` - Bedrock KB 벡터 검색
     - `invoke_with_retry()` - Exponential backoff 재시도 로직
@@ -61,7 +61,7 @@
     - bedrock-agent-runtime:InvokeAgent (AgentCore)
   - 환경 변수 추가:
     - BEDROCK_REGION (default: us-east-1)
-    - CLAUDE_MODEL_ID (anthropic.claude-3-5-sonnet-20241022-v2:0)
+    - CLAUDE_MODEL_ID (us.anthropic.claude-sonnet-4-20250514-v1:0)
     - SDXL_MODEL_ID (stability.stable-diffusion-xl-v1)
     - BEDROCK_KB_ID (Knowledge Base ID)
     - ENABLE_FALLBACK (true/false)
@@ -153,7 +153,7 @@
 - [x] 10. Reasoning Engine 클래스 구현
   - `src/lambda/shared/reasoning_engine.py` 생성
   - `ReasoningEngine` 클래스 구현:
-    - `__init__()` - BedrockClient 초기화, Claude 3.5 Sonnet 설정
+    - `__init__()` - BedrockClient 초기화, Claude 4 Sonnet 설정
     - `reason_and_decide()` - Chain-of-Thought reasoning 실행
     - `evaluate_business_name()` - 상호명 평가 및 점수 산정
     - `rank_designs()` - 디자인 옵션 순위 결정
@@ -163,7 +163,7 @@
   - _Requirements: 3.1, 3.2, 3.6_
   - _기존 코드: BedrockClient.invoke_claude() 활용_
 
-- [ ] 11. Reasoning 데이터 모델 추가
+- [x] 11. Reasoning 데이터 모델 추가
   - `src/lambda/shared/models.py`에 `ReasoningStep` dataclass 추가:
     - stepNumber: int
     - agentName: str
@@ -179,7 +179,7 @@
   - _Requirements: 3.6_
   - _기존 코드: models.py의 기존 dataclass 패턴 따르기_
 
-- [ ] 12. BaseAgent에 Reasoning 메서드 추가
+- [x] 12. BaseAgent에 Reasoning 메서드 추가
   - `src/lambda/shared/base_agent.py`에 메서드 추가:
     - `execute_with_reasoning()` - Reasoning LLM 사용한 작업 실행
     - `store_reasoning()` - Reasoning chain DynamoDB 저장
@@ -189,7 +189,7 @@
   - _Requirements: 3.1, 3.2, 4.2_
   - _기존 코드: BaseAgent 클래스 확장_
 
-- [ ]* 13. Reasoning Engine 테스트 작성
+- [x] 13. Reasoning Engine 테스트 작성
   - `tests/integration/test_reasoning.py` 생성:
     - `test_reasoning_decision_making()` - 의사결정 테스트
     - `test_reasoning_confidence_scoring()` - 신뢰도 점수 테스트
@@ -478,7 +478,7 @@
     - Deployed URL: https://{api-id}.execute-api.us-east-1.amazonaws.com/dev
     - Architecture Diagram: docs/architecture.md
     - Project Description (영어, 500자)
-    - Technologies Used: AWS Bedrock, AgentCore, Claude 3.5 Sonnet, SDXL, Lambda, DynamoDB, S3
+    - Technologies Used: AWS Bedrock, AgentCore, Claude 4 Sonnet, SDXL, Lambda, DynamoDB, S3
   - 제출 체크리스트 최종 확인:
     - [ ] ENABLE_FALLBACK=false
     - [ ] Bedrock 모델 가용성 확인
@@ -576,7 +576,7 @@
 모든 38개 작업이 완료되면:
 
 ### 필수 요구사항 (Must Have)
-✅ Amazon Bedrock을 주요 LLM 제공자로 사용 (Claude 3.5 Sonnet, SDXL)
+✅ Amazon Bedrock을 주요 LLM 제공자로 사용 (Claude 4 Sonnet, SDXL)
 ✅ Bedrock AgentCore 최소 2개 primitive 구현 (Tool Use, Memory)
 ✅ Reasoning LLM 기반 자율 의사결정 시스템 동작 (Chain-of-Thought)
 ✅ 외부 API, 데이터베이스, 도구 통합 시연 (DynamoDB, S3, Bedrock KB)

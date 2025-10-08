@@ -12,7 +12,7 @@ A serverless AI branding system that generates complete business branding throug
 5. **HTML Report** - Report Generator Agent creates comprehensive branding report with **Bedrock Claude** insights
 
 ### Key Features (Hackathon Compliant)
-- **Amazon Bedrock Integration**: Primary LLM provider (Claude 3.5 Sonnet, SDXL)
+- **Amazon Bedrock Integration**: Primary LLM provider (Claude 4 Sonnet, SDXL)
 - **Bedrock AgentCore**: Supervisor Agent uses AgentCore for orchestration
 - **Reasoning LLM**: Autonomous decision-making with Chain-of-Thought reasoning
 - **Agent-Based Architecture**: 6 specialized agents + 1 Supervisor Agent
@@ -22,7 +22,7 @@ A serverless AI branding system that generates complete business branding throug
 - **Fallback System**: Graceful degradation with fallback results
 
 ### AWS Services Used
-- **Amazon Bedrock**: Claude 3.5 Sonnet (text), SDXL (images), Knowledge Base
+- **Amazon Bedrock**: Claude 4 Sonnet (text), SDXL (images), Knowledge Base
 - **Bedrock AgentCore**: Tool Use, Memory primitives for agent orchestration
 - **AWS Lambda**: 7 serverless functions (6 agents + 1 supervisor)
 - **Step Functions**: Express (parallel processing) + Standard (user wait)

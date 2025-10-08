@@ -38,7 +38,7 @@ class BedrockClient:
     Amazon Bedrock API client with retry logic and structured logging.
     
     Supports:
-    - Claude 3.5 Sonnet (reasoning, text generation)
+    - Claude 4.0 Sonnet (reasoning, text generation)
     - SDXL (image generation)
     - Knowledge Base (vector search)
     """
@@ -114,7 +114,7 @@ class BedrockClient:
         stop_sequences: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
-        Invoke Claude 3.5 Sonnet for reasoning and text generation.
+        Invoke Claude 4.0 Sonnet for reasoning and text generation.
         
         Args:
             prompt: User prompt/question

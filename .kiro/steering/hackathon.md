@@ -7,7 +7,7 @@
 ### 필수 조건 (Must Have)
 
 1. **Amazon Bedrock LLM 사용**
-   - Primary LLM: Bedrock Claude 3.5 Sonnet
+   - Primary LLM: Bedrock Claude 4 Sonnet
    - Image Generation: Bedrock SDXL
    - Knowledge Base: Bedrock KB (production)
    - ❌ OpenAI/Gemini는 개발 환경 fallback만 허용
@@ -19,7 +19,7 @@
    - 최소 1개 primitive 필수
 
 3. **Reasoning LLM 의사결정**
-   - Claude 3.5 Sonnet으로 Chain-of-Thought reasoning
+   - Claude 4 Sonnet으로 Chain-of-Thought reasoning
    - 모든 주요 결정에 reasoning chain 저장
    - Confidence scoring (0-1)
    - DynamoDB에 reasoning 기록
@@ -188,7 +188,7 @@ orchestrator.store_workflow_memory(
 
 - [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
 - [Bedrock AgentCore Guide](https://docs.aws.amazon.com/bedrock/latest/userguide/agents.html)
-- [Claude 3.5 Sonnet Model Card](https://docs.anthropic.com/claude/docs/models-overview)
+- [Claude 4 Sonnet Model Card](https://docs.anthropic.com/claude/docs/models-overview)
 - [Hackathon Rules](../../docs/AWS%20Hackathon%20rules.md)
 - [Hackathon Overview](../../docs/AWS%20Hackathon%20overview.md)
 

@@ -12,13 +12,17 @@ from abc import ABC, abstractmethod
 
 try:
     from .agent_communication import get_agent_communication
-    from .models import AgentLog, AgentType
+    from .models import AgentLog, AgentType, ReasoningStep
     from .utils import setup_logging, get_aws_clients, create_response
+    from .bedrock_client import BedrockClient
+    from .reasoning_engine import ReasoningEngine
 except ImportError:
     # 절대 import로 시도
     from agent_communication import get_agent_communication
-    from models import AgentLog, AgentType
+    from models import AgentLog, AgentType, ReasoningStep
     from utils import setup_logging, get_aws_clients, create_response
+    from bedrock_client import BedrockClient
+    from reasoning_engine import ReasoningEngine
 
 
 class BaseAgent(ABC):
@@ -46,6 +50,19 @@ class BaseAgent(ABC):
         
         # 성능 추적
         self.execution_start_time = None
+        
+        # Bedrock 및 Reasoning Engine 초기화 (Hackathon Requirement 3.1, 3.2)
+        try:
+            self.bedrock_client = BedrockClient(region=self.region)
+            self.reasoning_engine = ReasoningEngine(
+                bedrock_client=self.bedrock_client,
+                logger=self.logger
+            )
+            self.logger.info(f"Bedrock and Reasoning Engine initialized for {self.agent_name}")
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize Bedrock/Reasoning: {str(e)}")
+            self.bedrock_client = None
+            self.reasoning_engine = None
         
         self.logger.info(f"Agent {self.agent_name} initialized in {self.environment} environment")
     
@@ -254,6 +271,298 @@ class BaseAgent(ABC):
             }
         
         return create_response(status_code, response_body, headers)
+    
+    def execute_with_reasoning(
+        self,
+        session_id: str,
+        operation: str,
+        input_data: Dict[str, Any],
+        options: List[Any],
+        decision_criteria: str,
+        tool: str = "reasoning_execution"
+    ) -> Dict[str, Any]:
+        """
+        Execute agent task with Reasoning LLM decision-making.
+        
+        This method implements Requirement 3.1 and 3.2:
+        - Uses Reasoning LLM for autonomous decision-making
+        - Stores reasoning chain in DynamoDB
+        - Provides confidence scoring
+        
+        Args:
+            session_id: Session ID for tracking
+            operation: Operation type (e.g., 'name_evaluation', 'design_ranking')
+            input_data: Input data for reasoning
+            options: Available options to choose from
+            decision_criteria: Criteria for decision-making
+            tool: Tool name for logging
+        
+        Returns:
+            Dict with:
+                - decision: Selected option
+                - reasoning: Explanation
+                - confidence: Confidence score (0.0-1.0)
+                - reasoning_step: ReasoningStep object
+                - result: Execution result
+        
+        Raises:
+            Exception: On reasoning or execution errors
+        """
+        if not self.reasoning_engine:
+            self.logger.warning("Reasoning Engine not available, falling back to direct execution")
+            return self.execute({'session_id': session_id, 'input_data': input_data}, None)
+        
+        try:
+            self.start_execution(session_id, tool)
+            
+            # Step 1: Use Reasoning LLM to analyze and decide
+            self.logger.info(
+                f"Starting reasoning: operation={operation}, "
+                f"options_count={len(options)}"
+            )
+            
+            reasoning_result = self.reasoning_engine.reason_and_decide(
+                context=input_data,
+                options=options,
+                decision_criteria=decision_criteria
+            )
+            
+            # Step 2: Create ReasoningStep for tracking
+            step_number = len(self.get_session_data(session_id).get('reasoning_chain', [])) + 1
+            
+            reasoning_step = ReasoningStep(
+                step_number=step_number,
+                agent_name=self.agent_name,
+                timestamp=datetime.utcnow().isoformat(),
+                operation=operation,
+                input_data=input_data,
+                reasoning=reasoning_result['reasoning'],
+                decision=reasoning_result['decision'],
+                confidence=reasoning_result['confidence'],
+                alternatives=reasoning_result.get('alternatives', []),
+                reasoning_steps=reasoning_result.get('reasoning_steps', []),
+                latency_ms=reasoning_result.get('latency_ms', 0)
+            )
+            
+            # Step 3: Store reasoning chain (Requirement 3.6)
+            self.store_reasoning(session_id, reasoning_step)
+            
+            # Step 4: Execute based on reasoning decision
+            execution_result = {
+                'decision': reasoning_result['decision'],
+                'reasoning': reasoning_result['reasoning'],
+                'confidence': reasoning_result['confidence'],
+                'reasoning_step': reasoning_step.to_dict(),
+                'alternatives': reasoning_result.get('alternatives', []),
+                'status': 'success'
+            }
+            
+            self.end_execution(status="success", result=execution_result)
+            
+            self.logger.info(
+                f"Reasoning execution complete: decision={reasoning_result['decision']}, "
+                f"confidence={reasoning_result['confidence']:.2f}"
+            )
+            
+            return execution_result
+            
+        except Exception as e:
+            self.logger.error(f"Reasoning execution failed: {str(e)}")
+            self.end_execution(status="error", error_message=str(e))
+            raise
+    
+    def store_reasoning(self, session_id: str, reasoning_step: ReasoningStep) -> bool:
+        """
+        Store reasoning chain in DynamoDB.
+        
+        This method implements Requirement 3.6:
+        - Stores reasoning steps for audit and explanation
+        - Maintains reasoning chain history
+        
+        Args:
+            session_id: Session ID
+            reasoning_step: ReasoningStep to store
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not reasoning_step.validate():
+                self.logger.error("Invalid reasoning step, cannot store")
+                return False
+            
+            sessions_table = self.aws_clients['dynamodb'].Table(self.config['sessions_table'])
+            
+            # Add reasoning step to session's reasoning_chain
+            sessions_table.update_item(
+                Key={'sessionId': session_id},
+                UpdateExpression='SET reasoning_chain = list_append(if_not_exists(reasoning_chain, :empty_list), :step), updatedAt = :timestamp',
+                ExpressionAttributeValues={
+                    ':step': [reasoning_step.to_dict()],
+                    ':empty_list': [],
+                    ':timestamp': datetime.utcnow().isoformat()
+                }
+            )
+            
+            self.logger.info(
+                f"Reasoning step stored: session={session_id}, "
+                f"step={reasoning_step.step_number}, "
+                f"confidence={reasoning_step.confidence:.2f}"
+            )
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Failed to store reasoning step: {str(e)}")
+            return False
+    
+    def autonomous_error_recovery(
+        self,
+        error: Exception,
+        context: Dict[str, Any],
+        session_id: str,
+        max_retries: int = 3
+    ) -> Dict[str, Any]:
+        """
+        Autonomous error recovery using Reasoning LLM.
+        
+        This method implements Requirement 4.2:
+        - Uses Reasoning LLM to decide recovery strategy
+        - Supports retry, fallback, or human intervention
+        - Tracks recovery attempts
+        
+        Args:
+            error: Exception that occurred
+            context: Execution context
+            session_id: Session ID
+            max_retries: Maximum retry attempts
+        
+        Returns:
+            Dict with:
+                - recovery_strategy: 'retry', 'fallback', or 'human_intervention'
+                - reasoning: Explanation for strategy
+                - confidence: Confidence in strategy (0.0-1.0)
+                - action_taken: Description of action
+                - requires_human_input: Boolean flag
+        """
+        if not self.reasoning_engine:
+            self.logger.warning("Reasoning Engine not available, using default recovery")
+            return self._default_error_recovery(error, context)
+        
+        try:
+            retry_count = context.get('retry_count', 0)
+            
+            # Use Reasoning LLM to decide recovery strategy
+            self.logger.info(
+                f"Autonomous error recovery: error={type(error).__name__}, "
+                f"retry_count={retry_count}"
+            )
+            
+            recovery_context = {
+                'error': str(error),
+                'error_type': type(error).__name__,
+                'context': context,
+                'retry_count': retry_count,
+                'max_retries': max_retries,
+                'agent': self.agent_name,
+                'session_id': session_id
+            }
+            
+            recovery_options = ['retry', 'fallback', 'human_intervention']
+            
+            recovery_decision = self.reasoning_engine.reason_and_decide(
+                context=recovery_context,
+                options=recovery_options,
+                decision_criteria=(
+                    "Select the best error recovery strategy. "
+                    "Consider: retry count, error type, severity, and user impact. "
+                    "Retry if transient error and retries available. "
+                    "Fallback if alternative approach exists. "
+                    "Human intervention if critical or unrecoverable."
+                )
+            )
+            
+            strategy = recovery_decision['decision']
+            
+            # Store recovery reasoning
+            recovery_step = ReasoningStep(
+                step_number=len(self.get_session_data(session_id).get('reasoning_chain', [])) + 1,
+                agent_name=self.agent_name,
+                timestamp=datetime.utcnow().isoformat(),
+                operation='error_recovery',
+                input_data=recovery_context,
+                reasoning=recovery_decision['reasoning'],
+                decision=strategy,
+                confidence=recovery_decision['confidence'],
+                alternatives=recovery_decision.get('alternatives', []),
+                reasoning_steps=recovery_decision.get('reasoning_steps', []),
+                latency_ms=recovery_decision.get('latency_ms', 0)
+            )
+            
+            self.store_reasoning(session_id, recovery_step)
+            
+            # Execute recovery strategy
+            result = {
+                'recovery_strategy': strategy,
+                'reasoning': recovery_decision['reasoning'],
+                'confidence': recovery_decision['confidence'],
+                'requires_human_input': strategy == 'human_intervention',
+                'retry_count': retry_count
+            }
+            
+            if strategy == 'retry':
+                result['action_taken'] = f"Retrying operation (attempt {retry_count + 1}/{max_retries})"
+                self.logger.info(f"Recovery strategy: RETRY (attempt {retry_count + 1})")
+                
+            elif strategy == 'fallback':
+                result['action_taken'] = "Using fallback mechanism"
+                self.logger.info("Recovery strategy: FALLBACK")
+                
+            elif strategy == 'human_intervention':
+                result['action_taken'] = "Requesting human intervention"
+                result['human_input_reason'] = recovery_decision['reasoning']
+                self.logger.warning("Recovery strategy: HUMAN INTERVENTION REQUIRED")
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Autonomous error recovery failed: {str(e)}")
+            return self._default_error_recovery(error, context)
+    
+    def _default_error_recovery(
+        self,
+        error: Exception,
+        context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Default error recovery when Reasoning Engine is unavailable.
+        
+        Args:
+            error: Exception that occurred
+            context: Execution context
+        
+        Returns:
+            Default recovery strategy
+        """
+        retry_count = context.get('retry_count', 0)
+        max_retries = context.get('max_retries', 3)
+        
+        # Simple heuristic: retry if attempts available, otherwise fallback
+        if retry_count < max_retries:
+            strategy = 'retry'
+            action = f"Retrying operation (attempt {retry_count + 1}/{max_retries})"
+        else:
+            strategy = 'fallback'
+            action = "Using fallback mechanism after max retries"
+        
+        return {
+            'recovery_strategy': strategy,
+            'reasoning': f"Default recovery: {action}",
+            'confidence': 0.5,
+            'action_taken': action,
+            'requires_human_input': False,
+            'retry_count': retry_count
+        }
     
     @abstractmethod
     def execute(self, event: Dict[str, Any], context: Any) -> Dict[str, Any]:

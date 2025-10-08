@@ -28,7 +28,7 @@ class BedrockConfig:
     
     Attributes:
         region: AWS region for Bedrock services (default: us-east-1)
-        claude_model_id: Model ID for Claude 3.5 Sonnet
+        claude_model_id: Model ID for Claude 4.0 Sonnet
         sdxl_model_id: Model ID for Stable Diffusion XL
         knowledge_base_id: Optional Knowledge Base ID for vector search
         agent_id: Optional Agent ID for AgentCore orchestration

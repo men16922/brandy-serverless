@@ -44,7 +44,7 @@
 
 **Integration Layers**:
 - **Agent Layer**: BaseAgent class with Bedrock integration
-- **Bedrock Services**: Claude 3.5 Sonnet, SDXL, Knowledge Base, AgentCore
+- **Bedrock Services**: Claude 4 Sonnet, SDXL, Knowledge Base, AgentCore
 - **Reasoning Engine**: Chain-of-Thought decision making with storage
 - **Fallback System**: OpenAI/Gemini for development only (dashed lines)
 
@@ -52,7 +52,7 @@
 
 1. **Bedrock Integration Layer**: 모든 Agent에 Bedrock 클라이언트 추가
 2. **AgentCore Orchestrator**: Supervisor Agent에 AgentCore 통합
-3. **Reasoning Engine**: 각 Agent에 Claude 3.5 Sonnet 기반 reasoning 추가
+3. **Reasoning Engine**: 각 Agent에 Claude 4 Sonnet 기반 reasoning 추가
 4. **Fallback System**: Bedrock 실패 시 기존 OpenAI/Gemini로 fallback
 
 ## Components and Interfaces
@@ -75,7 +75,7 @@ class BedrockClient:
     
     def invoke_claude(self, prompt: str, system_prompt: str = None, 
                      max_tokens: int = 2048, temperature: float = 0.7) -> dict:
-        """Claude 3.5 Sonnet 호출 (reasoning 및 text generation)"""
+        """Claude 4 Sonnet 호출 (reasoning 및 text generation)"""
         
     def invoke_sdxl(self, prompt: str, negative_prompt: str = None,
                    width: int = 1024, height: int = 1024) -> bytes:
@@ -135,7 +135,7 @@ class AgentCoreOrchestrator:
 
 **Location**: `src/lambda/shared/reasoning_engine.py`
 
-**Purpose**: Claude 3.5 Sonnet을 사용한 자율적 의사결정
+**Purpose**: Claude 4 Sonnet을 사용한 자율적 의사결정
 
 **Key Features**:
 - Chain-of-Thought reasoning
@@ -150,7 +150,7 @@ class ReasoningEngine:
     
     def __init__(self):
         self.bedrock_client = BedrockClient()
-        self.model_id = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+        self.model_id = "us.anthropic.claude-sonnet-4-20250514-v1:0"
     
     def reason_and_decide(self, context: dict, options: list, 
                          decision_criteria: str) -> dict:
@@ -470,7 +470,7 @@ class ReasoningStep:
 class BedrockConfig:
     """Bedrock 서비스 설정"""
     region: str = "us-east-1"
-    claude_model_id: str = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    claude_model_id: str = "us.anthropic.claude-sonnet-4-20250514-v1:0"
     sdxl_model_id: str = "stability.stable-diffusion-xl-v1"
     agent_id: Optional[str] = None
     agent_alias_id: Optional[str] = None
@@ -537,7 +537,7 @@ class BedrockErrorHandler:
 
 ```python
 def test_bedrock_claude_invocation():
-    """Claude 3.5 Sonnet 호출 테스트"""
+    """Claude 4 Sonnet 호출 테스트"""
     
 def test_bedrock_sdxl_image_generation():
     """SDXL 이미지 생성 테스트"""
@@ -699,7 +699,7 @@ def test_concurrent_sessions():
 
 ### Bedrock API Latency
 
-- Claude 3.5 Sonnet: ~2-3초 (평균)
+- Claude 4 Sonnet: ~2-3초 (평균)
 - SDXL 이미지 생성: ~10-15초 (평균)
 - Knowledge Base 쿼리: ~1-2초 (평균)
 
@@ -869,7 +869,7 @@ BedrockAccessPolicy:
 
 ### Bedrock Costs (per workflow execution)
 
-- Claude 3.5 Sonnet: ~$0.015 (5 invocations)
+- Claude 4 Sonnet: ~$0.015 (5 invocations)
 - SDXL Image Generation: ~$0.12 (3 images)
 - Knowledge Base Query: ~$0.002 (2 queries)
 - **Total per workflow**: ~$0.14
@@ -899,7 +899,7 @@ BedrockAccessPolicy:
 
 - [Amazon Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
 - [Bedrock AgentCore Guide](https://docs.aws.amazon.com/bedrock/latest/userguide/agents.html)
-- [Claude 3.5 Sonnet Model Card](https://docs.anthropic.com/claude/docs/models-overview)
+- [Claude 4 Sonnet Model Card](https://docs.anthropic.com/claude/docs/models-overview)
 - [AWS SAM Documentation](https://docs.aws.amazon.com/serverless-application-model/)
 - [AWS Well-Architected Framework](https://aws.amazon.com/architecture/well-architected/)
 
@@ -908,7 +908,7 @@ BedrockAccessPolicy:
 
 | Capability | Default Model | Alt Models (if unavailable) | Default Region | Notes |
 |------------|---------------|----------------------------|----------------|-------|
-| Reasoning/Text | anthropic.claude-3-5-sonnet-20241022-v2:0 | claude-3-5-haiku-20241022-v1:0 | us-east-1 | Verify modelId at deploy time with list-foundation-models |
+| Reasoning/Text | us.anthropic.claude-sonnet-4-20250514-v1:0 | us.anthropic.claude-3-5-sonnet-20241022-v2:0 | us-east-1 | Claude 4 Sonnet for reasoning |
 | Image Generation | stability.stable-diffusion-xl-v1 | amazon.titan-image-generator-v2 (optional) | us-east-1 | Cap: 1024x1024 for demo |
 | KB Retrieve | bedrock KB (Retrieve/RetrieveAndGenerate) | — | us-east-1 | Needs KB + data source setup |
 | Agent Orchestration | Bedrock Agents (AgentCore) | Step Functions fallback | us-east-1 | Use agent alias in prod |
@@ -1296,7 +1296,7 @@ CostDashboard:
 
 ### 2:30-3:00 - Architecture & Closing
 - Show architecture diagram with Bedrock integration
-- Highlight: "Bedrock AgentCore, Claude 3.5 Sonnet, SDXL"
+- Highlight: "Bedrock AgentCore, Claude 4 Sonnet, SDXL"
 - Mention: "Fully serverless, scalable, reproducible"
 - Call to action: "Try it yourself - deployment guide in README"
 - GitHub repository URL
@@ -1315,7 +1315,7 @@ CostDashboard:
 ### Hackathon Requirements Compliance
 
 **Requirement 1: Amazon Bedrock 통합** ✅
-- [ ] Bedrock Claude 3.5 Sonnet as primary LLM
+- [ ] Bedrock Claude 4 Sonnet as primary LLM
 - [ ] Bedrock SDXL for image generation
 - [ ] Bedrock Knowledge Base integration
 - [ ] Error handling with exponential backoff

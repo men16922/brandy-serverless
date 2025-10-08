@@ -16,7 +16,7 @@
 
 ### AI & ML (Hackathon Compliant)
 - **Primary (Production)**: 
-  - Amazon Bedrock Claude 3.5 Sonnet (reasoning, text generation)
+  - Amazon Bedrock Claude 4 Sonnet (reasoning, text generation)
   - Amazon Bedrock SDXL (image generation)
   - Amazon Bedrock Knowledge Base (vector search)
   - Bedrock AgentCore (agent orchestration)
@@ -87,7 +87,7 @@ docker-compose -f docker-compose.local.yml down -v  # 서비스 중지 + 볼륨 
 - **BaseAgent** class for all agents with common functionality
 - **Bedrock Integration**: BedrockClient module for all Bedrock API calls
 - **AgentCore Orchestrator**: Supervisor Agent uses Bedrock AgentCore
-- **Reasoning Engine**: Claude 3.5 Sonnet for autonomous decision-making
+- **Reasoning Engine**: Claude 4 Sonnet for autonomous decision-making
 - **Agent Communication** interface for inter-agent messaging
 - **Structured logging** with agent, tool, latency_ms, session_id, reasoning_chain
 - **Environment abstraction** for local/dev/prod configurations
@@ -138,7 +138,7 @@ docker-compose -f docker-compose.local.yml down -v  # 서비스 중지 + 볼륨 
 
 ### Hackathon-Specific Dependencies
 - Bedrock model IDs:
-  - `anthropic.claude-3-5-sonnet-20241022-v2:0` (reasoning, text)
+  - `us.anthropic.claude-sonnet-4-20250514-v1:0` (reasoning, text - Claude 4 Sonnet)
   - `stability.stable-diffusion-xl-v1` (image generation)
 - AgentCore primitives: Tool Use, Memory
 - Reasoning Engine: Chain-of-Thought prompting

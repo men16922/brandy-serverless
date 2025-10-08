@@ -3,7 +3,7 @@
 ## Overview
 
 The `bedrock_client.py` module provides a unified interface for Amazon Bedrock services, including:
-- **Claude 3.5 Sonnet** - Reasoning and text generation
+- **Claude 4.0 Sonnet** - Reasoning and text generation
 - **Stable Diffusion XL (SDXL)** - Image generation
 - **Knowledge Base** - Vector search and retrieval
 
@@ -61,7 +61,7 @@ for result in kb_response['results']:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `BEDROCK_REGION` | `us-east-1` | AWS region for Bedrock services |
-| `CLAUDE_MODEL_ID` | `anthropic.claude-3-5-sonnet-20241022-v2:0` | Claude model ID |
+| `CLAUDE_MODEL_ID` | `us.anthropic.claude-sonnet-4-20250514-v1:0` | Claude 4 Sonnet model ID |
 | `SDXL_MODEL_ID` | `stability.stable-diffusion-xl-v1` | SDXL model ID |
 | `BEDROCK_KB_ID` | None | Knowledge Base ID (required for KB queries) |
 | `BEDROCK_MAX_RETRIES` | `3` | Maximum retry attempts |
@@ -86,7 +86,7 @@ Initialize Bedrock client.
 
 #### `invoke_claude(prompt: str, system_prompt: str = None, max_tokens: int = 2048, temperature: float = 0.7, top_p: float = 0.9, stop_sequences: List[str] = None) -> Dict[str, Any]`
 
-Invoke Claude 3.5 Sonnet for text generation.
+Invoke Claude 4.0 Sonnet for text generation.
 
 **Parameters:**
 - `prompt` (str): User prompt/question
@@ -308,7 +308,7 @@ All API calls are logged with structured JSON data:
 ```json
 {
   "bedrock_api_call": "invoke_claude",
-  "model_id": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+  "model_id": "us.anthropic.claude-sonnet-4-20250514-v1:0",
   "latency_ms": 2341,
   "status": "success",
   "timestamp": "2025-10-07T12:00:00.000Z",
@@ -469,7 +469,7 @@ export AWS_DEFAULT_REGION=us-east-1
 Satisfies the following hackathon requirements:
 
 - ✅ **Requirement 1.1**: Amazon Bedrock as primary LLM provider
-- ✅ **Requirement 1.2**: Claude 3.5 Sonnet for reasoning and text generation
+- ✅ **Requirement 1.2**: Claude 4.0 Sonnet for reasoning and text generation
 - ✅ **Requirement 1.7**: Proper error handling and retry logic
 - ✅ **Requirement 5.2**: Bedrock SDXL API integration
 - ✅ **Requirement 5.6**: Bedrock Knowledge Base integration
@@ -477,7 +477,7 @@ Satisfies the following hackathon requirements:
 ## References
 
 - [Amazon Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
-- [Claude 3.5 Sonnet Model Card](https://docs.anthropic.com/claude/docs/models-overview)
+- [Claude 4.0 Sonnet Model Card](https://docs.anthropic.com/claude/docs/models-overview)
 - [Stable Diffusion XL Documentation](https://stability.ai/stable-diffusion)
 - [Bedrock Knowledge Bases](https://docs.aws.amazon.com/bedrock/latest/userguide/knowledge-base.html)
 
