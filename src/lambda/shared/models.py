@@ -40,6 +40,42 @@ class AgentType(Enum):
 
 
 @dataclass
+class ReasoningStep:
+    """Reasoning step for Chain-of-Thought tracking"""
+    step_number: int
+    agent_name: str
+    timestamp: str
+    operation: str  # 'decision', 'evaluation', 'ranking', 'synthesis'
+    input_data: Dict[str, Any]
+    reasoning: str
+    decision: Any
+    confidence: float
+    alternatives: List[Dict[str, Any]] = field(default_factory=list)
+    reasoning_steps: List[str] = field(default_factory=list)
+    latency_ms: int = 0
+    
+    def validate(self) -> bool:
+        """Validate reasoning step"""
+        return (
+            self.step_number > 0 and
+            bool(self.agent_name) and
+            bool(self.timestamp) and
+            bool(self.operation) and
+            0.0 <= self.confidence <= 1.0 and
+            self.latency_ms >= 0
+        )
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for DynamoDB storage"""
+        return asdict(self)
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ReasoningStep':
+        """Create from dictionary (DynamoDB item)"""
+        return cls(**data)
+
+
+@dataclass
 class BusinessInfo:
     """Business information input data"""
     industry: str
@@ -238,6 +274,9 @@ class WorkflowSession:
     agent_logs: List[AgentLog] = field(default_factory=list)
     current_agent: Optional[str] = None
     
+    # Reasoning chain tracking (NEW for Hackathon)
+    reasoning_chain: List[ReasoningStep] = field(default_factory=list)
+    
     # Step Functions tracking
     express_execution_arn: Optional[str] = None
     standard_execution_arn: Optional[str] = None
@@ -272,6 +311,20 @@ class WorkflowSession:
             self.agent_logs.append(agent_log)
             self.current_agent = agent_log.agent
             self.updated_at = datetime.utcnow().isoformat()
+    
+    def add_reasoning_step(self, reasoning_step: ReasoningStep) -> None:
+        """Add reasoning step to chain"""
+        if reasoning_step.validate():
+            self.reasoning_chain.append(reasoning_step)
+            self.updated_at = datetime.utcnow().isoformat()
+    
+    def get_reasoning_chain(self) -> List[ReasoningStep]:
+        """Get all reasoning steps"""
+        return self.reasoning_chain
+    
+    def get_latest_reasoning(self) -> Optional[ReasoningStep]:
+        """Get most recent reasoning step"""
+        return self.reasoning_chain[-1] if self.reasoning_chain else None
     
     def mark_completed(self) -> None:
         """Mark session as completed"""
@@ -342,6 +395,10 @@ class WorkflowSession:
         if not all(log.validate() for log in self.agent_logs):
             return False
         
+        # Reasoning chain validation
+        if not all(step.validate() for step in self.reasoning_chain):
+            return False
+        
         return True
     
     def to_dict(self) -> Dict[str, Any]:
@@ -366,6 +423,10 @@ class WorkflowSession:
         
         if self.agent_logs:
             data['agent_logs'] = json.dumps([asdict(log) for log in self.agent_logs])
+        
+        # Convert reasoning chain to JSON string for DynamoDB
+        if self.reasoning_chain:
+            data['reasoning_chain'] = json.dumps([asdict(step) for step in self.reasoning_chain])
         
         return data
     
@@ -402,6 +463,11 @@ class WorkflowSession:
         if 'agent_logs' in data and isinstance(data['agent_logs'], str):
             logs_data = json.loads(data['agent_logs'])
             data['agent_logs'] = [AgentLog(**log) for log in logs_data]
+        
+        # Parse reasoning chain from JSON string
+        if 'reasoning_chain' in data and isinstance(data['reasoning_chain'], str):
+            reasoning_data = json.loads(data['reasoning_chain'])
+            data['reasoning_chain'] = [ReasoningStep(**step) for step in reasoning_data]
         
         return cls(**data)
 
