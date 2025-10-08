@@ -203,7 +203,7 @@
 
 **참고**: 이 작업들은 독립적으로 진행 가능하며, 기존 완료된 Agent 로직을 100% 유지하면서 Bedrock을 Primary로 추가합니다.
 
-- [ ] 14. Product Insight Agent Bedrock 통합
+- [x] 14. Product Insight Agent Bedrock 통합
   - `src/lambda/agents/product-insight/index.py` 수정:
     - BedrockClient 인스턴스 생성
     - 기존 분석 로직 유지

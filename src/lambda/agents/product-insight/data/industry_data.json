@@ -1,0 +1,402 @@
+{
+  "restaurant": {
+    "characteristics": [
+      "높은 고객 회전율과 지역 밀착형 비즈니스",
+      "식자재 비용과 인건비가 주요 운영비용",
+      "계절성과 트렌드에 민감한 업종"
+    ],
+    "success_factors": [
+      "맛과 서비스 품질의 일관성",
+      "효율적인 재고 관리와 원가 절감",
+      "고객 재방문율 향상 전략"
+    ],
+    "market_trends": [
+      "건강식품과 비건 메뉴 수요 증가",
+      "배달 서비스 플랫폼 의존도 상승",
+      "개인화된 고객 경험 중시"
+    ],
+    "risk_factors": [
+      "높은 창업 실패율 (3년 내 70%)",
+      "식자재 가격 변동성",
+      "코로나19 등 외부 환경 변화에 취약"
+    ],
+    "base_score": 75,
+    "growth_potential": "MEDIUM",
+    "competition_level": "HIGH"
+  },
+  "retail": {
+    "characteristics": [
+      "상품 진열과 고객 접점이 핵심",
+      "재고 관리와 매출 예측이 중요",
+      "온라인과 오프라인 채널 통합 필요"
+    ],
+    "success_factors": [
+      "상품 큐레이션과 진열 전략",
+      "고객 데이터 기반 맞춤 서비스",
+      "효율적인 공급망 관리"
+    ],
+    "market_trends": [
+      "O2O(Online to Offline) 서비스 확산",
+      "개인 맞춤형 상품 추천 시스템",
+      "친환경 제품에 대한 관심 증가"
+    ],
+    "risk_factors": [
+      "온라인 쇼핑몰과의 경쟁 심화",
+      "임대료 상승 압박",
+      "소비 패턴 변화에 대한 적응 필요"
+    ],
+    "base_score": 70,
+    "growth_potential": "MEDIUM",
+    "competition_level": "HIGH"
+  },
+  "service": {
+    "characteristics": [
+      "무형 서비스 제공으로 품질 표준화 어려움",
+      "고객 만족도가 직접적인 매출 영향",
+      "전문성과 신뢰도가 핵심 경쟁력"
+    ],
+    "success_factors": [
+      "서비스 품질의 표준화와 일관성",
+      "고객 관계 관리 시스템 구축",
+      "전문 인력 확보와 교육"
+    ],
+    "market_trends": [
+      "디지털 플랫폼을 통한 서비스 제공",
+      "구독 기반 서비스 모델 확산",
+      "AI와 자동화 기술 도입"
+    ],
+    "risk_factors": [
+      "서비스 품질 편차로 인한 평판 리스크",
+      "숙련된 인력 확보의 어려움",
+      "경기 변동에 따른 수요 감소"
+    ],
+    "base_score": 78,
+    "growth_potential": "HIGH",
+    "competition_level": "MEDIUM"
+  },
+  "healthcare": {
+    "characteristics": [
+      "높은 전문성과 자격 요건 필요",
+      "규제가 엄격하고 안전성이 최우선",
+      "지속적인 교육과 기술 업데이트 필수"
+    ],
+    "success_factors": [
+      "의료진의 전문성과 경험",
+      "최신 의료 장비와 시설",
+      "환자 중심의 서비스 제공"
+    ],
+    "market_trends": [
+      "디지털 헬스케어 기술 도입",
+      "예방 중심의 건강 관리",
+      "개인 맞춤형 치료 서비스"
+    ],
+    "risk_factors": [
+      "의료사고에 따른 법적 책임",
+      "높은 초기 투자 비용",
+      "의료진 수급 불균형"
+    ],
+    "base_score": 85,
+    "growth_potential": "HIGH",
+    "competition_level": "LOW"
+  },
+  "education": {
+    "characteristics": [
+      "장기적 관점의 성과 측정",
+      "학습자 개별 특성 고려 필요",
+      "교육 콘텐츠와 방법론이 핵심"
+    ],
+    "success_factors": [
+      "차별화된 교육 프로그램",
+      "우수한 강사진 확보",
+      "학습 성과 추적 시스템"
+    ],
+    "market_trends": [
+      "온라인 교육 플랫폼 확산",
+      "개인 맞춤형 학습 경험",
+      "실무 중심의 교육 과정"
+    ],
+    "risk_factors": [
+      "학령인구 감소",
+      "온라인 교육과의 경쟁",
+      "교육 정책 변화에 따른 영향"
+    ],
+    "base_score": 72,
+    "growth_potential": "MEDIUM",
+    "competition_level": "MEDIUM"
+  },
+  "technology": {
+    "characteristics": [
+      "빠른 기술 변화와 혁신 필요",
+      "높은 성장 잠재력과 확장성",
+      "전문 인력과 R&D 투자 중요"
+    ],
+    "success_factors": [
+      "기술 혁신과 특허 확보",
+      "우수한 개발 인력 확보",
+      "시장 진입 타이밍"
+    ],
+    "market_trends": [
+      "AI와 머신러닝 기술 확산",
+      "클라우드 서비스 전환",
+      "사이버 보안 중요성 증대"
+    ],
+    "risk_factors": [
+      "기술 변화 속도에 따른 도태 위험",
+      "높은 초기 개발 비용",
+      "인력 확보 경쟁 심화"
+    ],
+    "base_score": 82,
+    "growth_potential": "HIGH",
+    "competition_level": "HIGH"
+  },
+  "manufacturing": {
+    "characteristics": [
+      "생산 효율성과 품질 관리가 핵심",
+      "높은 초기 설비 투자 필요",
+      "공급망 관리와 원자재 조달 중요"
+    ],
+    "success_factors": [
+      "생산 공정 최적화",
+      "품질 관리 시스템 구축",
+      "안정적인 공급망 확보"
+    ],
+    "market_trends": [
+      "스마트 팩토리와 자동화",
+      "친환경 생산 공정",
+      "맞춤형 제품 생산"
+    ],
+    "risk_factors": [
+      "원자재 가격 변동",
+      "환경 규제 강화",
+      "인력 부족과 고령화"
+    ],
+    "base_score": 76,
+    "growth_potential": "MEDIUM",
+    "competition_level": "MEDIUM"
+  },
+  "construction": {
+    "characteristics": [
+      "프로젝트 기반의 일회성 사업",
+      "안전 관리와 품질 보증 중요",
+      "계절성과 경기 변동에 민감"
+    ],
+    "success_factors": [
+      "프로젝트 관리 역량",
+      "안전 사고 예방 시스템",
+      "협력업체 네트워크"
+    ],
+    "market_trends": [
+      "친환경 건축 기술",
+      "모듈러 건축과 프리팹",
+      "BIM과 디지털 설계"
+    ],
+    "risk_factors": [
+      "안전사고 발생 위험",
+      "건설 경기 변동",
+      "인력 수급 불안정"
+    ],
+    "base_score": 68,
+    "growth_potential": "LOW",
+    "competition_level": "HIGH"
+  },
+  "finance": {
+    "characteristics": [
+      "높은 신뢰성과 보안 요구",
+      "복잡한 규제와 컴플라이언스",
+      "디지털 전환 가속화"
+    ],
+    "success_factors": [
+      "리스크 관리 시스템",
+      "고객 신뢰도 구축",
+      "디지털 서비스 혁신"
+    ],
+    "market_trends": [
+      "핀테크와 디지털 뱅킹",
+      "블록체인과 암호화폐",
+      "개인화된 금융 서비스"
+    ],
+    "risk_factors": [
+      "금융 규제 변화",
+      "사이버 보안 위협",
+      "핀테크 업체와의 경쟁"
+    ],
+    "base_score": 80,
+    "growth_potential": "MEDIUM",
+    "competition_level": "HIGH"
+  },
+  "beauty": {
+    "characteristics": [
+      "트렌드와 개인 취향에 민감",
+      "브랜드 이미지와 마케팅 중요",
+      "고객 경험과 서비스 품질 핵심"
+    ],
+    "success_factors": [
+      "트렌드 대응력과 상품 기획",
+      "고객 맞춤 서비스 제공",
+      "브랜드 차별화 전략"
+    ],
+    "market_trends": [
+      "K-뷰티 글로벌 확산",
+      "개인 맞춤형 화장품",
+      "친환경 뷰티 제품"
+    ],
+    "risk_factors": [
+      "트렌드 변화 속도",
+      "온라인 채널과의 경쟁",
+      "원자재 가격 상승"
+    ],
+    "base_score": 74,
+    "growth_potential": "HIGH",
+    "competition_level": "HIGH"
+  },
+  "fitness": {
+    "characteristics": [
+      "건강과 웰빙 트렌드 수혜",
+      "개인 맞춤형 서비스 중요",
+      "시설과 장비 투자 필요"
+    ],
+    "success_factors": [
+      "전문 트레이너 확보",
+      "차별화된 프로그램",
+      "회원 관리 시스템"
+    ],
+    "market_trends": [
+      "홈트레이닝과 온라인 피트니스",
+      "웨어러블 기기 연동",
+      "기능성 운동과 재활"
+    ],
+    "risk_factors": [
+      "코로나19 등 감염병 영향",
+      "온라인 서비스와의 경쟁",
+      "회원 이탈률 관리"
+    ],
+    "base_score": 77,
+    "growth_potential": "HIGH",
+    "competition_level": "MEDIUM"
+  },
+  "entertainment": {
+    "characteristics": [
+      "창의성과 콘텐츠가 핵심",
+      "트렌드와 대중 취향에 민감",
+      "높은 수익성과 리스크 공존"
+    ],
+    "success_factors": [
+      "독창적인 콘텐츠 기획",
+      "타겟 고객층 분석",
+      "마케팅과 홍보 전략"
+    ],
+    "market_trends": [
+      "OTT 플랫폼 확산",
+      "메타버스와 VR 콘텐츠",
+      "개인 방송과 크리에이터"
+    ],
+    "risk_factors": [
+      "콘텐츠 성공 불확실성",
+      "저작권과 법적 이슈",
+      "플랫폼 의존도"
+    ],
+    "base_score": 71,
+    "growth_potential": "HIGH",
+    "competition_level": "HIGH"
+  },
+  "automotive": {
+    "characteristics": [
+      "기술 집약적 산업",
+      "높은 초기 투자와 장기 회수",
+      "안전성과 품질이 최우선"
+    ],
+    "success_factors": [
+      "기술 혁신과 R&D",
+      "품질 관리 시스템",
+      "고객 서비스 네트워크"
+    ],
+    "market_trends": [
+      "전기차와 자율주행",
+      "모빌리티 서비스",
+      "친환경 기술"
+    ],
+    "risk_factors": [
+      "기술 변화 속도",
+      "높은 진입 장벽",
+      "환경 규제 강화"
+    ],
+    "base_score": 79,
+    "growth_potential": "MEDIUM",
+    "competition_level": "HIGH"
+  },
+  "agriculture": {
+    "characteristics": [
+      "계절성과 기후 의존도 높음",
+      "전통적 방식과 기술 혁신 공존",
+      "식품 안전과 품질 중요"
+    ],
+    "success_factors": [
+      "생산성 향상 기술",
+      "품질 관리와 브랜딩",
+      "유통 채널 다양화"
+    ],
+    "market_trends": [
+      "스마트팜과 정밀농업",
+      "친환경 유기농",
+      "직거래와 온라인 판매"
+    ],
+    "risk_factors": [
+      "기후 변화 영향",
+      "농산물 가격 변동",
+      "고령화와 인력 부족"
+    ],
+    "base_score": 65,
+    "growth_potential": "MEDIUM",
+    "competition_level": "LOW"
+  },
+  "logistics": {
+    "characteristics": [
+      "효율성과 정시성이 핵심",
+      "네트워크와 인프라 중요",
+      "기술 혁신으로 경쟁력 확보"
+    ],
+    "success_factors": [
+      "배송 네트워크 최적화",
+      "IT 시스템과 자동화",
+      "고객 서비스 품질"
+    ],
+    "market_trends": [
+      "이커머스 배송 수요 증가",
+      "드론과 자율주행 배송",
+      "친환경 물류"
+    ],
+    "risk_factors": [
+      "유가 변동과 운송비",
+      "인력 부족",
+      "교통 체증과 인프라"
+    ],
+    "base_score": 73,
+    "growth_potential": "HIGH",
+    "competition_level": "MEDIUM"
+  },
+  "other": {
+    "characteristics": [
+      "다양한 업종의 일반적 특성",
+      "시장 상황에 따른 변동성",
+      "차별화 전략 필요"
+    ],
+    "success_factors": [
+      "시장 분석과 포지셔닝",
+      "고객 니즈 파악",
+      "운영 효율성 개선"
+    ],
+    "market_trends": [
+      "디지털 전환",
+      "고객 경험 중시",
+      "지속가능성"
+    ],
+    "risk_factors": [
+      "시장 경쟁 심화",
+      "경기 변동 영향",
+      "규제 변화"
+    ],
+    "base_score": 70,
+    "growth_potential": "MEDIUM",
+    "competition_level": "MEDIUM"
+  }
+}

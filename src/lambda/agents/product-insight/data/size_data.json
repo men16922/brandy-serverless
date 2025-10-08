@@ -1,0 +1,80 @@
+{
+  "small": {
+    "characteristics": [
+      "소규모 자본으로 시작 가능",
+      "빠른 의사결정과 유연한 운영",
+      "개인적 관계와 서비스 중심"
+    ],
+    "advantages": [
+      "낮은 초기 투자비용",
+      "신속한 시장 대응",
+      "개인화된 고객 서비스"
+    ],
+    "challenges": [
+      "제한적인 자원과 인력",
+      "마케팅 예산 부족",
+      "규모의 경제 한계"
+    ],
+    "strategies": [
+      "틈새시장 공략과 차별화",
+      "디지털 마케팅 활용",
+      "고객 충성도 극대화"
+    ],
+    "investment_range": "1천만원 - 5천만원",
+    "employee_range": "1-5명",
+    "score_modifier": -5,
+    "risk_level": "MEDIUM_HIGH"
+  },
+  "medium": {
+    "characteristics": [
+      "적정 규모의 안정적 운영",
+      "체계적 관리와 전문화",
+      "지역 시장에서의 인지도"
+    ],
+    "advantages": [
+      "안정적인 현금흐름",
+      "전문 인력 확보 가능",
+      "브랜드 구축 기회"
+    ],
+    "challenges": [
+      "성장 정체 위험",
+      "대기업과의 경쟁",
+      "관리 복잡성 증가"
+    ],
+    "strategies": [
+      "핵심 역량 강화",
+      "시스템화와 표준화",
+      "전략적 제휴 추진"
+    ],
+    "investment_range": "5천만원 - 3억원",
+    "employee_range": "6-30명",
+    "score_modifier": 0,
+    "risk_level": "MEDIUM"
+  },
+  "large": {
+    "characteristics": [
+      "대규모 자본과 인프라",
+      "시장 지배력과 브랜드 파워",
+      "복합적 사업 포트폴리오"
+    ],
+    "advantages": [
+      "규모의 경제 실현",
+      "강력한 브랜드 파워",
+      "다양한 사업 기회"
+    ],
+    "challenges": [
+      "높은 고정비용",
+      "조직 관리 복잡성",
+      "시장 변화 대응 속도"
+    ],
+    "strategies": [
+      "시장 점유율 확대",
+      "혁신과 R&D 투자",
+      "글로벌 진출 추진"
+    ],
+    "investment_range": "3억원 이상",
+    "employee_range": "30명 이상",
+    "score_modifier": 5,
+    "risk_level": "LOW_MEDIUM"
+  }
+}

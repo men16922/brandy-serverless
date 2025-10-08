@@ -7,7 +7,7 @@ import json
 import sys
 import os
 import time
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 from datetime import datetime
 
 # Add shared modules to path
@@ -61,6 +61,9 @@ except ImportError:
             self.agent_type = agent_type
             self.agent_name = agent_type.value
             self.logger = self._create_mock_logger()
+            # Mock Bedrock client and Reasoning Engine (not available in test environment)
+            self.bedrock_client = None
+            self.reasoning_engine = None
         
         def _create_mock_logger(self):
             import logging
@@ -120,13 +123,46 @@ class ProductInsightAgent(BaseAgent):
         super().__init__(AgentType.PRODUCT_INSIGHT)
         self.knowledge_base = get_knowledge_base()
         
-        # Load industry analysis data
+        # Load analysis data from JSON files
         self.industry_data = self._load_industry_analysis_data()
         self.region_data = self._load_region_analysis_data()
         self.size_data = self._load_size_analysis_data()
     
+    def _load_json_data(self, filename: str, fallback_method: callable) -> Dict[str, Any]:
+        """
+        Load data from JSON file with fallback to hardcoded data.
+        
+        Args:
+            filename: JSON filename (e.g., 'industry_data.json')
+            fallback_method: Method to call if JSON loading fails
+        
+        Returns:
+            Data dictionary
+        """
+        try:
+            # Try to load from JSON file
+            data_dir = os.path.join(os.path.dirname(__file__), 'data')
+            file_path = os.path.join(data_dir, filename)
+            
+            if os.path.exists(file_path):
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    self.logger.info(f"Loaded {filename} from JSON file")
+                    return data
+            else:
+                self.logger.warning(f"{filename} not found, using fallback data")
+                return fallback_method()
+                
+        except Exception as e:
+            self.logger.error(f"Failed to load {filename}: {str(e)}, using fallback data")
+            return fallback_method()
+    
     def _load_industry_analysis_data(self) -> Dict[str, Dict[str, Any]]:
-        """Load 16 industry-specific analysis data"""
+        """Load 16 industry-specific analysis data from JSON file"""
+        return self._load_json_data('industry_data.json', self._get_fallback_industry_data)
+    
+    def _get_fallback_industry_data(self) -> Dict[str, Dict[str, Any]]:
+        """Fallback industry data (used if JSON file not available)"""
         return {
             "restaurant": {
                 "characteristics": [
@@ -531,7 +567,11 @@ class ProductInsightAgent(BaseAgent):
         }
     
     def _load_region_analysis_data(self) -> Dict[str, Dict[str, Any]]:
-        """Load region-specific market environment analysis data"""
+        """Load region-specific market environment analysis data from JSON file"""
+        return self._load_json_data('region_data.json', self._get_fallback_region_data)
+    
+    def _get_fallback_region_data(self) -> Dict[str, Dict[str, Any]]:
+        """Fallback region data (used if JSON file not available)"""
         return {
             "seoul": {
                 "market_size": "LARGE",
@@ -888,7 +928,11 @@ class ProductInsightAgent(BaseAgent):
         }
     
     def _load_size_analysis_data(self) -> Dict[str, Dict[str, Any]]:
-        """Load business size-specific strategy data"""
+        """Load business size-specific strategy data from JSON file"""
+        return self._load_json_data('size_data.json', self._get_fallback_size_data)
+    
+    def _get_fallback_size_data(self) -> Dict[str, Dict[str, Any]]:
+        """Fallback size data (used if JSON file not available)"""
         return {
             "small": {
                 "characteristics": [
@@ -1037,8 +1081,185 @@ class ProductInsightAgent(BaseAgent):
         
         return insights
     
+    def _perform_bedrock_analysis(
+        self,
+        industry: str,
+        region: str,
+        size: str,
+        industry_data: Dict[str, Any],
+        region_data: Dict[str, Any],
+        size_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Perform enhanced business analysis using Bedrock Claude.
+        
+        This method implements Requirement 1.2 and 3.1:
+        - Uses Bedrock Claude for industry/region/size analysis
+        - Provides Chain-of-Thought reasoning
+        - Generates enhanced insights beyond static data
+        
+        Args:
+            industry: Industry type
+            region: Region name
+            size: Business size
+            industry_data: Static industry data
+            region_data: Static region data
+            size_data: Static size data
+        
+        Returns:
+            Dict with enhanced analysis including reasoning
+        """
+        try:
+            # Build comprehensive context for Claude
+            analysis_context = {
+                'industry': industry,
+                'region': region,
+                'size': size,
+                'industry_characteristics': industry_data['characteristics'],
+                'industry_trends': industry_data['market_trends'],
+                'region_market': {
+                    'size': region_data['market_size'],
+                    'competition': region_data['competition_level'],
+                    'consumer_power': region_data['consumer_power']
+                },
+                'size_investment': size_data['investment_range'],
+                'size_risk': size_data['risk_level']
+            }
+            
+            system_prompt = """You are an expert business consultant specializing in market analysis and business viability assessment.
+
+Your task is to analyze a business opportunity based on industry, region, and size factors.
+
+Provide:
+1. Comprehensive viability assessment
+2. Strategic insights beyond obvious factors
+3. Specific actionable recommendations
+4. Risk mitigation strategies
+5. Growth opportunities
+
+Respond in Korean with a professional, insightful tone."""
+            
+            prompt = f"""비즈니스 분석 요청:
+
+업종: {industry}
+지역: {region}
+규모: {size}
+
+업종 특성:
+{json.dumps(industry_data['characteristics'], ensure_ascii=False, indent=2)}
+
+시장 트렌드:
+{json.dumps(industry_data['market_trends'], ensure_ascii=False, indent=2)}
+
+지역 시장 환경:
+- 시장 규모: {region_data['market_size']}
+- 경쟁 수준: {region_data['competition_level']}
+- 소비력: {region_data['consumer_power']}
+- 임대료 수준: {region_data['rent_cost']}
+
+규모별 특성:
+- 투자 범위: {size_data['investment_range']}
+- 리스크 수준: {size_data['risk_level']}
+
+위 정보를 바탕으로 다음을 분석해주세요:
+
+1. 종합 평가 (0-100점 척도로 점수 제시)
+2. 핵심 인사이트 3가지 (구체적이고 실행 가능한 내용)
+3. 성공을 위한 전략적 권장사항 3가지
+4. 주의해야 할 리스크 요인
+5. 성장 기회 및 차별화 포인트
+
+JSON 형식으로 응답해주세요:
+{{
+    "score": 0-100,
+    "reasoning": "점수 산정 근거",
+    "insights": ["인사이트 1", "인사이트 2", "인사이트 3"],
+    "recommendations": ["권장사항 1", "권장사항 2", "권장사항 3"],
+    "risk_factors": ["리스크 1", "리스크 2"],
+    "growth_opportunities": ["기회 1", "기회 2"],
+    "confidence": 0.0-1.0
+}}"""
+            
+            self.logger.info(
+                f"Invoking Bedrock Claude for business analysis: "
+                f"industry={industry}, region={region}, size={size}"
+            )
+            
+            # Invoke Claude for enhanced analysis
+            response = self.bedrock_client.invoke_claude(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                max_tokens=2048,
+                temperature=0.5  # Balanced creativity and consistency
+            )
+            
+            # Parse Claude's response
+            analysis_text = response['text']
+            
+            # Try to extract JSON from response
+            bedrock_analysis = self._extract_json_from_response(analysis_text)
+            
+            if bedrock_analysis:
+                self.logger.info(
+                    f"Bedrock analysis complete: score={bedrock_analysis.get('score', 'N/A')}, "
+                    f"confidence={bedrock_analysis.get('confidence', 'N/A')}, "
+                    f"latency={response['latency_ms']}ms"
+                )
+                
+                return {
+                    'success': True,
+                    'analysis': bedrock_analysis,
+                    'reasoning_text': analysis_text,
+                    'latency_ms': response['latency_ms'],
+                    'model_id': response['model_id']
+                }
+            else:
+                # Fallback: use text response
+                self.logger.warning("Could not parse JSON from Bedrock response, using text")
+                return {
+                    'success': True,
+                    'analysis': {
+                        'score': None,
+                        'reasoning': analysis_text,
+                        'insights': [],
+                        'recommendations': [],
+                        'confidence': 0.7
+                    },
+                    'reasoning_text': analysis_text,
+                    'latency_ms': response['latency_ms']
+                }
+                
+        except Exception as e:
+            self.logger.error(f"Bedrock analysis failed: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def _extract_json_from_response(self, text: str) -> Optional[Dict[str, Any]]:
+        """Extract JSON from Claude response (may be wrapped in markdown)"""
+        try:
+            # Find JSON in response
+            json_start = text.find('{')
+            json_end = text.rfind('}') + 1
+            
+            if json_start >= 0 and json_end > json_start:
+                json_str = text[json_start:json_end]
+                return json.loads(json_str)
+        except json.JSONDecodeError:
+            pass
+        
+        return None
+    
     def execute(self, event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-        """Execute Product Insight Agent business analysis"""
+        """
+        Execute Product Insight Agent business analysis with Bedrock integration.
+        
+        This method implements:
+        - Requirement 1.2: Bedrock Claude for industry/region/size analysis
+        - Requirement 3.1: Reasoning LLM for autonomous decision-making
+        - Fallback: Uses existing logic when ENABLE_FALLBACK=true
+        """
         try:
             # Extract request data
             body = event.get('body', '{}')
@@ -1078,24 +1299,76 @@ class ProductInsightAgent(BaseAgent):
             region = business_info.region.lower()
             size = business_info.size.lower()
             
-            # Calculate comprehensive score
-            score = self._calculate_comprehensive_score(industry, region, size)
-            
-            # Generate key insights
-            insights = self._generate_key_insights(industry, region, size)
-            
-            # Get industry and region data for additional context
+            # Get industry, region, and size data
             industry_data = self.industry_data.get(industry, self.industry_data["other"])
             region_data = self.region_data.get(region, self.region_data["seoul"])
             size_data = self.size_data.get(size, self.size_data["medium"])
             
+            # Calculate baseline score (always calculate for fallback)
+            baseline_score = self._calculate_comprehensive_score(industry, region, size)
+            baseline_insights = self._generate_key_insights(industry, region, size)
+            
+            # Check if Bedrock is available and fallback is disabled
+            enable_fallback = os.getenv('ENABLE_FALLBACK', 'true').lower() == 'true'
+            use_bedrock = self.bedrock_client is not None and not enable_fallback
+            
+            # Initialize analysis variables
+            final_score = baseline_score
+            final_insights = baseline_insights
+            final_recommendations = industry_data["success_factors"][:3]
+            bedrock_reasoning = None
+            bedrock_confidence = None
+            analysis_provider = "baseline"
+            
+            # Try Bedrock analysis if available
+            if use_bedrock:
+                self.logger.info("Using Bedrock Claude for enhanced analysis")
+                bedrock_result = self._perform_bedrock_analysis(
+                    industry, region, size,
+                    industry_data, region_data, size_data
+                )
+                
+                if bedrock_result['success']:
+                    bedrock_analysis = bedrock_result['analysis']
+                    
+                    # Use Bedrock results if available
+                    if bedrock_analysis.get('score') is not None:
+                        final_score = bedrock_analysis['score']
+                    
+                    if bedrock_analysis.get('insights'):
+                        final_insights = bedrock_analysis['insights']
+                    
+                    if bedrock_analysis.get('recommendations'):
+                        final_recommendations = bedrock_analysis['recommendations']
+                    
+                    bedrock_reasoning = bedrock_analysis.get('reasoning', bedrock_result.get('reasoning_text'))
+                    bedrock_confidence = bedrock_analysis.get('confidence')
+                    analysis_provider = "bedrock"
+                    
+                    self.logger.info(
+                        f"Bedrock analysis applied: score={final_score}, "
+                        f"confidence={bedrock_confidence}"
+                    )
+                else:
+                    self.logger.warning(
+                        f"Bedrock analysis failed, using baseline: {bedrock_result.get('error')}"
+                    )
+                    analysis_provider = "baseline_fallback"
+            else:
+                if enable_fallback:
+                    self.logger.info("Fallback enabled, using baseline analysis")
+                    analysis_provider = "baseline_fallback"
+                else:
+                    self.logger.warning("Bedrock not available, using baseline analysis")
+                    analysis_provider = "baseline_no_bedrock"
+            
             # Create analysis result
             analysis_result = AnalysisResult(
-                summary=f"{region} 지역의 {size} 규모 {industry} 사업 분석 결과, 종합 점수 {score}점으로 평가됩니다.",
-                score=score,
-                insights=insights,
+                summary=f"{region} 지역의 {size} 규모 {industry} 사업 분석 결과, 종합 점수 {final_score}점으로 평가됩니다.",
+                score=final_score,
+                insights=final_insights,
                 market_trends=industry_data["market_trends"],
-                recommendations=industry_data["success_factors"][:3],  # Top 3 success factors as recommendations
+                recommendations=final_recommendations
             )
             
             # Update session with analysis result
@@ -1125,14 +1398,26 @@ class ProductInsightAgent(BaseAgent):
                 'metadata': {
                     'analyzed_at': datetime.utcnow().isoformat(),
                     'agent': self.agent_name,
-                    'version': '2.0.0'
+                    'version': '2.1.0',  # Updated version for Bedrock integration
+                    'analysis_provider': analysis_provider,
+                    'bedrock_enabled': use_bedrock
                 }
             }
+            
+            # Add Bedrock-specific metadata if available
+            if bedrock_reasoning:
+                response_data['analysis']['bedrock_reasoning'] = bedrock_reasoning
+            
+            if bedrock_confidence is not None:
+                response_data['analysis']['confidence'] = bedrock_confidence
             
             # End execution tracking
             latency_ms = self.end_execution("success", result=response_data)
             
-            self.logger.info(f"Business analysis completed for {industry} in {region} (latency: {latency_ms}ms)")
+            self.logger.info(
+                f"Business analysis completed for {industry} in {region} "
+                f"(provider: {analysis_provider}, latency: {latency_ms}ms)"
+            )
             
             return self.create_lambda_response(200, response_data)
             
