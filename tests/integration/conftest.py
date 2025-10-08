@@ -12,6 +12,27 @@ import time
 import boto3
 import requests
 from typing import Dict, Any
+from pathlib import Path
+
+# Load .env.test file if it exists
+def load_env_file():
+    """Load environment variables from .env.test file"""
+    env_file = Path(__file__).parent.parent.parent / '.env.test'
+    if env_file.exists():
+        with open(env_file) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ.setdefault(key.strip(), value.strip())
+
+# Load environment variables from .env.test
+load_env_file()
+
+# Set default environment variables for tests (fallback)
+os.environ.setdefault('ENVIRONMENT', 'local')
+os.environ.setdefault('SESSIONS_TABLE', 'branding-chatbot-sessions-test')
+os.environ.setdefault('AWS_DEFAULT_REGION', 'us-east-1')
 
 # Add project root to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'src', 'lambda'))
@@ -156,3 +177,71 @@ def cleanup_dynamodb_table(dynamodb_client, test_table_name):
         print(f"✅ Cleaned up test table: {test_table_name}")
     except Exception as e:
         print(f"⚠️ Cleanup warning: {e}")
+
+
+class TestEnvironment:
+    """Test environment setup and management"""
+    
+    def __init__(self):
+        self.dynamodb = boto3.client(
+            'dynamodb',
+            endpoint_url='http://localhost:8000',
+            region_name='us-east-1',
+            aws_access_key_id='dummy',
+            aws_secret_access_key='dummy'
+        )
+        self.table_name = 'branding-chatbot-sessions-test'
+    
+    def setup_dynamodb_table(self):
+        """Create DynamoDB test table"""
+        try:
+            # Delete existing table
+            try:
+                self.dynamodb.delete_table(TableName=self.table_name)
+                time.sleep(2)
+            except:
+                pass
+            
+            # Create new table
+            self.dynamodb.create_table(
+                TableName=self.table_name,
+                KeySchema=[
+                    {'AttributeName': 'sessionId', 'KeyType': 'HASH'}
+                ],
+                AttributeDefinitions=[
+                    {'AttributeName': 'sessionId', 'AttributeType': 'S'}
+                ],
+                BillingMode='PAY_PER_REQUEST'
+            )
+            
+            # Wait for table creation
+            waiter = self.dynamodb.get_waiter('table_exists')
+            waiter.wait(TableName=self.table_name, WaiterConfig={'Delay': 1, 'MaxAttempts': 30})
+            
+            print(f"✅ DynamoDB table '{self.table_name}' created")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Failed to create DynamoDB table: {e}")
+            return False
+    
+    def cleanup_test_data(self):
+        """Cleanup test data"""
+        try:
+            self.dynamodb.delete_table(TableName=self.table_name)
+            print(f"✅ Test table '{self.table_name}' cleaned up")
+        except Exception as e:
+            print(f"⚠️ Cleanup warning: {e}")
+
+
+@pytest.fixture
+def test_environment(docker_services):
+    """Test environment fixture with DynamoDB table setup"""
+    env = TestEnvironment()
+    
+    if not env.setup_dynamodb_table():
+        pytest.skip("Failed to setup test environment")
+    
+    yield env
+    
+    env.cleanup_test_data()

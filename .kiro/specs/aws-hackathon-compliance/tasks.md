@@ -137,7 +137,7 @@
   - _Requirements: 2.1, 2.6_
   - _기존 코드: 기존 Supervisor 로직 100% 유지_
 
-- [ ]* 9. AgentCore 통합 테스트 작성
+- [x] 9. AgentCore 통합 테스트 작성
   - `tests/integration/test_agentcore.py` 생성:
     - `test_agentcore_orchestration()` - 전체 오케스트레이션
     - `test_agentcore_tool_use()` - Tool Use primitive
