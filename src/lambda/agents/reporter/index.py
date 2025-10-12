@@ -15,6 +15,8 @@ try:
     from shared.base_agent import BaseAgent
     from shared.models import AgentType, NameSuggestion, BusinessNames, WorkflowStep
     from shared.utils import create_response
+    from shared.bedrock_client import BedrockClient, BedrockException
+    from shared.reasoning_engine import ReasoningEngine
 except ImportError:
     # For testing purposes, create mock implementations
     from datetime import datetime
@@ -118,6 +120,23 @@ class ReporterAgent(BaseAgent):
     
     def __init__(self):
         super().__init__(AgentType.REPORTER)
+        
+        # Bedrock 통합 (Requirement 1.2, 3.3)
+        self.enable_bedrock = os.getenv('ENABLE_FALLBACK', 'false').lower() != 'true'
+        self.bedrock_client = None
+        self.reasoning_engine = None
+        
+        if self.enable_bedrock:
+            try:
+                self.bedrock_client = BedrockClient(logger=self.logger)
+                self.reasoning_engine = ReasoningEngine(
+                    bedrock_client=self.bedrock_client,
+                    logger=self.logger
+                )
+                self.logger.info("Bedrock integration enabled for Reporter Agent")
+            except Exception as e:
+                self.logger.warning(f"Bedrock initialization failed, using fallback: {str(e)}")
+                self.enable_bedrock = False
         
         # 상호명 생성 관련 설정
         self.max_regenerations = 3
@@ -348,7 +367,170 @@ class ReporterAgent(BaseAgent):
     
     def _generate_name_suggestions(self, business_info: Dict[str, Any], 
                                  business_names: BusinessNames) -> List[NameSuggestion]:
-        """상호명 제안 생성"""
+        """상호명 제안 생성 (Bedrock 우선, 기존 로직 fallback)"""
+        # Bedrock을 사용한 상호명 생성 시도 (Requirement 1.2, 3.3)
+        if self.enable_bedrock and self.bedrock_client and self.reasoning_engine:
+            try:
+                return self._generate_names_with_bedrock(business_info, business_names)
+            except Exception as e:
+                self.logger.warning(
+                    f"Bedrock name generation failed, using fallback: {str(e)}",
+                    extra={
+                        "agent": "reporter",
+                        "tool": "name.generate",
+                        "bedrock_error": str(e),
+                        "fallback": "traditional_algorithm"
+                    }
+                )
+        
+        # 기존 알고리즘 사용 (Fallback)
+        return self._generate_names_with_traditional_algorithm(business_info, business_names)
+    
+    def _generate_names_with_bedrock(self, business_info: Dict[str, Any], 
+                                    business_names: BusinessNames) -> List[NameSuggestion]:
+        """Bedrock Claude를 사용한 상호명 생성 및 평가"""
+        industry = business_info.get('industry', '').lower()
+        region = business_info.get('region', '').lower()
+        size = business_info.get('size', '').lower()
+        
+        # 기존 제안들을 제외 목록으로 전달
+        existing_names = [s.name for s in business_names.suggestions]
+        existing_names.extend(list(self.forbidden_words))
+        
+        # Claude에게 상호명 생성 요청
+        system_prompt = """You are an expert Korean business naming consultant.
+Generate creative, memorable, and market-appropriate business names.
+
+Requirements:
+1. Names should be 2-8 characters in Korean or mixed Korean-English
+2. Easy to pronounce and remember
+3. Reflect the industry and regional characteristics
+4. SEO-friendly and unique
+5. Avoid common or generic names
+
+Respond in JSON format with exactly 3 name suggestions:
+{
+    "suggestions": [
+        {
+            "name": "상호명",
+            "description": "이름에 대한 설명 (한글)",
+            "reasoning": "선택 이유와 브랜드 적합성 분석"
+        }
+    ]
+}"""
+        
+        prompt = f"""Business Context:
+- Industry: {industry}
+- Region: {region}
+- Size: {size}
+
+Existing names to avoid:
+{json.dumps(existing_names, ensure_ascii=False)}
+
+Please generate 3 unique, creative business names that fit this context perfectly."""
+        
+        self.logger.info(
+            f"Generating names with Bedrock Claude: industry={industry}, region={region}",
+            extra={
+                "agent": "reporter",
+                "tool": "name.generate",
+                "provider": "bedrock_claude",
+                "model": self.bedrock_client.claude_model_id
+            }
+        )
+        
+        # Claude 호출
+        response = self.bedrock_client.invoke_claude(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            max_tokens=1024,
+            temperature=0.8  # 창의성을 위해 높은 temperature
+        )
+        
+        # JSON 응답 파싱
+        response_text = response['text']
+        suggestions_data = self._extract_json_from_response(response_text)
+        
+        if not suggestions_data or 'suggestions' not in suggestions_data:
+            raise BedrockException("Invalid response format from Claude")
+        
+        # NameSuggestion 객체 생성 및 평가
+        suggestions = []
+        for item in suggestions_data['suggestions'][:3]:  # 최대 3개
+            name = item.get('name', '')
+            description = item.get('description', '')
+            
+            # 중복 확인
+            if self._is_duplicate_name(name, suggestions):
+                continue
+            
+            # Reasoning Engine으로 상호명 평가 (Requirement 3.3)
+            try:
+                evaluation = self.reasoning_engine.evaluate_business_name(
+                    name=name,
+                    business_info=business_info,
+                    temperature=0.3
+                )
+                
+                # 평가 결과를 NameSuggestion으로 변환
+                suggestion = NameSuggestion(
+                    name=name,
+                    description=description,
+                    pronunciation_score=evaluation['pronunciation_score'],
+                    search_score=evaluation['brand_fit_score'],  # brand_fit을 search_score로 매핑
+                    overall_score=evaluation['overall_score']
+                )
+                
+                suggestions.append(suggestion)
+                
+                self.logger.info(
+                    f"Name evaluated: '{name}' scored {evaluation['overall_score']:.1f}/100",
+                    extra={
+                        "agent": "reporter",
+                        "tool": "name.evaluate",
+                        "name": name,
+                        "score": evaluation['overall_score'],
+                        "confidence": evaluation['confidence'],
+                        "reasoning": evaluation['reasoning'][:200]  # 처음 200자만
+                    }
+                )
+                
+            except Exception as e:
+                self.logger.warning(f"Name evaluation failed for '{name}': {str(e)}")
+                # Fallback: 기본 점수 사용
+                suggestion = NameSuggestion(
+                    name=name,
+                    description=description,
+                    pronunciation_score=75.0,
+                    search_score=75.0,
+                    overall_score=75.0
+                )
+                suggestions.append(suggestion)
+        
+        # 최소 3개 보장 (부족하면 기존 알고리즘으로 보충)
+        if len(suggestions) < self.target_suggestions:
+            self.logger.warning(
+                f"Bedrock generated only {len(suggestions)} names, "
+                f"supplementing with traditional algorithm"
+            )
+            traditional_suggestions = self._generate_names_with_traditional_algorithm(
+                business_info, business_names
+            )
+            # 중복 제거하면서 추가
+            for trad_sugg in traditional_suggestions:
+                if len(suggestions) >= self.target_suggestions:
+                    break
+                if not self._is_duplicate_name(trad_sugg.name, suggestions):
+                    suggestions.append(trad_sugg)
+        
+        # 점수 정규화 및 순위 매기기
+        suggestions = self._normalize_and_rank_suggestions(suggestions, industry, region, size)
+        
+        return suggestions[:self.target_suggestions]
+    
+    def _generate_names_with_traditional_algorithm(self, business_info: Dict[str, Any], 
+                                                  business_names: BusinessNames) -> List[NameSuggestion]:
+        """기존 알고리즘을 사용한 상호명 생성 (Fallback)"""
         industry = business_info.get('industry', '').lower()
         region = business_info.get('region', '').lower()
         size = business_info.get('size', '').lower()
@@ -394,6 +576,21 @@ class ReporterAgent(BaseAgent):
         suggestions = self._normalize_and_rank_suggestions(suggestions, industry, region, size)
         
         return suggestions[:self.target_suggestions]
+    
+    def _extract_json_from_response(self, text: str) -> Optional[Dict[str, Any]]:
+        """Claude 응답에서 JSON 추출 (마크다운 래핑 처리)"""
+        try:
+            # JSON 찾기 (마크다운 코드 블록 안에 있을 수 있음)
+            json_start = text.find('{')
+            json_end = text.rfind('}') + 1
+            
+            if json_start >= 0 and json_end > json_start:
+                json_str = text[json_start:json_end]
+                return json.loads(json_str)
+        except json.JSONDecodeError as e:
+            self.logger.warning(f"JSON parsing failed: {str(e)}")
+        
+        return None
     
     def _calculate_uniqueness_bonus(self, name: str, industry: str, region: str) -> float:
         """고유성 보너스 점수 계산"""

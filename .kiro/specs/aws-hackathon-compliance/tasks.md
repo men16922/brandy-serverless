@@ -213,7 +213,7 @@
   - _Requirements: 1.2, 3.1_
   - _기존 코드: 완료된 Product Insight Agent 확장_
 
-- [ ] 15. Reporter Agent Bedrock 통합
+- [x] 15. Reporter Agent Bedrock 통합
   - `src/lambda/agents/reporter/index.py` 수정:
     - BedrockClient 인스턴스 생성
     - 기존 상호명 생성 알고리즘 유지
