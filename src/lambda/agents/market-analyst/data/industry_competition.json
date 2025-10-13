@@ -1,0 +1,8 @@
+{
+  "restaurant": "매우 높음",
+  "retail": "높음",
+  "service": "중간",
+  "healthcare": "높음",
+  "education": "높음",
+  "technology": "매우 높음"
+}

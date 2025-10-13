@@ -1,0 +1,20 @@
+{
+  "MZ세대": {
+    "priorities": ["경험", "가치 소비", "개성", "편의성"],
+    "spending_pattern": "선택적 집중",
+    "decision_factors": ["SNS 후기", "브랜드 가치", "개인화"],
+    "growth_rate": "+25%"
+  },
+  "X세대": {
+    "priorities": ["품질", "가성비", "실용성", "안정성"],
+    "spending_pattern": "신중한 소비",
+    "decision_factors": ["품질", "가격", "브랜드 신뢰도"],
+    "growth_rate": "+8%"
+  },
+  "베이비부머": {
+    "priorities": ["품질", "서비스", "신뢰성", "전통"],
+    "spending_pattern": "보수적 소비",
+    "decision_factors": ["브랜드 역사", "서비스 품질", "추천"],
+    "growth_rate": "+12%"
+  }
+}

@@ -1,0 +1,20 @@
+[
+  {
+    "type": "기술 파트너십",
+    "partner": "IT 스타트업",
+    "benefit": "디지털 전환 가속화",
+    "feasibility": "높음"
+  },
+  {
+    "type": "유통 파트너십",
+    "partner": "온라인 플랫폼",
+    "benefit": "고객 접점 확대",
+    "feasibility": "중간"
+  },
+  {
+    "type": "브랜드 협업",
+    "partner": "로컬 브랜드",
+    "benefit": "상호 시너지",
+    "feasibility": "높음"
+  }
+]

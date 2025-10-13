@@ -383,6 +383,48 @@ Resources:
         - Key: Project
           Value: !Ref ProjectName
 
+  # DynamoDB Table for Market Analysis dynamic data (Single Table Design)
+  MarketAnalysisDataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${ProjectName}-market-analysis-${Environment}"
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: dataType
+          AttributeType: S
+        - AttributeName: lastUpdated
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      GlobalSecondaryIndexes:
+        - IndexName: DataTypeIndex
+          KeySchema:
+            - AttributeName: dataType
+              KeyType: HASH
+            - AttributeName: lastUpdated
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Purpose
+          Value: MarketAnalystDynamicData
+
   # S3 Bucket for assets storage
   BrandingAssetsBucket:
     Type: AWS::S3::Bucket

@@ -1,0 +1,38 @@
+{
+  "restaurant": {
+    "currentImpact": "중간",
+    "futureImpact": "높음",
+    "keyTechnologies": ["AI 추천", "무인 시스템", "IoT"],
+    "adoptionTimeline": "1-3년"
+  },
+  "retail": {
+    "currentImpact": "높음",
+    "futureImpact": "매우 높음",
+    "keyTechnologies": ["AR/VR", "AI 개인화", "블록체인"],
+    "adoptionTimeline": "즉시-2년"
+  },
+  "service": {
+    "currentImpact": "높음",
+    "futureImpact": "매우 높음",
+    "keyTechnologies": ["AI 챗봇", "예측 분석", "자동화"],
+    "adoptionTimeline": "즉시-1년"
+  },
+  "healthcare": {
+    "currentImpact": "중간",
+    "futureImpact": "매우 높음",
+    "keyTechnologies": ["원격 진료", "AI 진단", "웨어러블"],
+    "adoptionTimeline": "2-5년"
+  },
+  "education": {
+    "currentImpact": "높음",
+    "futureImpact": "매우 높음",
+    "keyTechnologies": ["AI 튜터", "VR 교육", "학습 분석"],
+    "adoptionTimeline": "1-3년"
+  },
+  "technology": {
+    "currentImpact": "매우 높음",
+    "futureImpact": "매우 높음",
+    "keyTechnologies": ["AI/ML", "클라우드", "엣지 컴퓨팅"],
+    "adoptionTimeline": "즉시"
+  }
+}

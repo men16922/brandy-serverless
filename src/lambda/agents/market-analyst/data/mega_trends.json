@@ -1,0 +1,26 @@
+[
+  {
+    "trend": "디지털 전환 가속화",
+    "impact": "높음",
+    "timeline": "현재 진행중",
+    "description": "코로나19 이후 디지털 채널 확산"
+  },
+  {
+    "trend": "개인화/맞춤화 서비스",
+    "impact": "높음",
+    "timeline": "2-3년",
+    "description": "AI 기반 개인 맞춤 서비스 확산"
+  },
+  {
+    "trend": "ESG 경영 확산",
+    "impact": "중간",
+    "timeline": "3-5년",
+    "description": "환경, 사회적 책임 중시"
+  },
+  {
+    "trend": "구독 경제 확산",
+    "impact": "중간",
+    "timeline": "1-2년",
+    "description": "소유에서 이용으로 패러다임 변화"
+  }
+]

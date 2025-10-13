@@ -1,0 +1,23 @@
+[
+  {
+    "risk": "트렌드 급변",
+    "probability": "중간",
+    "impact": "높음",
+    "description": "소비자 트렌드의 급격한 변화",
+    "mitigation": "다양한 트렌드 모니터링 및 빠른 적응"
+  },
+  {
+    "risk": "경쟁사 선점",
+    "probability": "높음",
+    "impact": "중간",
+    "description": "경쟁사의 트렌드 선점",
+    "mitigation": "차별화된 접근 방식 개발"
+  },
+  {
+    "risk": "투자 회수 실패",
+    "probability": "중간",
+    "impact": "높음",
+    "description": "트렌드 투자 대비 수익 미달",
+    "mitigation": "단계적 투자 및 성과 측정"
+  }
+]

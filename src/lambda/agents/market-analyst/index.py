@@ -14,6 +14,8 @@ sys.path.append('/opt/python')
 from shared.utils import setup_logging, get_aws_clients, create_response
 from shared.agent_communication import AgentCommunication
 from shared.knowledge_base import get_knowledge_base
+from shared.bedrock_client import BedrockClient, BedrockException
+from shared.reasoning_engine import ReasoningEngine
 
 logger = setup_logging()
 
@@ -24,6 +26,20 @@ class MarketAnalystAgent:
         self.sessions_table = self.dynamodb.Table(os.getenv('SESSIONS_TABLE'))
         self.knowledge_base = get_knowledge_base()
         self.agent_comm = AgentCommunication()
+        
+        # Bedrock integration (Requirement 1.3, 3.2, 5.2)
+        self.enable_fallback = os.getenv('ENABLE_FALLBACK', 'true').lower() == 'true'
+        self.dev_profile = os.getenv('DEV_PROFILE', 'false').lower() == 'true'
+        
+        try:
+            self.bedrock_client = BedrockClient(logger=logger)
+            self.reasoning_engine = ReasoningEngine(bedrock_client=self.bedrock_client, logger=logger)
+            logger.info("Market Analyst Agent initialized with Bedrock integration")
+        except Exception as e:
+            logger.warning(f"Bedrock initialization failed: {str(e)}. Using fallback mode.")
+            self.bedrock_client = None
+            self.reasoning_engine = None
+            self.enable_fallback = True
         
     def lambda_handler(self, event, context):
         """
@@ -187,7 +203,7 @@ class MarketAnalystAgent:
             return self._get_fallback_trend_analysis(industry, region)
     
     def _analyze_latest_trends(self, industry: str, region: str) -> Dict[str, Any]:
-        """최신 시장 트렌드 분석 - DynamoDB에서 조회"""
+        """최신 시장 트렌드 분석 - Bedrock Claude reasoning 사용 (Requirement 3.2)"""
         try:
             from shared.market_data_loader import get_market_data_loader
             
@@ -198,13 +214,54 @@ class MarketAnalystAgent:
                 hot_trends = trend_data.get("hot_trends", [])
                 declining_trends = trend_data.get("declining_trends", [])
                 
+                # Use Bedrock Claude for trend reasoning (Requirement 3.2)
+                if self.reasoning_engine and not self.dev_profile:
+                    try:
+                        logger.info(f"Using Bedrock reasoning for trend analysis: {industry}")
+                        
+                        # Prepare context for reasoning
+                        context = {
+                            "industry": industry,
+                            "region": region,
+                            "hot_trends": hot_trends,
+                            "declining_trends": declining_trends,
+                            "consumer_behaviors": trend_data.get("consumer_behaviors", [])
+                        }
+                        
+                        # Use reasoning engine to analyze trend implications
+                        reasoning_result = self.reasoning_engine.reason_and_decide(
+                            context=context,
+                            options=["aggressive_adoption", "cautious_adoption", "wait_and_see"],
+                            decision_criteria="Determine the best strategy for adopting these market trends based on industry dynamics and regional characteristics",
+                            temperature=0.4
+                        )
+                        
+                        # Enhance trend data with reasoning insights
+                        return {
+                            "hotTrends": hot_trends,
+                            "decliningTrends": declining_trends,
+                            "trendVelocity": self._calculate_trend_velocity(hot_trends),
+                            "regionalAdaptation": self._analyze_regional_trend_adaptation(region, trend_data),
+                            "competitorAdoption": self._analyze_competitor_trend_adoption(industry, trend_data),
+                            "consumerBehaviors": trend_data.get("consumer_behaviors", []),
+                            "aiRecommendedStrategy": reasoning_result.get('decision'),
+                            "strategyReasoning": reasoning_result.get('reasoning'),
+                            "strategyConfidence": reasoning_result.get('confidence'),
+                            "source": "bedrock_reasoning"
+                        }
+                    except BedrockException as e:
+                        logger.warning(f"Bedrock reasoning failed: {str(e)}. Using fallback.")
+                        # Continue with fallback logic below
+                
+                # Fallback: return trend data without AI reasoning
                 return {
                     "hotTrends": hot_trends,
                     "decliningTrends": declining_trends,
                     "trendVelocity": self._calculate_trend_velocity(hot_trends),
                     "regionalAdaptation": self._analyze_regional_trend_adaptation(region, trend_data),
                     "competitorAdoption": self._analyze_competitor_trend_adoption(industry, trend_data),
-                    "consumerBehaviors": trend_data.get("consumer_behaviors", [])
+                    "consumerBehaviors": trend_data.get("consumer_behaviors", []),
+                    "source": "fallback"
                 }
             else:
                 logger.warning(f"Trend data not found for {industry}, using fallback")
@@ -215,64 +272,30 @@ class MarketAnalystAgent:
             return self._get_fallback_trend_data(industry)
     
     def _analyze_consumer_preferences(self, industry: str, region: str) -> Dict[str, Any]:
-        """소비자 선호도 변화 분석"""
+        """소비자 선호도 변화 분석 - JSON + DynamoDB 로더 사용"""
+        from data_loader import get_data_loader
+        from dynamodb_loader import get_dynamodb_loader
         
-        # 세대별 선호도 변화
-        generational_preferences = {
-            "MZ세대": {
-                "priorities": ["경험", "가치 소비", "개성", "편의성"],
-                "spending_pattern": "선택적 집중",
-                "decision_factors": ["SNS 후기", "브랜드 가치", "개인화"],
-                "growth_rate": "+25%"
-            },
-            "X세대": {
-                "priorities": ["품질", "가성비", "실용성", "안정성"],
-                "spending_pattern": "신중한 소비",
-                "decision_factors": ["품질", "가격", "브랜드 신뢰도"],
-                "growth_rate": "+8%"
-            },
-            "베이비부머": {
-                "priorities": ["품질", "서비스", "신뢰성", "전통"],
-                "spending_pattern": "보수적 소비",
-                "decision_factors": ["브랜드 역사", "서비스 품질", "추천"],
-                "growth_rate": "+12%"
-            }
-        }
+        # JSON에서 정적 데이터 로드
+        json_loader = get_data_loader()
+        generational_preferences = json_loader.get_generational_preferences()
+        regional_preferences = json_loader.get_regional_preferences()
         
-        # 지역별 선호도 특성
-        regional_preferences = {
-            "seoul": ["트렌디함", "혁신성", "브랜드 가치", "차별화"],
-            "busan": ["실용성", "가성비", "지역 특색", "편안함"],
-            "gyeonggi": ["가족 친화", "편의성", "안전성", "실용성"],
-            "jeju": ["자연 친화", "힐링", "특별함", "지속가능성"]
-        }
+        # DynamoDB에서 동적 데이터 로드
+        db_loader = get_dynamodb_loader()
+        behavioral_changes_data = db_loader.get_behavioral_changes(industry, region="GLOBAL")
         
-        # 업종별 소비자 행동 변화
-        behavioral_changes = {
-            "restaurant": [
-                {"change": "배달 앱 사용 증가", "percentage": "+78%"},
-                {"change": "건강 메뉴 선호", "percentage": "+45%"},
-                {"change": "인스타그래머블 중시", "percentage": "+62%"},
-                {"change": "개인 다이닝 선호", "percentage": "+38%"}
-            ],
-            "retail": [
-                {"change": "온라인 우선 구매", "percentage": "+85%"},
-                {"change": "리뷰 의존도 증가", "percentage": "+72%"},
-                {"change": "지속가능성 고려", "percentage": "+55%"},
-                {"change": "개인화 상품 선호", "percentage": "+48%"}
-            ],
-            "service": [
-                {"change": "비대면 서비스 선호", "percentage": "+68%"},
-                {"change": "구독 서비스 선호", "percentage": "+52%"},
-                {"change": "개인 맞춤 서비스", "percentage": "+65%"},
-                {"change": "투명한 가격 정책", "percentage": "+58%"}
+        # Fallback for behavioral changes
+        if not behavioral_changes_data:
+            behavioral_changes_data = [
+                {"change": "디지털 전환 가속화", "percentage": "+60%"},
+                {"change": "개인화 서비스 선호", "percentage": "+55%"}
             ]
-        }
         
         return {
             "generationalPreferences": generational_preferences,
-            "regionalPreferences": regional_preferences.get(region, regional_preferences["seoul"]),
-            "behavioralChanges": behavioral_changes.get(industry, behavioral_changes["service"]),
+            "regionalPreferences": regional_preferences.get(region, regional_preferences.get("seoul", [])),
+            "behavioralChanges": behavioral_changes_data,
             "keyInsights": self._extract_preference_insights(industry, region),
             "futureProjections": self._project_future_preferences(industry)
         }
@@ -306,71 +329,136 @@ class MarketAnalystAgent:
         }
     
     def _analyze_trend_risks(self, industry: str, region: str, trends: Dict) -> Dict[str, Any]:
-        """트렌드 관련 위험 분석"""
+        """트렌드 관련 위험 분석 - JSON + DynamoDB 로더 사용"""
+        from data_loader import get_data_loader
+        from dynamodb_loader import get_dynamodb_loader
         
-        # 트렌드 변화 위험
-        trend_risks = [
-            {
-                "risk": "트렌드 급변",
-                "probability": "중간",
-                "impact": "높음",
-                "description": "소비자 트렌드의 급격한 변화",
-                "mitigation": "다양한 트렌드 모니터링 및 빠른 적응"
-            },
-            {
-                "risk": "경쟁사 선점",
-                "probability": "높음",
-                "impact": "중간",
-                "description": "경쟁사의 트렌드 선점",
-                "mitigation": "차별화된 접근 방식 개발"
-            },
-            {
-                "risk": "투자 회수 실패",
-                "probability": "중간",
-                "impact": "높음",
-                "description": "트렌드 투자 대비 수익 미달",
-                "mitigation": "단계적 투자 및 성과 측정"
-            }
-        ]
+        # JSON에서 일반 트렌드 위험 로드
+        json_loader = get_data_loader()
+        trend_risks = json_loader.get_trend_risks()
         
-        # 업종별 특화 위험
-        industry_specific_risks = {
-            "restaurant": [
-                {"risk": "식자재 가격 변동", "impact": "높음"},
-                {"risk": "배달비 상승", "impact": "중간"},
-                {"risk": "위생 규제 강화", "impact": "중간"}
-            ],
-            "retail": [
-                {"risk": "온라인 플랫폼 의존", "impact": "높음"},
-                {"risk": "재고 관리 복잡성", "impact": "중간"},
-                {"risk": "물류비 상승", "impact": "중간"}
-            ],
-            "technology": [
-                {"risk": "기술 변화 속도", "impact": "매우 높음"},
-                {"risk": "인재 확보 경쟁", "impact": "높음"},
-                {"risk": "보안 위협 증가", "impact": "높음"}
+        # DynamoDB에서 업종별 특화 위험 로드
+        db_loader = get_dynamodb_loader()
+        industry_specific_risks = db_loader.get_industry_risks(industry, region="GLOBAL")
+        
+        # Fallback for industry risks
+        if not industry_specific_risks:
+            industry_specific_risks = [
+                {"risk": "시장 변동성", "impact": "중간"},
+                {"risk": "경쟁 심화", "impact": "높음"}
             ]
-        }
         
         return {
             "generalRisks": trend_risks,
-            "industryRisks": industry_specific_risks.get(industry, []),
-            "riskMatrix": self._create_risk_matrix(trend_risks, industry_specific_risks.get(industry, [])),
+            "industryRisks": industry_specific_risks,
+            "riskMatrix": self._create_risk_matrix(trend_risks, industry_specific_risks),
             "mitigationStrategies": self._develop_mitigation_strategies(industry, trend_risks)
         }
     
     def _query_market_data(self, industry: str, region: str) -> Dict[str, Any]:
-        """Knowledge Base에서 시장 데이터 조회"""
+        """Knowledge Base에서 시장 데이터 조회 - Bedrock KB 우선, Chroma fallback"""
         try:
-            # 시장 규모 및 성장률 데이터
+            # Try Bedrock Knowledge Base first (Requirement 5.2)
+            if self.bedrock_client and not self.dev_profile:
+                logger.info(f"Querying Bedrock KB for market data: {industry}, {region}")
+                
+                # 시장 규모 및 성장률 데이터
+                market_size_query = f"{industry} 시장 규모 성장률 전망"
+                market_size_result = self.bedrock_client.query_knowledge_base(
+                    query=market_size_query,
+                    max_results=5,
+                    min_score=0.5
+                )
+                market_size_data = [
+                    {'content': r['content'], 'score': r['score']}
+                    for r in market_size_result.get('results', [])
+                ]
+                
+                # 시장 트렌드 데이터
+                trends_query = f"{industry} 시장 트렌드 변화 동향"
+                trends_result = self.bedrock_client.query_knowledge_base(
+                    query=trends_query,
+                    max_results=5,
+                    min_score=0.5
+                )
+                trends_data = [
+                    {'content': r['content'], 'score': r['score']}
+                    for r in trends_result.get('results', [])
+                ]
+                
+                # 지역별 시장 특성
+                regional_query = f"{region} {industry} 시장 특성 현황"
+                regional_result = self.bedrock_client.query_knowledge_base(
+                    query=regional_query,
+                    max_results=3,
+                    min_score=0.5
+                )
+                regional_data = [
+                    {'content': r['content'], 'score': r['score']}
+                    for r in regional_result.get('results', [])
+                ]
+                
+                logger.info(
+                    f"Bedrock KB query successful: "
+                    f"market_size={len(market_size_data)}, "
+                    f"trends={len(trends_data)}, "
+                    f"regional={len(regional_data)}"
+                )
+                
+                return {
+                    "market_size_data": market_size_data,
+                    "trends_data": trends_data,
+                    "regional_data": regional_data,
+                    "source": "bedrock_kb"
+                }
+            
+            # Fallback to Chroma (local development)
+            elif self.enable_fallback:
+                logger.info(f"Using Chroma fallback for market data: {industry}, {region}")
+                
+                # 시장 규모 및 성장률 데이터
+                market_size_query = f"{industry} 시장 규모 성장률 전망"
+                market_size_data = self.knowledge_base.search(market_size_query, top_k=5)
+                
+                # 시장 트렌드 데이터
+                trends_query = f"{industry} 시장 트렌드 변화 동향"
+                trends_data = self.knowledge_base.search(trends_query, top_k=5)
+                
+                # 지역별 시장 특성
+                regional_query = f"{region} {industry} 시장 특성 현황"
+                regional_data = self.knowledge_base.search(regional_query, top_k=3)
+                
+                return {
+                    "market_size_data": market_size_data,
+                    "trends_data": trends_data,
+                    "regional_data": regional_data,
+                    "source": "chroma_fallback"
+                }
+            
+            else:
+                logger.warning("No knowledge base available and fallback disabled")
+                return {"source": "none"}
+            
+        except BedrockException as e:
+            logger.error(f"Bedrock KB query failed: {str(e)}")
+            # Fallback to Chroma if Bedrock fails
+            if self.enable_fallback:
+                logger.info("Falling back to Chroma after Bedrock failure")
+                return self._query_market_data_fallback(industry, region)
+            return {"source": "error"}
+        except Exception as e:
+            logger.error(f"Market data query failed: {str(e)}")
+            return {"source": "fallback"}
+    
+    def _query_market_data_fallback(self, industry: str, region: str) -> Dict[str, Any]:
+        """Fallback method for market data query using Chroma"""
+        try:
             market_size_query = f"{industry} 시장 규모 성장률 전망"
             market_size_data = self.knowledge_base.search(market_size_query, top_k=5)
             
-            # 시장 트렌드 데이터
             trends_query = f"{industry} 시장 트렌드 변화 동향"
             trends_data = self.knowledge_base.search(trends_query, top_k=5)
             
-            # 지역별 시장 특성
             regional_query = f"{region} {industry} 시장 특성 현황"
             regional_data = self.knowledge_base.search(regional_query, top_k=3)
             
@@ -378,22 +466,79 @@ class MarketAnalystAgent:
                 "market_size_data": market_size_data,
                 "trends_data": trends_data,
                 "regional_data": regional_data,
-                "source": "knowledge_base"
+                "source": "chroma_fallback"
             }
-            
         except Exception as e:
-            logger.error(f"Market data query failed: {str(e)}")
-            return {"source": "fallback"}
+            logger.error(f"Fallback market data query failed: {str(e)}")
+            return {"source": "error"}
     
     def _analyze_competitors(self, industry: str, region: str) -> Dict[str, Any]:
-        """경쟁사 분석 - 업종별/지역별 세분화"""
+        """경쟁사 분석 - Bedrock Claude reasoning 사용 (Requirement 3.2)"""
         try:
-            competitors_query = f"{industry} 주요 경쟁사 시장 점유율"
-            competitor_data = self.knowledge_base.search(competitors_query, top_k=5)
+            # Query knowledge base for competitor data
+            if self.bedrock_client and not self.dev_profile:
+                # Use Bedrock KB
+                competitors_query = f"{industry} 주요 경쟁사 시장 점유율"
+                kb_result = self.bedrock_client.query_knowledge_base(
+                    query=competitors_query,
+                    max_results=5,
+                    min_score=0.5
+                )
+                competitor_kb_data = [
+                    {'content': r['content'], 'score': r['score']}
+                    for r in kb_result.get('results', [])
+                ]
+            elif self.enable_fallback:
+                # Fallback to Chroma
+                competitors_query = f"{industry} 주요 경쟁사 시장 점유율"
+                competitor_kb_data = self.knowledge_base.search(competitors_query, top_k=5)
+            else:
+                competitor_kb_data = []
             
             # 업종별 주요 경쟁사 데이터
             industry_competitors = self._get_industry_competitors(industry, region)
             
+            # Use Bedrock Claude for competitive positioning reasoning
+            if self.reasoning_engine and not self.dev_profile:
+                try:
+                    logger.info(f"Using Bedrock reasoning for competitive analysis: {industry}")
+                    
+                    # Prepare context for reasoning
+                    context = {
+                        "industry": industry,
+                        "region": region,
+                        "major_competitors": industry_competitors["major"],
+                        "market_share": industry_competitors["market_share"],
+                        "kb_insights": competitor_kb_data[:3] if competitor_kb_data else []
+                    }
+                    
+                    # Use reasoning engine for competitive positioning
+                    positioning_result = self.reasoning_engine.reason_and_decide(
+                        context=context,
+                        options=["differentiation", "cost_leadership", "niche_focus", "innovation"],
+                        decision_criteria="Determine the best competitive positioning strategy based on market dynamics, competitor landscape, and regional characteristics",
+                        temperature=0.4
+                    )
+                    
+                    return {
+                        "majorCompetitors": industry_competitors["major"],
+                        "marketShare": industry_competitors["market_share"],
+                        "competitiveAdvantages": self._identify_competitive_advantages(industry),
+                        "competitiveThreats": self._identify_competitive_threats(industry, region),
+                        "entryBarriers": self._analyze_entry_barriers(industry),
+                        "competitivePositioning": self._suggest_competitive_positioning(industry, region),
+                        "benchmarkMetrics": self._get_benchmark_metrics(industry),
+                        "aiRecommendedStrategy": positioning_result.get('decision'),
+                        "strategyReasoning": positioning_result.get('reasoning'),
+                        "strategyConfidence": positioning_result.get('confidence'),
+                        "alternativeStrategies": positioning_result.get('alternatives', []),
+                        "source": "bedrock_reasoning"
+                    }
+                except BedrockException as e:
+                    logger.warning(f"Bedrock reasoning failed: {str(e)}. Using fallback.")
+                    # Continue with fallback logic below
+            
+            # Fallback: return competitor analysis without AI reasoning
             return {
                 "majorCompetitors": industry_competitors["major"],
                 "marketShare": industry_competitors["market_share"],
@@ -401,7 +546,8 @@ class MarketAnalystAgent:
                 "competitiveThreats": self._identify_competitive_threats(industry, region),
                 "entryBarriers": self._analyze_entry_barriers(industry),
                 "competitivePositioning": self._suggest_competitive_positioning(industry, region),
-                "benchmarkMetrics": self._get_benchmark_metrics(industry)
+                "benchmarkMetrics": self._get_benchmark_metrics(industry),
+                "source": "fallback"
             }
         except Exception as e:
             logger.error(f"Competitor analysis failed: {str(e)}")
@@ -429,41 +575,13 @@ class MarketAnalystAgent:
             return self._get_fallback_competitor_data(industry)
     
     def _analyze_entry_barriers(self, industry: str) -> List[Dict[str, str]]:
-        """진입 장벽 분석"""
-        barriers_data = {
-            "restaurant": [
-                {"barrier": "초기 투자비", "level": "중간", "description": "인테리어, 장비 비용"},
-                {"barrier": "위치 선정", "level": "높음", "description": "임대료, 유동인구"},
-                {"barrier": "인허가", "level": "중간", "description": "영업신고, 위생허가"}
-            ],
-            "retail": [
-                {"barrier": "재고 투자", "level": "높음", "description": "초기 상품 구매비용"},
-                {"barrier": "유통망", "level": "높음", "description": "공급업체 확보"},
-                {"barrier": "브랜드 인지도", "level": "중간", "description": "마케팅 비용"}
-            ],
-            "service": [
-                {"barrier": "전문성", "level": "높음", "description": "자격증, 경험"},
-                {"barrier": "신뢰 구축", "level": "높음", "description": "평판, 실적"},
-                {"barrier": "초기 투자", "level": "낮음", "description": "상대적으로 적은 비용"}
-            ],
-            "healthcare": [
-                {"barrier": "면허/자격", "level": "매우 높음", "description": "의료진 확보"},
-                {"barrier": "시설 투자", "level": "매우 높음", "description": "의료장비, 시설"},
-                {"barrier": "규제 준수", "level": "매우 높음", "description": "의료법 준수"}
-            ],
-            "education": [
-                {"barrier": "강사 확보", "level": "중간", "description": "우수 강사진"},
-                {"barrier": "커리큘럼", "level": "중간", "description": "교육 프로그램"},
-                {"barrier": "시설 투자", "level": "중간", "description": "교육 시설"}
-            ],
-            "technology": [
-                {"barrier": "기술력", "level": "매우 높음", "description": "R&D 투자"},
-                {"barrier": "인재 확보", "level": "매우 높음", "description": "개발자, 엔지니어"},
-                {"barrier": "자본 조달", "level": "높음", "description": "개발 비용"}
-            ]
-        }
+        """진입 장벽 분석 - JSON 로더 사용"""
+        from data_loader import get_data_loader
         
-        return barriers_data.get(industry, barriers_data["service"])
+        loader = get_data_loader()
+        barriers_data = loader.get_entry_barriers()
+        
+        return barriers_data.get(industry, barriers_data.get("service", []))
     
     def _suggest_competitive_positioning(self, industry: str, region: str) -> Dict[str, Any]:
         """경쟁 포지셔닝 제안"""
@@ -475,88 +593,53 @@ class MarketAnalystAgent:
         }
     
     def _get_positioning_strategy(self, industry: str, region: str) -> str:
-        """포지셔닝 전략"""
-        strategies = {
-            "restaurant": "지역 특색과 개성을 살린 차별화",
-            "retail": "전문성과 고객 서비스 중심",
-            "service": "개인 맞춤형 서비스 특화",
-            "healthcare": "전문성과 신뢰성 강조",
-            "education": "개별 맞춤 교육 프로그램",
-            "technology": "혁신적 기술과 사용자 경험"
-        }
+        """포지셔닝 전략 - JSON 로더 사용"""
+        from data_loader import get_data_loader
+        
+        loader = get_data_loader()
+        strategies = loader.get_positioning_strategies()
+        
         return strategies.get(industry, "고품질 서비스 차별화")
     
     def _get_differentiation_factors(self, industry: str) -> List[str]:
-        """차별화 요소"""
-        factors = {
-            "restaurant": ["독특한 메뉴", "분위기", "서비스 품질", "가성비"],
-            "retail": ["상품 큐레이션", "고객 서비스", "매장 경험", "전문성"],
-            "service": ["개인화", "전문성", "신속성", "신뢰성"],
-            "healthcare": ["의료진 전문성", "시설", "서비스", "접근성"],
-            "education": ["맞춤 교육", "성과", "강사진", "시설"],
-            "technology": ["기술 혁신", "사용자 경험", "성능", "지원"]
-        }
+        """차별화 요소 - JSON 로더 사용"""
+        from data_loader import get_data_loader
+        
+        loader = get_data_loader()
+        factors = loader.get_differentiation_factors()
+        
         return factors.get(industry, ["품질", "서비스", "가격", "편의성"])
     
     def _get_target_segment(self, industry: str, region: str) -> str:
-        """타겟 세그먼트"""
-        segments = {
-            "restaurant": "지역 주민 및 직장인",
-            "retail": "품질 중시 고객층",
-            "service": "전문 서비스 수요층",
-            "healthcare": "건강 관심 고객",
-            "education": "교육 투자 적극층",
-            "technology": "얼리어답터층"
-        }
+        """타겟 세그먼트 - JSON 로더 사용"""
+        from data_loader import get_data_loader
+        
+        loader = get_data_loader()
+        segments = loader.get_target_segments()
+        
         return segments.get(industry, "품질 중시 고객층")
     
     def _get_value_proposition(self, industry: str) -> str:
-        """가치 제안"""
-        propositions = {
-            "restaurant": "맛있고 건강한 음식을 편안한 공간에서",
-            "retail": "엄선된 상품과 전문적인 서비스",
-            "service": "개인 맞춤형 전문 서비스",
-            "healthcare": "안전하고 전문적인 의료 서비스",
-            "education": "개별 맞춤 교육으로 확실한 성과",
-            "technology": "혁신적 기술로 더 나은 경험"
-        }
+        """가치 제안 - JSON 로더 사용"""
+        from data_loader import get_data_loader
+        
+        loader = get_data_loader()
+        propositions = loader.get_value_propositions()
+        
         return propositions.get(industry, "고품질 서비스로 고객 만족")
     
     def _get_benchmark_metrics(self, industry: str) -> Dict[str, str]:
-        """벤치마크 지표"""
-        metrics = {
-            "restaurant": {
-                "고객 재방문율": "60-70%",
-                "평균 객단가": "15,000-25,000원",
-                "월 매출": "3,000-8,000만원"
-            },
-            "retail": {
-                "고객 전환율": "15-25%",
-                "평균 객단가": "30,000-50,000원",
-                "재고 회전율": "월 2-3회"
-            },
-            "service": {
-                "고객 만족도": "85-95%",
-                "재계약율": "70-80%",
-                "평균 서비스 단가": "50,000-200,000원"
-            },
-            "healthcare": {
-                "환자 만족도": "90-95%",
-                "재방문율": "80-90%",
-                "평균 진료비": "30,000-100,000원"
-            },
-            "education": {
-                "학생 만족도": "85-95%",
-                "성적 향상률": "70-80%",
-                "재등록률": "75-85%"
-            },
-            "technology": {
-                "사용자 만족도": "80-90%",
-                "기술 혁신 지수": "상위 20%",
-                "시장 점유율": "5-15%"
-            }
-        }
-        return metrics.get(industry, {"고객 만족도": "85%", "재이용률": "70%"})
+        """벤치마크 지표 - DynamoDB 로더 사용"""
+        from dynamodb_loader import get_dynamodb_loader
+        
+        loader = get_dynamodb_loader()
+        metrics = loader.get_benchmark_metrics(industry, region="GLOBAL")
+        
+        # Fallback
+        if not metrics:
+            metrics = {"고객 만족도": "85%", "재이용률": "70%"}
+        
+        return metrics
     
     def _calculate_trend_velocity(self, hot_trends: List[Dict]) -> str:
         """트렌드 변화 속도 계산"""
@@ -575,124 +658,104 @@ class MarketAnalystAgent:
             return "느림"
     
     def _analyze_regional_trend_adaptation(self, region: str, trends: Dict) -> Dict[str, Any]:
-        """지역별 트렌드 적응도 분석"""
-        adaptation_rates = {
-            "seoul": {"rate": "매우 높음", "speed": "빠름", "openness": "높음"},
-            "busan": {"rate": "높음", "speed": "보통", "openness": "중간"},
-            "gyeonggi": {"rate": "높음", "speed": "보통", "openness": "높음"},
-            "jeju": {"rate": "중간", "speed": "느림", "openness": "중간"}
-        }
+        """지역별 트렌드 적응도 분석 - JSON 로더 사용"""
+        from data_loader import get_data_loader
+        
+        loader = get_data_loader()
+        adaptation_rates = loader.get_regional_adaptation_rates()
         
         return adaptation_rates.get(region, {"rate": "중간", "speed": "보통", "openness": "중간"})
     
     def _analyze_competitor_trend_adoption(self, industry: str, trends: Dict) -> Dict[str, str]:
-        """경쟁사 트렌드 도입 현황"""
-        return {
-            "earlyAdopters": "20%",
-            "mainstream": "60%", 
-            "laggards": "20%",
-            "recommendedPosition": "early mainstream"
-        }
+        """경쟁사 트렌드 도입 현황 - JSON 로더 사용"""
+        from data_loader import get_data_loader
+        
+        loader = get_data_loader()
+        return loader.get_competitor_adoption()
     
     def _extract_preference_insights(self, industry: str, region: str) -> List[str]:
-        """선호도 변화 핵심 인사이트"""
-        insights = {
-            "restaurant": [
-                "건강과 맛의 균형 추구",
-                "개인화된 다이닝 경험 선호",
-                "지속가능성 고려 증가",
-                "소셜미디어 공유 가치 중시"
-            ],
-            "retail": [
-                "온라인-오프라인 통합 경험 요구",
-                "개인 맞춤 상품 큐레이션 선호",
-                "투명한 브랜드 스토리 중시",
-                "즉시 배송 서비스 기대"
-            ],
-            "service": [
-                "24/7 접근 가능한 서비스 요구",
-                "개인 데이터 기반 맞춤 서비스",
-                "투명한 가격 정책 선호",
-                "셀프 서비스 옵션 확대"
-            ]
-        }
+        """선호도 변화 핵심 인사이트 - DynamoDB 로더 사용"""
+        from dynamodb_loader import get_dynamodb_loader
         
-        return insights.get(industry, insights["service"])
+        loader = get_dynamodb_loader()
+        insights = loader.get_preference_insights(industry, region="GLOBAL")
+        
+        # Fallback
+        if not insights:
+            insights = [
+                "고품질 서비스 선호",
+                "개인화 경험 중시",
+                "투명성 요구 증가"
+            ]
+        
+        return insights
     
     def _project_future_preferences(self, industry: str) -> Dict[str, Any]:
-        """미래 선호도 전망"""
-        return {
-            "timeframe": "2025-2027",
-            "keyChanges": [
-                "AI 기반 개인화 서비스 확산",
-                "지속가능성 중시 확대",
-                "경험 중심 소비 증가",
-                "구독 경제 확산"
-            ],
-            "impactLevel": "높음"
-        }
+        """미래 선호도 전망 - DynamoDB 로더 사용"""
+        from dynamodb_loader import get_dynamodb_loader
+        
+        loader = get_dynamodb_loader()
+        projection = loader.get_future_projections(industry, region="GLOBAL")
+        
+        # Fallback
+        if not projection:
+            projection = {
+                "timeframe": "2025-2027",
+                "keyChanges": [
+                    "AI 기반 개인화 서비스 확산",
+                    "지속가능성 중시 확대",
+                    "경험 중심 소비 증가"
+                ],
+                "impactLevel": "높음"
+            }
+        
+        return projection
     
     def _identify_market_gaps(self, industry: str, region: str) -> List[Dict[str, Any]]:
-        """시장 갭 분석"""
-        gaps = {
-            "restaurant": [
-                {"gap": "건강한 야식 옵션", "size": "중간", "difficulty": "낮음"},
-                {"gap": "1인 가구 맞춤 메뉴", "size": "높음", "difficulty": "중간"},
-                {"gap": "시니어 친화 메뉴", "size": "높음", "difficulty": "낮음"}
-            ],
-            "retail": [
-                {"gap": "지속가능한 패션", "size": "높음", "difficulty": "중간"},
-                {"gap": "AR 체험 쇼핑", "size": "중간", "difficulty": "높음"},
-                {"gap": "로컬 브랜드 큐레이션", "size": "중간", "difficulty": "낮음"}
-            ],
-            "service": [
-                {"gap": "AI 기반 개인 상담", "size": "높음", "difficulty": "높음"},
-                {"gap": "구독형 전문 서비스", "size": "중간", "difficulty": "중간"},
-                {"gap": "하이브리드 서비스 모델", "size": "높음", "difficulty": "중간"}
-            ]
-        }
+        """시장 갭 분석 - DynamoDB 로더 사용"""
+        from dynamodb_loader import get_dynamodb_loader
         
-        return gaps.get(industry, gaps["service"])
+        loader = get_dynamodb_loader()
+        gaps = loader.get_market_gaps(industry, region="GLOBAL")
+        
+        # Fallback
+        if not gaps:
+            gaps = [
+                {"gap": "미충족 고객 니즈", "size": "중간", "difficulty": "중간"}
+            ]
+        
+        return gaps
     
     def _identify_new_segments(self, industry: str, region: str) -> List[Dict[str, Any]]:
-        """신규 고객 세그먼트"""
-        segments = [
-            {
-                "segment": "디지털 네이티브 시니어",
-                "size": "증가 중",
-                "characteristics": "기술 친화적 50-60대",
-                "opportunity": "높음"
-            },
-            {
-                "segment": "가치 소비 MZ세대",
-                "size": "대형",
-                "characteristics": "의미 있는 소비 추구",
-                "opportunity": "매우 높음"
-            },
-            {
-                "segment": "1인 가구 프리미엄",
-                "size": "증가 중",
-                "characteristics": "고품질 개인 서비스 선호",
-                "opportunity": "높음"
-            }
-        ]
+        """신규 고객 세그먼트 - DynamoDB 로더 사용"""
+        from dynamodb_loader import get_dynamodb_loader
+        
+        loader = get_dynamodb_loader()
+        segments = loader.get_customer_segments(limit=10)
+        
+        # Fallback
+        if not segments:
+            segments = [
+                {
+                    "segment": "디지털 네이티브 시니어",
+                    "size": "증가 중",
+                    "characteristics": "기술 친화적 50-60대",
+                    "opportunity": "높음"
+                }
+            ]
         
         return segments
     
     def _identify_tech_opportunities(self, industry: str) -> List[Dict[str, Any]]:
-        """기술 기회 분석"""
-        opportunities = {
-            "restaurant": [
-                {"tech": "AI 메뉴 추천", "maturity": "중간", "impact": "높음"},
-                {"tech": "무인 주문 시스템", "maturity": "높음", "impact": "중간"},
-                {"tech": "IoT 재고 관리", "maturity": "중간", "impact": "중간"}
-            ],
-            "retail": [
-                {"tech": "AR/VR 쇼핑", "maturity": "중간", "impact": "높음"},
-                {"tech": "AI 개인화 추천", "maturity": "높음", "impact": "높음"},
-                {"tech": "블록체인 인증", "maturity": "낮음", "impact": "중간"}
-            ],
-            "service": [
+        """기술 기회 분석 - DynamoDB 로더 사용"""
+        from dynamodb_loader import get_dynamodb_loader
+        
+        loader = get_dynamodb_loader()
+        opportunities = loader.get_tech_opportunities(industry, region="GLOBAL")
+        
+        # Fallback
+        if not opportunities:
+            opportunities = [
                 {"tech": "AI 챗봇", "maturity": "높음", "impact": "높음"},
                 {"tech": "예측 분석", "maturity": "중간", "impact": "높음"},
                 {"tech": "자동화 워크플로", "maturity": "중간", "impact": "중간"}
@@ -702,54 +765,18 @@ class MarketAnalystAgent:
         return opportunities.get(industry, opportunities["service"])
     
     def _identify_partnership_opportunities(self, industry: str, size: str) -> List[Dict[str, Any]]:
-        """파트너십 기회"""
-        partnerships = [
-            {
-                "type": "기술 파트너십",
-                "partner": "IT 스타트업",
-                "benefit": "디지털 전환 가속화",
-                "feasibility": "높음"
-            },
-            {
-                "type": "유통 파트너십", 
-                "partner": "온라인 플랫폼",
-                "benefit": "고객 접점 확대",
-                "feasibility": "중간"
-            },
-            {
-                "type": "브랜드 협업",
-                "partner": "로컬 브랜드",
-                "benefit": "상호 시너지",
-                "feasibility": "높음"
-            }
-        ]
+        """파트너십 기회 - JSON 로더 사용"""
+        from data_loader import get_data_loader
         
-        return partnerships
+        loader = get_data_loader()
+        return loader.get_partnership_opportunities()
     
     def _identify_expansion_opportunities(self, industry: str, region: str, size: str) -> List[Dict[str, Any]]:
-        """확장 기회"""
-        opportunities = [
-            {
-                "type": "지역 확장",
-                "target": "인근 지역",
-                "timeline": "6-12개월",
-                "investment": "중간"
-            },
-            {
-                "type": "서비스 확장",
-                "target": "관련 서비스",
-                "timeline": "3-6개월", 
-                "investment": "낮음"
-            },
-            {
-                "type": "온라인 확장",
-                "target": "디지털 채널",
-                "timeline": "1-3개월",
-                "investment": "낮음"
-            }
-        ]
+        """확장 기회 - JSON 로더 사용"""
+        from data_loader import get_data_loader
         
-        return opportunities
+        loader = get_data_loader()
+        return loader.get_expansion_opportunities()
     
     def _prioritize_opportunities(self, market_gaps: List, new_segments: List, tech_opportunities: List) -> List[Dict[str, Any]]:
         """기회 우선순위 설정"""
@@ -768,23 +795,15 @@ class MarketAnalystAgent:
         }
     
     def _analyze_technology_impact(self, industry: str) -> Dict[str, Any]:
-        """기술 트렌드 영향 분석"""
-        tech_impacts = {
-            "restaurant": {
-                "currentImpact": "중간",
-                "futureImpact": "높음",
-                "keyTechnologies": ["AI 추천", "무인 시스템", "배달 로봇"],
-                "adoptionBarriers": ["비용", "기술 이해도", "고객 수용성"]
-            },
-            "retail": {
-                "currentImpact": "높음",
-                "futureImpact": "매우 높음",
-                "keyTechnologies": ["AR/VR", "AI 개인화", "블록체인"],
-                "adoptionBarriers": ["초기 투자", "기술 복잡성", "데이터 보안"]
-            },
-            "service": {
-                "currentImpact": "높음",
-                "futureImpact": "매우 높음",
+        """기술 트렌드 영향 분석 - JSON 로더 사용"""
+        from data_loader import get_data_loader
+        
+        loader = get_data_loader()
+        tech_impacts = loader.get_tech_impacts()
+        
+        impact = tech_impacts.get(industry, {
+            "currentImpact": "중간",
+            "futureImpact": "높음",
                 "keyTechnologies": ["AI 자동화", "예측 분석", "클라우드"],
                 "adoptionBarriers": ["인력 재교육", "시스템 통합", "보안 우려"]
             }
@@ -873,39 +892,142 @@ class MarketAnalystAgent:
         return strategies
     
     def _generate_market_recommendations(self, market_analysis: Dict, trend_analysis: Dict) -> List[Dict[str, Any]]:
-        """시장 분석 기반 추천사항 생성"""
+        """시장 분석 기반 추천사항 생성 - Bedrock Claude synthesis 사용 (Requirement 3.2)"""
+        # Use Bedrock Claude for insight synthesis
+        if self.reasoning_engine and not self.dev_profile:
+            try:
+                logger.info("Using Bedrock Claude for market recommendations synthesis")
+                
+                # Prepare agent outputs for synthesis
+                agent_outputs = {
+                    "market_analysis": {
+                        "market_size": market_analysis.get("marketSize", {}),
+                        "growth_trends": market_analysis.get("growthTrends", {}),
+                        "opportunities": market_analysis.get("marketOpportunities", []),
+                        "risks": market_analysis.get("riskFactors", []),
+                        "competitor_analysis": market_analysis.get("competitorAnalysis", {})
+                    },
+                    "trend_analysis": {
+                        "hot_trends": trend_analysis.get("latestTrends", {}).get("hotTrends", []),
+                        "consumer_preferences": trend_analysis.get("consumerPreferences", {}),
+                        "opportunities": trend_analysis.get("opportunities", {}),
+                        "risks": trend_analysis.get("risks", {}),
+                        "technology_impact": trend_analysis.get("technologyImpact", {})
+                    }
+                }
+                
+                # Synthesize insights using Bedrock Claude
+                synthesis = self.reasoning_engine.synthesize_insights(
+                    agent_outputs=agent_outputs,
+                    temperature=0.5
+                )
+                
+                # Extract structured recommendations from synthesis
+                recommendations = self._extract_recommendations_from_synthesis(synthesis)
+                
+                logger.info(f"Generated {len(recommendations)} recommendations using Bedrock synthesis")
+                return recommendations
+                
+            except BedrockException as e:
+                logger.warning(f"Bedrock synthesis failed: {str(e)}. Using fallback.")
+                # Continue with fallback logic below
+        
+        # Fallback: generate recommendations using rule-based logic
         recommendations = [
             {
                 "category": "시장 진입 전략",
                 "recommendation": "차별화된 포지셔닝으로 틈새시장 공략",
                 "priority": "높음",
                 "timeline": "1-3개월",
-                "expectedImpact": "높음"
+                "expectedImpact": "높음",
+                "source": "fallback"
             },
             {
                 "category": "디지털 전환",
                 "recommendation": "온라인 채널 강화 및 디지털 마케팅 확대",
                 "priority": "높음",
                 "timeline": "즉시",
-                "expectedImpact": "중간"
+                "expectedImpact": "중간",
+                "source": "fallback"
             },
             {
                 "category": "고객 경험",
                 "recommendation": "개인화 서비스 도입으로 고객 만족도 향상",
                 "priority": "중간",
                 "timeline": "3-6개월",
-                "expectedImpact": "높음"
+                "expectedImpact": "높음",
+                "source": "fallback"
             },
             {
                 "category": "운영 효율성",
                 "recommendation": "자동화 시스템 도입으로 운영 비용 절감",
                 "priority": "중간",
                 "timeline": "6-12개월",
-                "expectedImpact": "중간"
+                "expectedImpact": "중간",
+                "source": "fallback"
             }
         ]
         
         return recommendations
+    
+    def _extract_recommendations_from_synthesis(self, synthesis: str) -> List[Dict[str, Any]]:
+        """Extract structured recommendations from Bedrock synthesis text"""
+        # Parse synthesis text to extract recommendations
+        # This is a simple implementation - could be enhanced with more sophisticated parsing
+        recommendations = []
+        
+        # Split synthesis into sections and extract key recommendations
+        lines = synthesis.split('\n')
+        current_category = "일반 전략"
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Look for recommendation patterns
+            if any(keyword in line.lower() for keyword in ['recommend', '추천', 'should', '해야', 'suggest', '제안']):
+                # Extract recommendation
+                recommendation_text = line.strip('- •*').strip()
+                
+                # Determine priority based on keywords
+                priority = "높음" if any(word in line.lower() for word in ['critical', '중요', 'urgent', '즉시', 'priority']) else "중간"
+                
+                # Determine timeline based on keywords
+                if any(word in line.lower() for word in ['immediate', '즉시', 'now', '지금']):
+                    timeline = "즉시"
+                elif any(word in line.lower() for word in ['short', '단기', '1-3']):
+                    timeline = "1-3개월"
+                elif any(word in line.lower() for word in ['medium', '중기', '3-6']):
+                    timeline = "3-6개월"
+                else:
+                    timeline = "6-12개월"
+                
+                recommendations.append({
+                    "category": current_category,
+                    "recommendation": recommendation_text,
+                    "priority": priority,
+                    "timeline": timeline,
+                    "expectedImpact": "높음",
+                    "source": "bedrock_synthesis"
+                })
+            
+            # Update category if we find a section header
+            elif line.endswith(':') or any(word in line for word in ['전략', 'Strategy', '방안', 'Approach']):
+                current_category = line.rstrip(':').strip()
+        
+        # If no recommendations extracted, create a general one from the synthesis
+        if not recommendations:
+            recommendations.append({
+                "category": "종합 전략",
+                "recommendation": synthesis[:200] + "..." if len(synthesis) > 200 else synthesis,
+                "priority": "높음",
+                "timeline": "1-3개월",
+                "expectedImpact": "높음",
+                "source": "bedrock_synthesis"
+            })
+        
+        return recommendations[:5]  # Return top 5 recommendations
     
     def _get_fallback_market_size(self, industry: str, region: str) -> Dict[str, Any]:
         """폴백 시장 규모 데이터"""
@@ -1023,16 +1145,11 @@ class MarketAnalystAgent:
         return 0.0
     
     def _assess_competitive_intensity(self, industry: str, region: str) -> str:
-        """경쟁 강도 평가"""
-        # 업종별 경쟁 강도
-        industry_competition = {
-            "restaurant": "매우 높음",
-            "retail": "높음", 
-            "service": "중간",
-            "healthcare": "중간",
-            "education": "높음",
-            "technology": "매우 높음"
-        }
+        """경쟁 강도 평가 - JSON 로더 사용"""
+        from data_loader import get_data_loader
+        
+        loader = get_data_loader()
+        industry_competition = loader.get_industry_competition()
         
         # 지역별 조정 (서울/경기는 경쟁이 더 치열)
         if region in ["seoul", "gyeonggi"]:
@@ -1040,104 +1157,31 @@ class MarketAnalystAgent:
         else:
             competition_levels = ["낮음", "중간", "높음", "매우 높음"]
             current_level = industry_competition.get(industry, "중간")
-            current_index = competition_levels.index(current_level)
-            adjusted_index = max(0, current_index - 1)
-            return competition_levels[adjusted_index]
+            if current_level in competition_levels:
+                current_index = competition_levels.index(current_level)
+                adjusted_index = max(0, current_index - 1)
+                return competition_levels[adjusted_index]
+            return current_level
     
     def _analyze_growth_trends(self, market_data: Dict) -> Dict[str, Any]:
-        """성장 트렌드 분석 - 업종별 세분화"""
+        """성장 트렌드 분석 - JSON 로더 사용"""
+        from data_loader import get_data_loader
         
-        # 전체 시장 메가트렌드
-        mega_trends = [
-            {
-                "trend": "디지털 전환 가속화",
-                "impact": "높음",
-                "timeline": "현재 진행중",
-                "description": "코로나19 이후 디지털 채널 확산"
-            },
-            {
-                "trend": "개인화/맞춤화 서비스",
-                "impact": "높음", 
-                "timeline": "2-3년",
-                "description": "AI 기반 개인 맞춤 서비스 확산"
-            },
-            {
-                "trend": "ESG 경영 확산",
-                "impact": "중간",
-                "timeline": "3-5년",
-                "description": "환경, 사회적 책임 중시"
-            },
-            {
-                "trend": "구독 경제 확산",
-                "impact": "중간",
-                "timeline": "1-2년",
-                "description": "소유에서 이용으로 패러다임 변화"
-            }
-        ]
+        loader = get_data_loader()
         
-        # 업종별 특화 트렌드
+        # JSON에서 메가트렌드와 소비자 트렌드 로드
+        mega_trends = loader.get_mega_trends()
+        consumer_trends = loader.get_consumer_trends()
+        
+        # industry_trends는 간단한 fallback으로 처리
         industry_trends = {
-            "restaurant": [
-                {"trend": "배달/테이크아웃 확산", "growth": "+25%"},
-                {"trend": "건강식 메뉴 선호", "growth": "+18%"},
-                {"trend": "무인 주문 시스템", "growth": "+35%"},
-                {"trend": "로컬 푸드 트렌드", "growth": "+22%"}
-            ],
-            "retail": [
-                {"trend": "O2O 통합 서비스", "growth": "+30%"},
-                {"trend": "라이브 커머스", "growth": "+45%"},
-                {"trend": "친환경 제품", "growth": "+28%"},
-                {"trend": "개인화 큐레이션", "growth": "+20%"}
-            ],
-            "service": [
-                {"trend": "비대면 서비스", "growth": "+40%"},
-                {"trend": "AI 상담 서비스", "growth": "+35%"},
-                {"trend": "구독형 서비스", "growth": "+25%"},
-                {"trend": "플랫폼 기반 서비스", "growth": "+30%"}
-            ],
-            "healthcare": [
-                {"trend": "원격 의료", "growth": "+50%"},
-                {"trend": "예방 중심 헬스케어", "growth": "+32%"},
-                {"trend": "개인 맞춤 의료", "growth": "+28%"},
-                {"trend": "디지털 헬스케어", "growth": "+42%"}
-            ],
-            "education": [
-                {"trend": "온라인/블렌디드 교육", "growth": "+60%"},
-                {"trend": "AI 맞춤 학습", "growth": "+38%"},
-                {"trend": "마이크로 러닝", "growth": "+25%"},
-                {"trend": "실무 중심 교육", "growth": "+30%"}
-            ],
-            "technology": [
-                {"trend": "클라우드 전환", "growth": "+45%"},
-                {"trend": "AI/ML 도입", "growth": "+55%"},
-                {"trend": "사이버 보안", "growth": "+40%"},
-                {"trend": "메타버스/AR/VR", "growth": "+65%"}
-            ]
+            "restaurant": [{"trend": "배달/테이크아웃 확산", "growth": "+25%"}],
+            "retail": [{"trend": "O2O 통합 서비스", "growth": "+30%"}],
+            "service": [{"trend": "비대면 서비스", "growth": "+40%"}],
+            "healthcare": [{"trend": "원격 의료", "growth": "+50%"}],
+            "education": [{"trend": "온라인/블렌디드 교육", "growth": "+60%"}],
+            "technology": [{"trend": "클라우드 전환", "growth": "+45%"}]
         }
-        
-        # 소비자 행동 변화 트렌드
-        consumer_trends = [
-            {
-                "behavior": "온라인 우선 구매",
-                "percentage": "78%",
-                "age_group": "20-40대"
-            },
-            {
-                "behavior": "가성비 중시",
-                "percentage": "85%", 
-                "age_group": "전 연령"
-            },
-            {
-                "behavior": "브랜드 가치 중시",
-                "percentage": "65%",
-                "age_group": "30-50대"
-            },
-            {
-                "behavior": "개인화 서비스 선호",
-                "percentage": "72%",
-                "age_group": "20-30대"
-            }
-        ]
         
         return {
             "megaTrends": mega_trends,

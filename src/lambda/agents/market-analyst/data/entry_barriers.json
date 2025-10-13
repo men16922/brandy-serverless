@@ -1,0 +1,32 @@
+{
+  "restaurant": [
+    {"barrier": "초기 투자비", "level": "중간", "description": "인테리어, 장비 비용"},
+    {"barrier": "위치 선정", "level": "높음", "description": "임대료, 유동인구"},
+    {"barrier": "인허가", "level": "중간", "description": "영업신고, 위생허가"}
+  ],
+  "retail": [
+    {"barrier": "재고 투자", "level": "높음", "description": "초기 상품 구매비용"},
+    {"barrier": "유통망", "level": "높음", "description": "공급업체 확보"},
+    {"barrier": "브랜드 인지도", "level": "중간", "description": "마케팅 비용"}
+  ],
+  "service": [
+    {"barrier": "전문성", "level": "높음", "description": "자격증, 경험"},
+    {"barrier": "신뢰 구축", "level": "높음", "description": "평판, 실적"},
+    {"barrier": "초기 투자", "level": "낮음", "description": "상대적으로 적은 비용"}
+  ],
+  "healthcare": [
+    {"barrier": "면허/자격", "level": "매우 높음", "description": "의료진 확보"},
+    {"barrier": "시설 투자", "level": "매우 높음", "description": "의료장비, 시설"},
+    {"barrier": "규제 준수", "level": "매우 높음", "description": "의료법 준수"}
+  ],
+  "education": [
+    {"barrier": "강사 확보", "level": "중간", "description": "우수 강사진"},
+    {"barrier": "커리큘럼", "level": "중간", "description": "교육 프로그램"},
+    {"barrier": "시설 투자", "level": "중간", "description": "교육 시설"}
+  ],
+  "technology": [
+    {"barrier": "기술력", "level": "매우 높음", "description": "R&D 투자"},
+    {"barrier": "인재 확보", "level": "매우 높음", "description": "개발자, 엔지니어"},
+    {"barrier": "자본 조달", "level": "높음", "description": "개발 비용"}
+  ]
+}

@@ -223,7 +223,7 @@
   - _Requirements: 1.2, 3.3_
   - _기존 코드: 완료된 Reporter Agent 확장_
 
-- [ ] 16. Market Analyst Agent Bedrock 통합
+- [x] 16. Market Analyst Agent Bedrock 통합
   - `src/lambda/agents/market-analyst/index.py` 수정:
     - BedrockClient 인스턴스 생성
     - 기존 시장 분석 로직 유지
