@@ -386,34 +386,57 @@ class SignboardAgent(BaseAgent):
         self.fallback_images = self._initialize_fallback_images()
     
     def _initialize_ai_providers(self) -> Dict[str, AIProvider]:
-        """AI Provider 초기화"""
+        """
+        AI Provider 초기화
+        
+        Priority order (Hackathon compliant):
+        1. Bedrock SDXL (Primary - AWS Bedrock)
+        2. DALL-E (Fallback - OpenAI)
+        3. Gemini (Fallback - Google)
+        """
         providers = {}
         
-        try:
-            # DALL-E Provider
-            dalle_provider = AIProviderFactory.create_provider("dalle")
-            providers["dalle"] = dalle_provider
-            self.logger.info("DALL-E provider initialized successfully")
-        except Exception as e:
-            self.logger.warning(f"Failed to initialize DALL-E provider: {e}")
+        # Check if fallback is enabled
+        enable_fallback = os.getenv('ENABLE_FALLBACK', 'true').lower() == 'true'
+        dev_profile = os.getenv('DEV_PROFILE', 'false').lower() == 'true'
+        environment = os.getenv('ENVIRONMENT', 'prod')
         
+        # Bedrock SDXL is always initialized (Primary for hackathon)
         try:
-            # SDXL Provider
+            # Use Bedrock SDXL Provider (AWS Bedrock)
             sdxl_provider = AIProviderFactory.create_provider("sdxl")
-            providers["sdxl"] = sdxl_provider
-            self.logger.info("SDXL provider initialized successfully")
+            providers["bedrock_sdxl"] = sdxl_provider
+            self.logger.info("Bedrock SDXL provider initialized successfully (PRIMARY)")
         except Exception as e:
-            self.logger.warning(f"Failed to initialize SDXL provider: {e}")
+            self.logger.error(f"Failed to initialize Bedrock SDXL provider: {e}")
+            # Bedrock SDXL failure is critical for hackathon submission
+            if not enable_fallback and not dev_profile and environment != 'local':
+                raise Exception(f"Bedrock SDXL initialization failed (required for hackathon): {e}")
         
-        try:
-            # Gemini Provider
-            gemini_provider = AIProviderFactory.create_provider("gemini")
-            providers["gemini"] = gemini_provider
-            self.logger.info("Gemini provider initialized successfully")
-        except Exception as e:
-            self.logger.warning(f"Failed to initialize Gemini provider: {e}")
+        # Fallback providers (only if enabled)
+        if enable_fallback or dev_profile or environment == 'local':
+            try:
+                # DALL-E Provider (Fallback)
+                dalle_provider = AIProviderFactory.create_provider("dalle")
+                providers["dalle"] = dalle_provider
+                self.logger.info("DALL-E provider initialized successfully (FALLBACK)")
+            except Exception as e:
+                self.logger.warning(f"Failed to initialize DALL-E provider: {e}")
+            
+            try:
+                # Gemini Provider (Fallback)
+                gemini_provider = AIProviderFactory.create_provider("gemini")
+                providers["gemini"] = gemini_provider
+                self.logger.info("Gemini provider initialized successfully (FALLBACK)")
+            except Exception as e:
+                self.logger.warning(f"Failed to initialize Gemini provider: {e}")
+        else:
+            self.logger.info("Fallback providers disabled (ENABLE_FALLBACK=false)")
         
-        self.logger.info(f"Initialized {len(providers)} AI providers: {list(providers.keys())}")
+        self.logger.info(
+            f"Initialized {len(providers)} AI providers: {list(providers.keys())} "
+            f"(fallback_enabled={enable_fallback or dev_profile or environment == 'local'})"
+        )
         return providers
     
     def _initialize_fallback_images(self) -> Dict[str, str]:
@@ -580,7 +603,14 @@ class SignboardAgent(BaseAgent):
     
     async def _generate_images_async(self, session_id: str, selected_name: str, 
                                    business_info: BusinessInfo, styles: List[str]) -> List[ImageResult]:
-        """다중 AI 모델을 사용한 비동기 이미지 생성"""
+        """
+        다중 AI 모델을 사용한 비동기 이미지 생성
+        
+        Strategy (Hackathon compliant):
+        - Bedrock SDXL as primary provider for all 3 styles
+        - DALL-E and Gemini as fallback providers (if enabled)
+        - Parallel generation for performance (≤30 seconds)
+        """
         
         # 사용 가능한 AI Provider 확인
         available_providers = list(self.ai_providers.keys())
@@ -588,32 +618,36 @@ class SignboardAgent(BaseAgent):
             self.logger.warning("No AI providers available, using fallback images")
             return self._create_fallback_images(session_id, selected_name, business_info)
         
+        # Provider 우선순위 정렬 (Bedrock SDXL 우선)
+        prioritized_providers = []
+        if "bedrock_sdxl" in available_providers:
+            prioritized_providers.append("bedrock_sdxl")
+        
+        # 나머지 fallback providers 추가
+        for provider_name in available_providers:
+            if provider_name not in prioritized_providers:
+                prioritized_providers.append(provider_name)
+        
         # Provider와 스타일 조합으로 태스크 생성
         tasks = []
         provider_style_combinations = []
         
-        # 각 스타일에 대해 사용 가능한 모든 Provider로 생성
+        # 각 스타일에 대해 우선순위 Provider 사용
         for i, style in enumerate(styles[:3]):  # 최대 3개 스타일
-            if i < len(available_providers):
-                # 각 스타일마다 다른 Provider 사용
-                provider_name = available_providers[i]
-                provider = self.ai_providers[provider_name]
-                
-                task = self._generate_single_image_with_provider(
-                    provider, session_id, selected_name, business_info, style
-                )
-                tasks.append(task)
-                provider_style_combinations.append((provider_name, style))
+            # Bedrock SDXL을 우선 사용, 없으면 다른 Provider 사용
+            if i < len(prioritized_providers):
+                provider_name = prioritized_providers[i]
             else:
-                # Provider가 부족한 경우 첫 번째 Provider 재사용
-                provider_name = available_providers[0]
-                provider = self.ai_providers[provider_name]
-                
-                task = self._generate_single_image_with_provider(
-                    provider, session_id, selected_name, business_info, style
-                )
-                tasks.append(task)
-                provider_style_combinations.append((provider_name, style))
+                # Provider가 부족한 경우 Bedrock SDXL 재사용
+                provider_name = prioritized_providers[0] if prioritized_providers else available_providers[0]
+            
+            provider = self.ai_providers[provider_name]
+            
+            task = self._generate_single_image_with_provider(
+                provider, session_id, selected_name, business_info, style
+            )
+            tasks.append(task)
+            provider_style_combinations.append((provider_name, style))
         
         # 모든 이미지를 병렬로 생성 (최대 30초 타임아웃)
         try:
@@ -630,7 +664,10 @@ class SignboardAgent(BaseAgent):
             if isinstance(result, ImageResult):
                 # 성공한 경우
                 images.append(result)
-                self.logger.info(f"Successfully generated {style} image with {provider_name}")
+                self.logger.info(
+                    f"Successfully generated {style} image with {provider_name} "
+                    f"(is_bedrock={provider_name == 'bedrock_sdxl'})"
+                )
             else:
                 # 실패한 경우 폴백 이미지 생성
                 self.logger.warning(f"Failed to generate {style} image with {provider_name}: {result}")
@@ -642,13 +679,27 @@ class SignboardAgent(BaseAgent):
     async def _generate_single_image_with_provider(self, provider: AIProvider, session_id: str, 
                                                  selected_name: str, business_info: BusinessInfo, 
                                                  style: str) -> ImageResult:
-        """특정 AI Provider를 사용한 단일 이미지 생성"""
+        """
+        특정 AI Provider를 사용한 단일 이미지 생성
+        
+        Tracks Bedrock usage for hackathon compliance monitoring
+        """
+        start_time = time.time()
+        
         try:
             # 프롬프트 생성
             prompt = self._create_image_prompt(selected_name, business_info, style)
             
             # Provider별 특화 파라미터 설정
             provider_params = self._get_provider_params(provider.provider_name, style)
+            
+            # Log Bedrock usage (Requirement 5.3)
+            is_bedrock = provider.provider_name == "bedrock_sdxl"
+            if is_bedrock:
+                self.logger.info(
+                    f"Using Bedrock SDXL for image generation: "
+                    f"style={style}, size=1024x1024, session={session_id}"
+                )
             
             # AI Provider를 통한 이미지 생성
             image_result = await provider.generate_image(
@@ -671,27 +722,59 @@ class SignboardAgent(BaseAgent):
                 image_result.url = s3_url
             
             # 메타데이터 업데이트
+            latency_ms = int((time.time() - start_time) * 1000)
             image_result.metadata.update({
                 "business_name": selected_name,
                 "industry": business_info.industry,
-                "provider": provider.provider_name
+                "provider": provider.provider_name,
+                "is_bedrock": is_bedrock,
+                "latency_ms": latency_ms,
+                "session_id": session_id
             })
+            
+            # Structured logging for monitoring (Requirement 5.3)
+            self.logger.info(
+                f"Image generation completed: provider={provider.provider_name}, "
+                f"style={style}, latency_ms={latency_ms}, is_bedrock={is_bedrock}"
+            )
             
             return image_result
                 
         except Exception as e:
-            self.logger.error(f"Failed to generate {style} image with {provider.provider_name}: {str(e)}")
+            latency_ms = int((time.time() - start_time) * 1000)
+            self.logger.error(
+                f"Failed to generate {style} image with {provider.provider_name}: {str(e)} "
+                f"(latency_ms={latency_ms})"
+            )
             raise e
     
     def _get_provider_params(self, provider_name: str, style: str) -> Dict[str, Any]:
-        """Provider별 특화 파라미터 반환"""
-        if provider_name == "dalle":
+        """
+        Provider별 특화 파라미터 반환
+        
+        Optimized for hackathon requirements:
+        - Bedrock SDXL: 1024x1024, optimized cfg_scale and steps
+        - DALL-E: Standard quality for cost efficiency
+        - Gemini: 1:1 aspect ratio
+        """
+        if provider_name == "bedrock_sdxl":
+            # Bedrock SDXL optimized parameters (Requirement 1.4)
+            return {
+                "width": 1024,
+                "height": 1024,
+                "cfg_scale": 7.5,  # Slightly higher for better quality
+                "steps": 30,  # Balanced quality/speed
+                "seed": None  # Random seed for variety
+            }
+        elif provider_name == "dalle":
+            # DALL-E fallback parameters
             return {
                 "size": "1024x1024",
-                "quality": "standard",
+                "quality": "standard",  # Cost-optimized
                 "dalle_style": "vivid"
             }
         elif provider_name == "sdxl":
+            # Legacy SDXL provider (same as bedrock_sdxl)
             return {
                 "width": 1024,
                 "height": 1024,
@@ -699,6 +782,7 @@ class SignboardAgent(BaseAgent):
                 "steps": 30
             }
         elif provider_name == "gemini":
+            # Gemini fallback parameters
             return {
                 "aspect_ratio": "1:1"
             }

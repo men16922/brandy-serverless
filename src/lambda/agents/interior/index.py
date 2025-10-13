@@ -1,5 +1,6 @@
 """
 Interior Agent - 인테리어 스타일 추천 및 디자인 가이드 제공
+Bedrock Integration: Uses Claude 4 Sonnet for reasoning-based interior recommendations
 """
 
 import json
@@ -12,13 +13,42 @@ from datetime import datetime
 # Add shared modules to path
 sys.path.append('/opt/python')
 
+# Interior-specific models (always defined)
+class InteriorRecommendation:
+    def __init__(self, style: str, description: str, color_scheme: List[str],
+                 materials: List[str], furniture: List[str], estimated_cost: str,
+                 suitability_score: float = 0.0, pros: List[str] = None, cons: List[str] = None):
+        self.style = style
+        self.description = description
+        self.color_scheme = color_scheme
+        self.materials = materials
+        self.furniture = furniture
+        self.estimated_cost = estimated_cost
+        self.suitability_score = suitability_score
+        self.pros = pros or []
+        self.cons = cons or []
+        self.generated_at = datetime.utcnow().isoformat()
+    
+    def validate(self) -> bool:
+        return bool(self.style and self.description and self.color_scheme and 
+                   self.materials and self.furniture and self.estimated_cost)
+
+class InteriorRecommendations:
+    def __init__(self, recommendations: List[InteriorRecommendation] = None):
+        self.recommendations = recommendations or []
+    
+    def validate(self) -> bool:
+        return len(self.recommendations) <= 3 and all(rec.validate() for rec in self.recommendations)
+
 try:
     from shared.base_agent import BaseAgent
-    from shared.models import AgentType, InteriorRecommendation, InteriorRecommendations, BusinessInfo
+    from shared.models import AgentType, BusinessInfo
     from shared.utils import create_response
     from shared.data_loader import get_data_loader
     HAS_SHARED_MODULES = True
-except ImportError:
+    print("✓ Successfully imported shared modules")
+except ImportError as e:
+    print(f"Failed to import shared modules: {e}")
     HAS_SHARED_MODULES = False
     # For testing purposes, create mock implementations
     from datetime import datetime
@@ -119,6 +149,40 @@ class InteriorAgent(BaseAgent):
     
     def __init__(self):
         super().__init__(AgentType.INTERIOR)
+        
+        # Bedrock integration (Hackathon requirement)
+        enable_fallback_env = os.getenv('ENABLE_FALLBACK', 'false')
+        self.use_bedrock = enable_fallback_env.lower() != 'true'
+        
+        self.logger.info(f"Interior Agent initialization: ENABLE_FALLBACK={enable_fallback_env}, use_bedrock={self.use_bedrock}, HAS_SHARED_MODULES={HAS_SHARED_MODULES}")
+        
+        if self.use_bedrock and HAS_SHARED_MODULES:
+            try:
+                self.logger.info("Attempting to import Bedrock modules...")
+                from shared.bedrock_client import BedrockClient
+                from shared.reasoning_engine import ReasoningEngine
+                
+                self.logger.info("Creating BedrockClient...")
+                self.bedrock_client = BedrockClient(logger=self.logger)
+                
+                self.logger.info("Creating ReasoningEngine...")
+                self.reasoning_engine = ReasoningEngine(
+                    bedrock_client=self.bedrock_client,
+                    logger=self.logger
+                )
+                self.logger.info("✓ Bedrock integration enabled for Interior Agent")
+            except Exception as e:
+                self.logger.error(f"Failed to initialize Bedrock: {str(e)}", exc_info=True)
+                self.bedrock_client = None
+                self.reasoning_engine = None
+                self.use_bedrock = False
+        else:
+            self.bedrock_client = None
+            self.reasoning_engine = None
+            if not self.use_bedrock:
+                self.logger.info("Bedrock disabled (ENABLE_FALLBACK=true), using fallback")
+            if not HAS_SHARED_MODULES:
+                self.logger.warning("Shared modules not available, using fallback")
         
         # 데이터 로더 초기화 (shared 모듈이 있는 경우만)
         if HAS_SHARED_MODULES:
@@ -413,9 +477,19 @@ class InteriorAgent(BaseAgent):
             
             business_info = BusinessInfo(**business_info_data)
             
-            # 인테리어 추천 생성 (이미지 포함)
+            # 인테리어 추천 생성
             if action == 'recommend':
-                result = self._generate_interior_recommendations_with_images_sync(session_id, business_info, selected_signboard)
+                # Bedrock 사용 여부에 따라 분기
+                if self.use_bedrock and self.bedrock_client and self.reasoning_engine:
+                    # Bedrock Claude로 reasoning 기반 추천 생성
+                    result = self._generate_interior_recommendations_with_bedrock(
+                        session_id, business_info, selected_signboard
+                    )
+                else:
+                    # Fallback: 기존 로직 (이미지 포함)
+                    result = self._generate_interior_recommendations_with_images_sync(
+                        session_id, business_info, selected_signboard
+                    )
             else:
                 raise ValueError(f"Unknown action: {action}")
             
@@ -431,9 +505,184 @@ class InteriorAgent(BaseAgent):
             error_response = self.handle_error(e, "execute")
             return self.create_lambda_response(500, error_response)
     
+    def _generate_interior_recommendations_with_bedrock(self, session_id: str, business_info: BusinessInfo,
+                                                       selected_signboard: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Bedrock Claude를 사용한 인테리어 추천 생성 (Reasoning LLM)"""
+        try:
+            self.logger.info(f"Generating interior recommendations with Bedrock for session {session_id}")
+            
+            # 컨텍스트 구성
+            context = {
+                'business_info': {
+                    'industry': business_info.industry,
+                    'region': business_info.region,
+                    'size': business_info.size
+                },
+                'selected_signboard': selected_signboard,
+                'available_styles': list(self.interior_styles.keys())
+            }
+            
+            # 인테리어 스타일 추천을 위한 reasoning
+            system_prompt = """You are an expert interior design consultant specializing in commercial spaces.
+Your task is to recommend 3 interior design styles that best match the business requirements.
+
+Consider:
+1. Industry characteristics and functional requirements
+2. Regional trends and customer preferences
+3. Business size and budget constraints
+4. Brand identity alignment (if signboard design is provided)
+5. Customer experience and atmosphere
+
+For each recommended style, provide:
+- Style name (from available options)
+- Detailed description in Korean
+- Color scheme (4-5 colors)
+- Materials (4-5 materials)
+- Furniture recommendations (4-5 items)
+- Estimated cost level (낮음/중간/높음)
+- Suitability score (0-100)
+- Pros (3-4 advantages)
+- Cons (2-3 disadvantages)
+
+Respond in JSON format with:
+{
+    "recommendations": [
+        {
+            "style": "style_name",
+            "description": "detailed description in Korean",
+            "color_scheme": ["color1", "color2", ...],
+            "materials": ["material1", "material2", ...],
+            "furniture": ["furniture1", "furniture2", ...],
+            "estimated_cost": "낮음/중간/높음",
+            "suitability_score": 0-100,
+            "pros": ["pro1", "pro2", ...],
+            "cons": ["con1", "con2", ...]
+        }
+    ],
+    "reasoning": "overall reasoning for recommendations",
+    "confidence": 0.0-1.0
+}"""
+            
+            prompt = f"""Business Context:
+- Industry: {business_info.industry}
+- Region: {business_info.region}
+- Size: {business_info.size}
+
+Available Interior Styles:
+{json.dumps(list(self.interior_styles.keys()), indent=2)}
+
+{f"Selected Signboard Design: {json.dumps(selected_signboard, indent=2)}" if selected_signboard else "No signboard design selected yet"}
+
+Please recommend 3 interior design styles that best match this business, providing detailed reasoning for each recommendation."""
+            
+            # Bedrock Claude 호출
+            response = self.bedrock_client.invoke_claude(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                max_tokens=2048,
+                temperature=0.7
+            )
+            
+            # JSON 응답 파싱
+            response_text = response['text']
+            
+            # JSON 추출 시도
+            try:
+                json_start = response_text.find('{')
+                json_end = response_text.rfind('}') + 1
+                if json_start >= 0 and json_end > json_start:
+                    json_str = response_text[json_start:json_end]
+                    bedrock_data = json.loads(json_str)
+                else:
+                    raise ValueError("No JSON found in response")
+            except (json.JSONDecodeError, ValueError) as e:
+                self.logger.warning(f"Failed to parse Bedrock JSON response: {str(e)}, using fallback")
+                return self._generate_interior_recommendations(session_id, business_info, selected_signboard)
+            
+            # Bedrock 응답을 InteriorRecommendation 객체로 변환
+            recommendations = []
+            for rec_data in bedrock_data.get('recommendations', [])[:3]:
+                try:
+                    recommendation = InteriorRecommendation(
+                        style=rec_data.get('style', 'modern'),
+                        description=rec_data.get('description', ''),
+                        color_scheme=rec_data.get('color_scheme', []),
+                        materials=rec_data.get('materials', []),
+                        furniture=rec_data.get('furniture', []),
+                        estimated_cost=rec_data.get('estimated_cost', '중간'),
+                        suitability_score=float(rec_data.get('suitability_score', 70)),
+                        pros=rec_data.get('pros', []),
+                        cons=rec_data.get('cons', [])
+                    )
+                    recommendations.append(recommendation)
+                except Exception as e:
+                    self.logger.error(f"Failed to create recommendation object: {str(e)}")
+                    continue
+            
+            # 최소 1개 이상의 추천이 있어야 함
+            if not recommendations:
+                self.logger.warning("No valid recommendations from Bedrock, using fallback")
+                return self._generate_interior_recommendations(session_id, business_info, selected_signboard)
+            
+            # InteriorRecommendations 객체 생성
+            interior_recommendations = InteriorRecommendations(recommendations=recommendations)
+            
+            # 세션에 저장
+            self._save_interior_recommendations(session_id, interior_recommendations)
+            
+            # 업종별 특성 가져오기 (추가 인사이트용)
+            industry = business_info.industry.lower()
+            region = business_info.region.lower()
+            size = business_info.size.lower()
+            
+            industry_info = self.industry_characteristics.get(industry, self.industry_characteristics.get("retail", {}))
+            regional_info = self.regional_trends.get(region, self.regional_trends.get("seoul", {}))
+            size_info = self.size_considerations.get(size, self.size_considerations.get("medium", {}))
+            
+            # 결과 구성
+            result = {
+                "sessionId": session_id,
+                "recommendations": [self._recommendation_to_dict(rec) for rec in recommendations],
+                "totalRecommendations": len(recommendations),
+                "reasoning": bedrock_data.get('reasoning', ''),
+                "confidence": bedrock_data.get('confidence', 0.8),
+                "generatedBy": "bedrock-claude",
+                "industryInsights": {
+                    "priorityFactors": industry_info.get("priority_factors", []),
+                    "specialRequirements": industry_info.get("special_requirements", []),
+                    "customerConsiderations": industry_info.get("customer_considerations", [])
+                },
+                "regionalTrends": {
+                    "trendingStyles": regional_info.get("trending_styles", []),
+                    "characteristics": regional_info.get("characteristics", []),
+                    "customerPreferences": regional_info.get("customer_preferences", [])
+                },
+                "budgetGuidance": self._generate_budget_guidance(size_info, recommendations),
+                "implementationGuide": self._generate_implementation_guide(size_info, recommendations),
+                "nextSteps": [
+                    "추천된 스타일 중 하나를 선택하세요",
+                    "선택한 스타일에 대한 상세 가이드를 확인하세요",
+                    "예산에 맞는 실행 계획을 수립하세요"
+                ],
+                "canProceed": len(recommendations) > 0,
+                "latency_ms": response.get('latency_ms', 0)
+            }
+            
+            self.logger.info(
+                f"Bedrock interior recommendations generated: {len(recommendations)} styles, "
+                f"confidence={result['confidence']:.2f}, latency={result['latency_ms']}ms"
+            )
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Bedrock interior recommendation failed: {str(e)}, using fallback")
+            # Fallback to traditional method
+            return self._generate_interior_recommendations(session_id, business_info, selected_signboard)
+    
     def _generate_interior_recommendations(self, session_id: str, business_info: BusinessInfo, 
                                          selected_signboard: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """인테리어 추천 생성"""
+        """인테리어 추천 생성 (Fallback method)"""
         try:
             industry = business_info.industry.lower()
             region = business_info.region.lower()

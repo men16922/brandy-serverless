@@ -233,7 +233,7 @@
   - _Requirements: 1.3, 3.2, 5.2_
   - _기존 코드: 완료된 Market Analyst Agent 확장_
 
-- [ ] 17. Signboard Agent Bedrock SDXL 통합
+- [x] 17. Signboard Agent Bedrock SDXL 통합
   - `src/lambda/agents/signboard/index.py` 수정:
     - BedrockClient 인스턴스 생성
     - 기존 DALL-E, Gemini 병렬 처리 유지
@@ -243,7 +243,7 @@
   - _Requirements: 1.4, 5.3_
   - _기존 코드: 완료된 Signboard Agent 확장_
 
-- [ ] 18. Interior Agent Bedrock 통합
+- [x] 18. Interior Agent Bedrock 통합
   - `src/lambda/agents/interior/index.py` 수정:
     - BedrockClient 인스턴스 생성
     - 기존 인테리어 추천 로직 유지
