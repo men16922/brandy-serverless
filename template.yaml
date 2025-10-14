@@ -237,6 +237,8 @@ Resources:
       CodeUri: src/lambda/agents/reporter/
       Handler: index.lambda_handler
       Description: Reporter Agent - Business name suggestions
+      Layers:
+        - !Ref SharedUtilitiesLayer
       Events:
         NamesApi:
           Type: HttpApi
@@ -402,7 +404,7 @@ Resources:
   WorkflowSessionsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub "${ProjectName}-sessions-${Environment}"
+      TableName: !Sub "${ProjectName}-sessions"
       AttributeDefinitions:
         - AttributeName: sessionId
           AttributeType: S
@@ -436,7 +438,7 @@ Resources:
   MarketAnalysisDataTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub "${ProjectName}-market-analysis-${Environment}"
+      TableName: !Sub "${ProjectName}-market-analysis"
       AttributeDefinitions:
         - AttributeName: PK
           AttributeType: S
@@ -478,7 +480,7 @@ Resources:
   BrandingAssetsBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "${ProjectName}-assets-${Environment}-${AWS::AccountId}"
+      BucketName: !Sub "${ProjectName}-assets-${AWS::AccountId}"
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true

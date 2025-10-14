@@ -9,110 +9,15 @@ from typing import Dict, Any, List, Optional
 import os
 import sys
 
-# 공통 유틸리티 import
-sys.path.append('/opt/python')
-try:
-    from shared.base_agent import BaseAgent
-    from shared.models import AgentType, NameSuggestion, BusinessNames, WorkflowStep
-    from shared.utils import create_response
-    from shared.bedrock_client import BedrockClient, BedrockException
-    from shared.reasoning_engine import ReasoningEngine
-except ImportError:
-    # For testing purposes, create mock implementations
-    from datetime import datetime
-    from typing import Dict, Any, List
-    from enum import Enum
-    import time
-    
-    class AgentType(Enum):
-        REPORTER = "reporter"
-    
-    class WorkflowStep(Enum):
-        SIGNBOARD = 3
-    
-    class NameSuggestion:
-        def __init__(self, name: str, description: str, pronunciation_score: float, 
-                     search_score: float, overall_score: float):
-            self.name = name
-            self.description = description
-            self.pronunciation_score = pronunciation_score
-            self.search_score = search_score
-            self.overall_score = overall_score
-    
-    class BusinessNames:
-        def __init__(self, suggestions: List[NameSuggestion] = None, selected_name: str = None,
-                     regeneration_count: int = 0, max_regenerations: int = 3):
-            self.suggestions = suggestions or []
-            self.selected_name = selected_name
-            self.regeneration_count = regeneration_count
-            self.max_regenerations = max_regenerations
-        
-        def can_regenerate(self) -> bool:
-            return self.regeneration_count < self.max_regenerations
-        
-        def add_regeneration(self) -> None:
-            if self.can_regenerate():
-                self.regeneration_count += 1
-    
-    class BaseAgent:
-        def __init__(self, agent_type):
-            self.agent_type = agent_type
-            self.agent_name = agent_type.value
-            self.logger = self._create_mock_logger()
-            self.communication = self._create_mock_communication()
-        
-        def _create_mock_logger(self):
-            import logging
-            logger = logging.getLogger(self.agent_name)
-            logger.setLevel(logging.INFO)
-            if not logger.handlers:
-                handler = logging.StreamHandler()
-                formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-                handler.setFormatter(formatter)
-                logger.addHandler(handler)
-            return logger
-        
-        def _create_mock_communication(self):
-            class MockCommunication:
-                def send_to_supervisor(self, agent_id: str, status: str, result: Any, session_id: str = None):
-                    pass
-            return MockCommunication()
-        
-        def start_execution(self, session_id: str, tool: str):
-            self.current_session_id = session_id
-            self.current_tool = tool
-            self.execution_start_time = time.time()
-        
-        def end_execution(self, status: str = "success", error_message: str = None, result: Any = None):
-            if hasattr(self, 'execution_start_time'):
-                latency_ms = int((time.time() - self.execution_start_time) * 1000)
-                return latency_ms
-            return 0
-        
-        def get_session_data(self, session_id: str):
-            # Mock implementation - will be overridden in tests
-            return None
-        
-        def update_session_data(self, session_id: str, updates: Dict[str, Any]):
-            # Mock implementation
-            return True
-        
-        def create_lambda_response(self, status_code: int, body: Any, headers=None):
-            return {
-                'statusCode': status_code,
-                'headers': headers or {'Content-Type': 'application/json'},
-                'body': json.dumps(body, ensure_ascii=False)
-            }
-        
-        def lambda_handler(self, event: Dict[str, Any], context: Any):
-            return self.execute(event, context)
-    
-    def create_response(status_code, body, headers=None):
-        return {
-            'statusCode': status_code,
-            'headers': headers or {'Content-Type': 'application/json'},
-            'body': json.dumps(body, ensure_ascii=False)
-        }
+# 공통 유틸리티 import - Lambda Layer 사용
+# SAM builds Layer with python/python/shared structure
+sys.path.insert(0, '/opt/python/python')
+
+from shared.base_agent import BaseAgent
+from shared.models import AgentType, NameSuggestion, BusinessNames, WorkflowStep
+from shared.utils import create_response
+from shared.bedrock_client import BedrockClient, BedrockException
+from shared.reasoning_engine import ReasoningEngine
 
 
 class ReporterAgent(BaseAgent):

@@ -1,49 +1,48 @@
 #!/bin/bash
-# Script to run Streamlit app for development
+
+# Streamlit 앱 실행 스크립트
+# AWS API Gateway 엔드포인트를 사용하여 Streamlit 앱 실행
 
 set -e
 
-echo "🚀 Starting Streamlit App..."
+echo "🚀 Starting Streamlit Application..."
 
-# Check if virtual environment is activated
-if [[ "$VIRTUAL_ENV" == "" ]]; then
-    echo "⚠️  Virtual environment not detected. Activating..."
-    if [ -f "venv/bin/activate" ]; then
-        source venv/bin/activate
-        echo "✅ Virtual environment activated"
-    else
-        echo "❌ Virtual environment not found. Please run: python3 -m venv venv && source venv/bin/activate"
-        exit 1
-    fi
+# 가상환경 활성화
+if [ ! -d "venv" ]; then
+    echo "❌ Virtual environment not found. Creating..."
+    python3 -m venv venv
 fi
 
-# Check if dependencies are installed
-echo "📦 Checking dependencies..."
-if ! python -c "import streamlit" 2>/dev/null; then
-    echo "📦 Installing Streamlit dependencies..."
-    pip install -r src/streamlit/requirements.txt
-fi
+source venv/bin/activate
 
-# Set environment variables
-export API_BASE_URL=${API_BASE_URL:-"http://localhost:3000"}
-export STREAMLIT_SERVER_PORT=${STREAMLIT_SERVER_PORT:-8501}
+# Streamlit 의존성 설치
+echo "📦 Installing Streamlit dependencies..."
+pip install -q -r src/streamlit/requirements.txt
 
-echo "🌐 API Base URL: $API_BASE_URL"
-echo "🌐 Streamlit Port: $STREAMLIT_SERVER_PORT"
+# API Gateway 엔드포인트 가져오기
+echo "🔍 Getting API Gateway endpoint..."
+API_ENDPOINT=$(aws cloudformation describe-stacks \
+    --stack-name ai-branding-chatbot-dev \
+    --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' \
+    --output text 2>/dev/null)
 
-# Check if SAM Local API is running
-echo "🔍 Checking SAM Local API..."
-if curl -s "$API_BASE_URL/health" >/dev/null 2>&1; then
-    echo "✅ SAM Local API is running"
+if [ -z "$API_ENDPOINT" ]; then
+    echo "⚠️  Could not find API Gateway endpoint. Using default localhost:3000"
+    API_ENDPOINT="http://localhost:3000"
 else
-    echo "⚠️  SAM Local API not detected at $API_BASE_URL"
-    echo "💡 Start it with: sam local start-api --port 3000"
-    echo "   Or set API_BASE_URL to your deployed API endpoint"
+    echo "✅ API Endpoint: $API_ENDPOINT"
 fi
 
-# Run Streamlit app
-echo "🎨 Starting Streamlit app..."
-echo "📱 Open your browser to: http://localhost:$STREAMLIT_SERVER_PORT"
+# 환경 변수 설정
+export API_BASE_URL="$API_ENDPOINT"
 
-cd src/streamlit
-streamlit run app.py --server.port $STREAMLIT_SERVER_PORT --server.address 0.0.0.0
+# Streamlit 앱 실행
+echo ""
+echo "🎨 Starting Streamlit app..."
+echo "📍 API Base URL: $API_BASE_URL"
+echo "🌐 Streamlit will be available at: http://localhost:8501"
+echo ""
+echo "Press Ctrl+C to stop the application"
+echo ""
+
+streamlit run src/streamlit/app.py --server.port 8501 --server.address localhost

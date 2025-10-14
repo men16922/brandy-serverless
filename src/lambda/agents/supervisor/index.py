@@ -10,6 +10,7 @@ import uuid
 import sys
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
+from decimal import Decimal
 
 # Add shared module to path for Lambda environment
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -20,6 +21,13 @@ if shared_dir not in sys.path:
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Helper function for JSON serialization with Decimal support
+def decimal_default(obj):
+    """Convert Decimal to int or float for JSON serialization"""
+    if isinstance(obj, Decimal):
+        return int(obj) if obj % 1 == 0 else float(obj)
+    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
 # Import AgentCore orchestrator
 try:
@@ -52,7 +60,7 @@ class SupervisorAgent:
             self.dynamodb = boto3.resource('dynamodb')
         
         # 테이블 이름
-        table_name = os.getenv('DYNAMODB_TABLE', 'ai-branding-chatbot-sessions-local')
+        table_name = os.getenv('SESSIONS_TABLE', 'ai-branding-chatbot-sessions')
         
         try:
             self.table = self.dynamodb.Table(table_name)
@@ -338,7 +346,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         return {
                             'statusCode': 201,
                             'headers': {'Content-Type': 'application/json'},
-                            'body': json.dumps(session_data)
+                            'body': json.dumps(session_data, default=decimal_default)
                         }
                     
                     # 워크플로 실행 요청
@@ -361,7 +369,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         return {
                             'statusCode': 200,
                             'headers': {'Content-Type': 'application/json'},
-                            'body': json.dumps(workflow_result)
+                            'body': json.dumps(workflow_result, default=decimal_default)
                         }
                     
                     # 기존 세션 ID 추출
@@ -428,7 +436,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json'},
-                'body': json.dumps(status_response)
+                'body': json.dumps(status_response, default=decimal_default)
             }
         
         # GET /sessions/{id} - 세션 데이터 조회
@@ -445,7 +453,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json'},
-                'body': json.dumps(session_data)
+                'body': json.dumps(session_data, default=decimal_default)
             }
         
         else:

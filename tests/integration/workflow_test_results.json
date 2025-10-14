@@ -1,0 +1,72 @@
+{
+  "test_name": "Full Workflow Integration Test",
+  "start_time": "2025-10-13T21:51:47.805390",
+  "steps": [
+    {
+      "step": "Create Session",
+      "status": "success",
+      "timestamp": "2025-10-13T21:51:49.691893",
+      "details": {
+        "session_id": "4fefd6b2-ed2e-4666-a68b-1f392b...",
+        "current_step": 1,
+        "status": "active",
+        "table": "ai-branding-chatbot-sessions"
+      }
+    },
+    {
+      "step": "Product Insight Agent",
+      "status": "success",
+      "timestamp": "2025-10-13T21:51:50.381115",
+      "details": {
+        "generated_by": "unknown",
+        "has_analysis": true,
+        "has_reasoning": false,
+        "confidence": "N/A",
+        "latency_ms": "N/A"
+      }
+    },
+    {
+      "step": "Reporter Agent",
+      "status": "failed",
+      "timestamp": "2025-10-13T21:51:51.011934",
+      "details": {
+        "status_code": 404,
+        "error": "{\"error\": \"Session not found\"}"
+      }
+    },
+    {
+      "step": "Interior Agent",
+      "status": "success",
+      "timestamp": "2025-10-13T21:52:11.505026",
+      "details": {
+        "generated_by": "bedrock-claude",
+        "total_recommendations": 3,
+        "has_reasoning": true,
+        "confidence": 0.9,
+        "top_style": null,
+        "latency_ms": 19536
+      }
+    },
+    {
+      "step": "Get Session",
+      "status": "success",
+      "timestamp": "2025-10-13T21:52:12.384642",
+      "details": {
+        "session_id": "4fefd6b2-ed2e-4666-a68b-1f392b...",
+        "current_step": 1,
+        "status": "active",
+        "has_business_info": true,
+        "has_agent_logs": false,
+        "agent_logs_count": 0
+      }
+    }
+  ],
+  "overall_status": "partial",
+  "end_time": "2025-10-13T21:52:12.386640",
+  "summary": {
+    "total_tests": 5,
+    "passed": 4,
+    "failed": 1,
+    "success_rate": "80.0%"
+  }
+}

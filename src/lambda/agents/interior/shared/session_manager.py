@@ -23,7 +23,7 @@ class SessionManager:
             table_name: DynamoDB table name (defaults to env var)
             endpoint_url: DynamoDB endpoint URL (for local development)
         """
-        self.table_name = table_name or os.getenv('DYNAMODB_TABLE_NAME', 'branding-chatbot-sessions-local')
+        self.table_name = table_name or os.getenv('SESSIONS_TABLE', 'ai-branding-chatbot-sessions')
         
         # Configure DynamoDB client
         dynamodb_config = {
