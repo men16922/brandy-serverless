@@ -36,6 +36,31 @@ class ReportGeneratorAgent(BaseAgent):
         super().__init__(AgentType.REPORT_GENERATOR)
         self.agent_name = "report-generator"
         
+        # Bedrock 통합 (Requirement 1.5, 3.5)
+        self.enable_bedrock = os.getenv('ENABLE_FALLBACK', 'false').lower() != 'true'
+        self.bedrock_client = None
+        self.reasoning_engine = None
+        
+        if self.enable_bedrock:
+            try:
+                # Import Bedrock modules
+                try:
+                    from shared.bedrock_client import BedrockClient, BedrockException
+                    from shared.reasoning_engine import ReasoningEngine
+                except ImportError:
+                    from bedrock_client import BedrockClient, BedrockException
+                    from reasoning_engine import ReasoningEngine
+                
+                self.bedrock_client = BedrockClient(logger=self.logger)
+                self.reasoning_engine = ReasoningEngine(
+                    bedrock_client=self.bedrock_client,
+                    logger=self.logger
+                )
+                self.logger.info("Bedrock integration enabled for Report Generator Agent")
+            except Exception as e:
+                self.logger.warning(f"Bedrock initialization failed, using fallback: {str(e)}")
+                self.enable_bedrock = False
+        
         # PDF 생성 라이브러리 import
         try:
             from reportlab.lib.pagesizes import letter, A4
@@ -137,13 +162,15 @@ class ReportGeneratorAgent(BaseAgent):
                 "downloadExpiry": "10 minutes",
                 "processingTime": f"{total_time:.2f}s",
                 "success": True,
+                "bedrockEnhanced": report_result.get("bedrock_enhanced", False),
                 "components": {
                     "businessAnalysis": session_data.get("analysis_included", False),
                     "businessNames": len(session_data.get("business_names", [])),
                     "signboardImages": len(session_data.get("signboard_images", [])),
                     "interiorImages": len(session_data.get("interior_images", [])),
                     "colorPalette": session_data.get("color_palette_included", False),
-                    "budgetGuide": session_data.get("budget_guide_included", False)
+                    "budgetGuide": session_data.get("budget_guide_included", False),
+                    "bedrockInsights": report_result.get("bedrock_enhanced", False)
                 }
             }
             
@@ -507,9 +534,61 @@ class ReportGeneratorAgent(BaseAgent):
             self.logger.error(f"Error storing PDF report: {str(e)}")
             raise
     
+    def _synthesize_insights_with_bedrock(self, session_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Bedrock Claude를 사용하여 인사이트 종합 (Requirement 3.5)
+        
+        Args:
+            session_data: 세션 데이터
+        
+        Returns:
+            종합된 인사이트 텍스트 또는 None (실패 시)
+        """
+        if not self.enable_bedrock or not self.reasoning_engine:
+            return None
+        
+        try:
+            # Agent 출력 데이터 수집
+            agent_outputs = {
+                'business_info': session_data.get('business_info', {}),
+                'analysis_result': session_data.get('analysis_result', {}),
+                'business_names': session_data.get('business_names', []),
+                'selected_name': session_data.get('selected_name', ''),
+                'signboard_count': len(session_data.get('signboard_images', [])),
+                'interior_count': len(session_data.get('interior_images', [])),
+                'color_palette': session_data.get('color_palette', {}),
+                'budget_guide': session_data.get('budget_guide', {}),
+                'recommendations': session_data.get('recommendations', [])
+            }
+            
+            self.logger.info("Synthesizing insights with Bedrock Claude")
+            
+            # ReasoningEngine.synthesize_insights() 사용
+            synthesized_insights = self.reasoning_engine.synthesize_insights(
+                agent_outputs=agent_outputs,
+                temperature=0.5  # 창의적인 종합을 위해 약간 높은 temperature
+            )
+            
+            self.logger.info(
+                f"Bedrock insight synthesis complete: {len(synthesized_insights)} characters"
+            )
+            
+            return synthesized_insights
+            
+        except Exception as e:
+            self.logger.warning(f"Bedrock insight synthesis failed: {str(e)}, using fallback")
+            return None
+    
     def _generate_alternative_report(self, session_data: Dict[str, Any]) -> Dict[str, Any]:
         """대안 보고서 생성 - HTML, JSON, 텍스트 형식 지원"""
         try:
+            # Bedrock으로 인사이트 종합 시도 (Requirement 1.5, 3.5)
+            synthesized_insights = self._synthesize_insights_with_bedrock(session_data)
+            if synthesized_insights:
+                # 종합된 인사이트를 세션 데이터에 추가
+                session_data['synthesized_insights'] = synthesized_insights
+                self.logger.info("Added Bedrock-synthesized insights to report")
+            
             # 현재 디렉토리에서 alternative_report_generator 임포트
             import importlib.util
             alt_gen_path = os.path.join(os.path.dirname(__file__), 'alternative_report_generator.py')
@@ -523,12 +602,13 @@ class ReportGeneratorAgent(BaseAgent):
             # HTML 보고서 우선 시도
             try:
                 html_content = alt_generator.generate_html_report(session_data)
-                self.logger.info("Successfully generated HTML report")
+                self.logger.info("Successfully generated HTML report with Bedrock insights")
                 return {
                     "content": html_content,
                     "format": "html",
                     "content_type": "text/html",
-                    "file_extension": "html"
+                    "file_extension": "html",
+                    "bedrock_enhanced": synthesized_insights is not None
                 }
             except Exception as e:
                 self.logger.warning(f"HTML report generation failed: {str(e)}, trying JSON")
@@ -541,7 +621,8 @@ class ReportGeneratorAgent(BaseAgent):
                     "content": json.dumps(json_content, ensure_ascii=False, indent=2),
                     "format": "json",
                     "content_type": "application/json",
-                    "file_extension": "json"
+                    "file_extension": "json",
+                    "bedrock_enhanced": synthesized_insights is not None
                 }
             except Exception as e:
                 self.logger.warning(f"JSON report generation failed: {str(e)}, trying text")
@@ -553,7 +634,8 @@ class ReportGeneratorAgent(BaseAgent):
                 "content": text_content,
                 "format": "text",
                 "content_type": "text/plain",
-                "file_extension": "txt"
+                "file_extension": "txt",
+                "bedrock_enhanced": synthesized_insights is not None
             }
             
         except ImportError:

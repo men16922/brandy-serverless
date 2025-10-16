@@ -24,6 +24,139 @@ except ImportError:
     from bedrock_client import BedrockClient
     from reasoning_engine import ReasoningEngine
 
+# Import FallbackProvider for type hints
+try:
+    from config.fallback_config import FallbackProvider
+except ImportError:
+    # Define a placeholder if config module not available
+    from enum import Enum
+    class FallbackProvider(Enum):
+        OPENAI = "openai"
+        GEMINI = "gemini"
+        NONE = "none"
+
+
+class CircuitBreaker:
+    """
+    Circuit breaker pattern for API call failure management.
+    
+    This class implements the circuit breaker pattern to prevent cascading
+    failures when Bedrock API is experiencing issues. It tracks consecutive
+    failures and automatically switches to fallback when threshold is reached.
+    
+    States:
+        CLOSED: Normal operation, requests go to Bedrock
+        OPEN: Too many failures, requests go to fallback
+        HALF_OPEN: Testing if Bedrock has recovered
+    
+    Attributes:
+        failure_count: Number of consecutive failures
+        failure_threshold: Number of failures before opening circuit
+        timeout: Seconds to wait before trying Bedrock again
+        last_failure_time: Timestamp of last failure
+        state: Current circuit state (CLOSED/OPEN/HALF_OPEN)
+    """
+    
+    def __init__(self, failure_threshold: int = 5, timeout: int = 60):
+        """
+        Initialize circuit breaker.
+        
+        Args:
+            failure_threshold: Number of failures before opening circuit
+            timeout: Seconds to wait before trying Bedrock again
+        """
+        self.failure_count = 0
+        self.failure_threshold = failure_threshold
+        self.timeout = timeout
+        self.last_failure_time = None
+        self.state = 'CLOSED'  # CLOSED, OPEN, HALF_OPEN
+        self.success_count = 0
+    
+    def should_use_fallback(self) -> bool:
+        """
+        Check if fallback should be used based on circuit state.
+        
+        Returns:
+            True if circuit is OPEN (use fallback), False if CLOSED (try Bedrock)
+        """
+        if self.state == 'CLOSED':
+            return False
+        
+        if self.state == 'OPEN':
+            # Check if timeout has elapsed
+            if self.last_failure_time and time.time() - self.last_failure_time > self.timeout:
+                self.state = 'HALF_OPEN'
+                self.success_count = 0
+                return False  # Try Bedrock again
+            return True  # Still in timeout, use fallback
+        
+        if self.state == 'HALF_OPEN':
+            # In half-open state, allow some requests through
+            return False
+        
+        return False
+    
+    def record_success(self) -> None:
+        """
+        Record successful Bedrock API call.
+        
+        Resets failure count and closes circuit if in HALF_OPEN state.
+        """
+        self.failure_count = 0
+        
+        if self.state == 'HALF_OPEN':
+            self.success_count += 1
+            # After 3 successful calls, close the circuit
+            if self.success_count >= 3:
+                self.state = 'CLOSED'
+                self.success_count = 0
+        elif self.state == 'OPEN':
+            # Shouldn't happen, but handle gracefully
+            self.state = 'HALF_OPEN'
+            self.success_count = 1
+    
+    def record_failure(self) -> None:
+        """
+        Record failed Bedrock API call.
+        
+        Increments failure count and opens circuit if threshold is reached.
+        """
+        self.failure_count += 1
+        self.last_failure_time = time.time()
+        
+        if self.state == 'HALF_OPEN':
+            # Failure in half-open state, reopen circuit
+            self.state = 'OPEN'
+            self.success_count = 0
+        elif self.failure_count >= self.failure_threshold:
+            # Too many failures, open circuit
+            self.state = 'OPEN'
+    
+    def get_state(self) -> str:
+        """
+        Get current circuit state.
+        
+        Returns:
+            Current state (CLOSED/OPEN/HALF_OPEN)
+        """
+        return self.state
+    
+    def reset(self) -> None:
+        """
+        Reset circuit breaker to initial state.
+        
+        Useful for testing or manual intervention.
+        """
+        self.failure_count = 0
+        self.success_count = 0
+        self.last_failure_time = None
+        self.state = 'CLOSED'
+
+
+class CircuitBreakerOpenError(Exception):
+    """Exception raised when circuit breaker is open."""
+    pass
+
 
 class BaseAgent(ABC):
     """모든 Agent의 기본 클래스"""
@@ -563,6 +696,585 @@ class BaseAgent(ABC):
             'requires_human_input': False,
             'retry_count': retry_count
         }
+    
+    def execute_with_fallback(
+        self,
+        event: Dict[str, Any],
+        context: Any,
+        bedrock_error: Optional[Exception] = None
+    ) -> Dict[str, Any]:
+        """
+        Execute agent task with fallback provider when Bedrock fails.
+        
+        This method implements Requirement 1.6 and 5.6:
+        - Provides graceful degradation when Bedrock is unavailable
+        - Uses OpenAI or Gemini as fallback providers
+        - Logs fallback usage for monitoring
+        - Records metrics for CloudWatch
+        
+        Args:
+            event: Lambda event data
+            context: Lambda context
+            bedrock_error: Original Bedrock error (if any)
+        
+        Returns:
+            Dict with execution result using fallback provider
+        
+        Raises:
+            Exception: If fallback also fails
+        """
+        try:
+            # Import fallback config
+            try:
+                from config.fallback_config import get_fallback_config
+            except ImportError:
+                import sys
+                sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+                from config.fallback_config import get_fallback_config
+            
+            fallback_config = get_fallback_config()
+            
+            # Check if fallback is enabled
+            if not fallback_config.is_fallback_enabled():
+                self.logger.error(
+                    "Fallback is disabled but execute_with_fallback was called. "
+                    "Bedrock-only mode is active."
+                )
+                raise Exception(
+                    "Bedrock service unavailable and fallback is disabled. "
+                    "Enable fallback with ENABLE_FALLBACK=true or DEV_PROFILE=true"
+                )
+            
+            # Determine which fallback provider to use
+            if not self._should_use_fallback():
+                self.logger.warning(
+                    "Circuit breaker suggests not using fallback, but fallback was requested"
+                )
+            
+            fallback_provider = fallback_config.get_fallback_provider()
+            
+            self.logger.info(
+                f"Executing with fallback provider: {fallback_provider.value}, "
+                f"bedrock_error={type(bedrock_error).__name__ if bedrock_error else 'None'}"
+            )
+            
+            # Log fallback usage
+            self._log_fallback_usage(
+                provider=fallback_provider.value,
+                reason=str(bedrock_error) if bedrock_error else "Fallback requested",
+                session_id=event.get('session_id', 'unknown')
+            )
+            
+            # Execute with fallback provider
+            # Note: Subclasses should override this method to implement
+            # provider-specific fallback logic
+            result = self._execute_fallback_logic(event, context, fallback_provider)
+            
+            # Mark result as using fallback
+            if isinstance(result, dict):
+                result['used_fallback'] = True
+                result['fallback_provider'] = fallback_provider.value
+                result['bedrock_error'] = str(bedrock_error) if bedrock_error else None
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Fallback execution failed: {str(e)}")
+            raise
+    
+    def _should_use_fallback(self) -> bool:
+        """
+        Determine if fallback should be used based on circuit breaker state.
+        
+        This method implements circuit breaker pattern:
+        - Tracks consecutive Bedrock failures
+        - Opens circuit after threshold failures
+        - Automatically uses fallback when circuit is open
+        
+        Returns:
+            True if fallback should be used, False if Bedrock should be tried
+        """
+        # Get circuit breaker state from instance or create new
+        if not hasattr(self, '_circuit_breaker'):
+            self._circuit_breaker = CircuitBreaker(
+                failure_threshold=int(os.getenv('CIRCUIT_BREAKER_THRESHOLD', '5')),
+                timeout=int(os.getenv('CIRCUIT_BREAKER_TIMEOUT', '60'))
+            )
+        
+        return self._circuit_breaker.should_use_fallback()
+    
+    def _log_fallback_usage(
+        self,
+        provider: str,
+        reason: str,
+        session_id: str
+    ) -> None:
+        """
+        Log fallback usage for monitoring and metrics.
+        
+        This method implements Requirement 5.6:
+        - Logs fallback usage to CloudWatch
+        - Records metrics for monitoring
+        - Tracks fallback patterns
+        
+        Args:
+            provider: Fallback provider name (openai/gemini)
+            reason: Reason for using fallback
+            session_id: Session ID for tracking
+        """
+        # Structured logging
+        log_data = {
+            'event': 'fallback_usage',
+            'agent': self.agent_name,
+            'fallback_provider': provider,
+            'reason': reason,
+            'session_id': session_id,
+            'timestamp': datetime.utcnow().isoformat(),
+            'environment': self.environment
+        }
+        
+        self.logger.warning(f"Fallback usage: {json.dumps(log_data)}")
+        
+        # Record CloudWatch metric
+        try:
+            cloudwatch = self.aws_clients.get('cloudwatch')
+            if cloudwatch:
+                cloudwatch.put_metric_data(
+                    Namespace='BrandingChatbot/Agents',
+                    MetricData=[
+                        {
+                            'MetricName': 'FallbackUsage',
+                            'Value': 1,
+                            'Unit': 'Count',
+                            'Timestamp': datetime.utcnow(),
+                            'Dimensions': [
+                                {'Name': 'Agent', 'Value': self.agent_name},
+                                {'Name': 'Provider', 'Value': provider},
+                                {'Name': 'Environment', 'Value': self.environment}
+                            ]
+                        }
+                    ]
+                )
+                self.logger.info("Fallback metric recorded to CloudWatch")
+        except Exception as e:
+            self.logger.error(f"Failed to record fallback metric: {str(e)}")
+        
+        # Update session with fallback usage
+        try:
+            if hasattr(self, 'current_session_id') and self.current_session_id:
+                self.update_session_data(
+                    session_id=self.current_session_id,
+                    updates={
+                        'fallback_used': True,
+                        'fallback_provider': provider,
+                        'fallback_reason': reason
+                    }
+                )
+        except Exception as e:
+            self.logger.error(f"Failed to update session with fallback info: {str(e)}")
+    
+    def _execute_fallback_logic(
+        self,
+        event: Dict[str, Any],
+        context: Any,
+        fallback_provider
+    ) -> Dict[str, Any]:
+        """
+        Execute fallback logic with specified provider.
+        
+        This is a default implementation that subclasses should override
+        to provide provider-specific fallback logic.
+        
+        Args:
+            event: Lambda event data
+            context: Lambda context
+            fallback_provider: FallbackProvider enum value
+        
+        Returns:
+            Dict with fallback execution result
+        """
+        self.logger.warning(
+            f"Default fallback logic called for {fallback_provider.value}. "
+            f"Subclass should override _execute_fallback_logic()"
+        )
+        
+        # Return a generic fallback response
+        return {
+            'status': 'fallback',
+            'message': f'Bedrock unavailable, using {fallback_provider.value} fallback',
+            'agent': self.agent_name,
+            'fallback_provider': fallback_provider.value,
+            'timestamp': datetime.utcnow().isoformat()
+        }
+    
+    def execute_with_circuit_breaker(
+        self,
+        bedrock_operation: callable,
+        fallback_operation: callable = None,
+        *args,
+        **kwargs
+    ) -> Any:
+        """
+        Execute Bedrock operation with circuit breaker protection.
+        
+        This method wraps Bedrock API calls with circuit breaker pattern:
+        - Tracks consecutive failures
+        - Automatically switches to fallback when circuit opens
+        - Records success/failure for circuit state management
+        
+        Args:
+            bedrock_operation: Callable that performs Bedrock API call
+            fallback_operation: Optional callable for fallback logic
+            *args: Arguments to pass to operations
+            **kwargs: Keyword arguments to pass to operations
+        
+        Returns:
+            Result from bedrock_operation or fallback_operation
+        
+        Raises:
+            Exception: If both Bedrock and fallback fail
+        """
+        # Initialize circuit breaker if not exists
+        if not hasattr(self, '_circuit_breaker'):
+            self._circuit_breaker = CircuitBreaker(
+                failure_threshold=int(os.getenv('CIRCUIT_BREAKER_THRESHOLD', '5')),
+                timeout=int(os.getenv('CIRCUIT_BREAKER_TIMEOUT', '60'))
+            )
+        
+        # Check if we should use fallback
+        if self._circuit_breaker.should_use_fallback():
+            self.logger.warning(
+                f"Circuit breaker is {self._circuit_breaker.get_state()}, using fallback"
+            )
+            
+            if fallback_operation:
+                try:
+                    result = fallback_operation(*args, **kwargs)
+                    return result
+                except Exception as e:
+                    self.logger.error(f"Fallback operation failed: {str(e)}")
+                    raise
+            else:
+                raise CircuitBreakerOpenError(
+                    f"Circuit breaker is {self._circuit_breaker.get_state()} "
+                    f"and no fallback operation provided"
+                )
+        
+        # Try Bedrock operation
+        try:
+            result = bedrock_operation(*args, **kwargs)
+            self._circuit_breaker.record_success()
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Bedrock operation failed: {str(e)}")
+            self._circuit_breaker.record_failure()
+            
+            # Try fallback if available
+            if fallback_operation:
+                self.logger.info("Attempting fallback after Bedrock failure")
+                try:
+                    result = fallback_operation(*args, **kwargs)
+                    return result
+                except Exception as fallback_error:
+                    self.logger.error(f"Fallback operation also failed: {str(fallback_error)}")
+                    raise
+            else:
+                raise
+    
+    def pause_workflow(
+        self,
+        session_id: str,
+        reason: str,
+        save_intermediate: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Pause workflow execution and save current state.
+        
+        This method implements Requirement 4.4:
+        - Pauses workflow for human review or intervention
+        - Saves all intermediate results
+        - Records pause reason for transparency
+        
+        Args:
+            session_id: Session ID to pause
+            reason: Reason for pausing (e.g., 'low_confidence', 'human_review_required')
+            save_intermediate: Whether to save intermediate results
+        
+        Returns:
+            Dict with:
+                - status: 'paused'
+                - session_id: Session ID
+                - pause_reason: Reason for pause
+                - current_step: Current workflow step
+                - paused_at: Timestamp
+        
+        Raises:
+            Exception: If session not found or pause fails
+        """
+        try:
+            self.logger.info(
+                f"Pausing workflow: session={session_id}, reason={reason}"
+            )
+            
+            # Get current session data
+            session_data = self.get_session_data(session_id)
+            if not session_data:
+                raise ValueError(f"Session not found: {session_id}")
+            
+            # Save intermediate results if requested
+            if save_intermediate:
+                intermediate_data = {
+                    'current_step': session_data.get('currentStep', session_data.get('current_step')),
+                    'business_info': session_data.get('businessInfo', session_data.get('business_info')),
+                    'analysis_result': session_data.get('analysisResult', session_data.get('analysis_result')),
+                    'business_names': session_data.get('businessNames', session_data.get('business_names')),
+                    'signboard_images': session_data.get('signboardImages', session_data.get('signboard_images')),
+                    'interior_images': session_data.get('interiorImages', session_data.get('interior_images')),
+                    'reasoning_chain': session_data.get('reasoningChain', session_data.get('reasoning_chain', [])),
+                    'agent_logs': session_data.get('agentLogs', session_data.get('agent_logs', []))
+                }
+                
+                # Update session with pause state and intermediate results
+                updates = {
+                    'status': 'paused',
+                    'pauseReason': reason,
+                    'pausedAt': datetime.utcnow().isoformat(),
+                    'intermediateResults': intermediate_data
+                }
+            else:
+                # Just update status and pause metadata
+                updates = {
+                    'status': 'paused',
+                    'pauseReason': reason,
+                    'pausedAt': datetime.utcnow().isoformat()
+                }
+            
+            # Update session in DynamoDB
+            success = self.update_session_data(session_id, updates)
+            
+            if not success:
+                raise Exception("Failed to update session with pause state")
+            
+            result = {
+                'status': 'paused',
+                'session_id': session_id,
+                'pause_reason': reason,
+                'current_step': session_data.get('currentStep', session_data.get('current_step')),
+                'paused_at': updates['pausedAt'],
+                'message': f'Workflow paused: {reason}'
+            }
+            
+            self.logger.info(
+                f"Workflow paused successfully: session={session_id}, "
+                f"step={result['current_step']}"
+            )
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Failed to pause workflow: {str(e)}")
+            raise
+    
+    def resume_workflow(
+        self,
+        session_id: str,
+        restore_intermediate: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Resume paused workflow execution from saved state.
+        
+        This method implements Requirement 4.4:
+        - Resumes workflow from paused state
+        - Restores intermediate results
+        - Increments resume counter
+        - Clears pause metadata
+        
+        Args:
+            session_id: Session ID to resume
+            restore_intermediate: Whether to restore intermediate results
+        
+        Returns:
+            Dict with:
+                - status: 'active'
+                - session_id: Session ID
+                - resume_count: Number of times resumed
+                - current_step: Current workflow step
+                - intermediate_results: Restored intermediate data (if requested)
+        
+        Raises:
+            Exception: If session not found, not paused, or resume fails
+        """
+        try:
+            self.logger.info(
+                f"Resuming workflow: session={session_id}"
+            )
+            
+            # Get current session data
+            session_data = self.get_session_data(session_id)
+            if not session_data:
+                raise ValueError(f"Session not found: {session_id}")
+            
+            # Verify session is paused
+            current_status = session_data.get('status')
+            if current_status != 'paused':
+                raise ValueError(
+                    f"Cannot resume session with status: {current_status}. "
+                    f"Session must be in 'paused' status."
+                )
+            
+            # Get pause metadata
+            pause_reason = session_data.get('pauseReason', session_data.get('pause_reason'))
+            paused_at = session_data.get('pausedAt', session_data.get('paused_at'))
+            resume_count = session_data.get('resumeCount', session_data.get('resume_count', 0))
+            
+            # Calculate pause duration
+            pause_duration = None
+            if paused_at:
+                try:
+                    paused_time = datetime.fromisoformat(paused_at.replace('Z', '+00:00'))
+                    now = datetime.utcnow()
+                    pause_duration = int((now - paused_time).total_seconds())
+                except Exception:
+                    pass
+            
+            # Prepare updates
+            updates = {
+                'status': 'active',
+                'resumeCount': resume_count + 1
+            }
+            
+            # Restore intermediate results if requested
+            intermediate_results = None
+            if restore_intermediate:
+                intermediate_results = session_data.get(
+                    'intermediateResults',
+                    session_data.get('intermediate_results')
+                )
+            
+            # Update session in DynamoDB
+            success = self.update_session_data(session_id, updates)
+            
+            if not success:
+                raise Exception("Failed to update session with resume state")
+            
+            result = {
+                'status': 'active',
+                'session_id': session_id,
+                'resume_count': resume_count + 1,
+                'current_step': session_data.get('currentStep', session_data.get('current_step')),
+                'previous_pause_reason': pause_reason,
+                'pause_duration_seconds': pause_duration,
+                'message': f'Workflow resumed (resume #{resume_count + 1})'
+            }
+            
+            if intermediate_results:
+                result['intermediate_results'] = intermediate_results
+            
+            self.logger.info(
+                f"Workflow resumed successfully: session={session_id}, "
+                f"resume_count={resume_count + 1}, "
+                f"pause_duration={pause_duration}s"
+            )
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Failed to resume workflow: {str(e)}")
+            raise
+    
+    def save_intermediate_result(
+        self,
+        session_id: str,
+        step_name: str,
+        result: Any
+    ) -> bool:
+        """
+        Save intermediate result for a workflow step.
+        
+        This method implements Requirement 4.4:
+        - Stores intermediate results for recovery
+        - Prevents data loss on failure
+        - Enables step-by-step debugging
+        
+        Args:
+            session_id: Session ID
+            step_name: Name of the step (e.g., 'analysis', 'naming', 'signboard')
+            result: Result data to save
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Get current intermediate results
+            session_data = self.get_session_data(session_id)
+            if not session_data:
+                self.logger.error(f"Session not found: {session_id}")
+                return False
+            
+            intermediate_results = session_data.get(
+                'intermediateResults',
+                session_data.get('intermediate_results', {})
+            )
+            
+            # Add new result
+            intermediate_results[step_name] = {
+                'data': result,
+                'saved_at': datetime.utcnow().isoformat(),
+                'step_number': session_data.get('currentStep', session_data.get('current_step'))
+            }
+            
+            # Update session
+            success = self.update_session_data(
+                session_id,
+                {'intermediateResults': intermediate_results}
+            )
+            
+            if success:
+                self.logger.info(
+                    f"Intermediate result saved: session={session_id}, "
+                    f"step={step_name}"
+                )
+            
+            return success
+            
+        except Exception as e:
+            self.logger.error(f"Failed to save intermediate result: {str(e)}")
+            return False
+    
+    def get_intermediate_result(
+        self,
+        session_id: str,
+        step_name: str
+    ) -> Optional[Any]:
+        """
+        Retrieve intermediate result for a workflow step.
+        
+        Args:
+            session_id: Session ID
+            step_name: Name of the step
+        
+        Returns:
+            Saved result data or None if not found
+        """
+        try:
+            session_data = self.get_session_data(session_id)
+            if not session_data:
+                return None
+            
+            intermediate_results = session_data.get(
+                'intermediateResults',
+                session_data.get('intermediate_results', {})
+            )
+            
+            if step_name in intermediate_results:
+                return intermediate_results[step_name].get('data')
+            
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"Failed to get intermediate result: {str(e)}")
+            return None
     
     @abstractmethod
     def execute(self, event: Dict[str, Any], context: Any) -> Dict[str, Any]:

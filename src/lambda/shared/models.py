@@ -23,6 +23,7 @@ class WorkflowStep(Enum):
 class SessionStatus(Enum):
     """Session status enumeration"""
     ACTIVE = "active"
+    PAUSED = "paused"  # NEW: Session paused for review or intervention
     COMPLETED = "completed"
     FAILED = "failed"
     EXPIRED = "expired"
@@ -281,6 +282,12 @@ class WorkflowSession:
     express_execution_arn: Optional[str] = None
     standard_execution_arn: Optional[str] = None
     
+    # Pause/Resume tracking (NEW for Task 23 - Requirement 4.4, 4.6)
+    pause_reason: Optional[str] = None
+    paused_at: Optional[str] = None
+    resume_count: int = 0
+    intermediate_results: Dict[str, Any] = field(default_factory=dict)
+    
     @classmethod
     def create_new(cls, business_info: BusinessInfo) -> 'WorkflowSession':
         """Create a new workflow session"""
@@ -346,6 +353,128 @@ class WorkflowSession:
                 error_message=error_message
             )
             self.add_agent_log(error_log)
+    
+    def pause(self, reason: str) -> None:
+        """
+        Pause workflow execution.
+        
+        This method implements Requirement 4.4:
+        - Saves current state for later resumption
+        - Records pause reason for transparency
+        - Preserves all intermediate results
+        
+        Args:
+            reason: Reason for pausing (e.g., 'low_confidence', 'human_review_required')
+        """
+        self.status = SessionStatus.PAUSED.value
+        self.pause_reason = reason
+        self.paused_at = datetime.utcnow().isoformat()
+        self.updated_at = datetime.utcnow().isoformat()
+        
+        # Log pause event
+        pause_log = AgentLog(
+            agent=self.current_agent or AgentType.SUPERVISOR.value,
+            tool="workflow_pause",
+            latency_ms=0,
+            status="success",
+            metadata={
+                'pause_reason': reason,
+                'current_step': self.current_step,
+                'paused_at': self.paused_at
+            }
+        )
+        self.add_agent_log(pause_log)
+    
+    def resume(self) -> None:
+        """
+        Resume paused workflow execution.
+        
+        This method implements Requirement 4.4:
+        - Restores workflow from saved state
+        - Increments resume counter for tracking
+        - Clears pause metadata
+        
+        Returns:
+            None
+        
+        Raises:
+            ValueError: If session is not in PAUSED status
+        """
+        if self.status != SessionStatus.PAUSED.value:
+            raise ValueError(f"Cannot resume session with status: {self.status}")
+        
+        self.status = SessionStatus.ACTIVE.value
+        self.resume_count += 1
+        self.updated_at = datetime.utcnow().isoformat()
+        
+        # Log resume event
+        resume_log = AgentLog(
+            agent=self.current_agent or AgentType.SUPERVISOR.value,
+            tool="workflow_resume",
+            latency_ms=0,
+            status="success",
+            metadata={
+                'resume_count': self.resume_count,
+                'previous_pause_reason': self.pause_reason,
+                'paused_duration_seconds': self._calculate_pause_duration(),
+                'current_step': self.current_step
+            }
+        )
+        self.add_agent_log(resume_log)
+        
+        # Clear pause metadata (but keep for history in logs)
+        # Note: We don't clear pause_reason to maintain audit trail
+    
+    def _calculate_pause_duration(self) -> Optional[int]:
+        """Calculate duration of pause in seconds"""
+        if not self.paused_at:
+            return None
+        
+        try:
+            paused_time = datetime.fromisoformat(self.paused_at.replace('Z', '+00:00'))
+            now = datetime.utcnow()
+            duration = (now - paused_time).total_seconds()
+            return int(duration)
+        except Exception:
+            return None
+    
+    def save_intermediate_result(self, step_name: str, result: Any) -> None:
+        """
+        Save intermediate result for a workflow step.
+        
+        This method implements Requirement 4.4:
+        - Stores intermediate results for recovery
+        - Prevents data loss on failure
+        - Enables step-by-step debugging
+        
+        Args:
+            step_name: Name of the step (e.g., 'analysis', 'naming', 'signboard')
+            result: Result data to save
+        """
+        self.intermediate_results[step_name] = {
+            'data': result,
+            'saved_at': datetime.utcnow().isoformat(),
+            'step_number': self.current_step
+        }
+        self.updated_at = datetime.utcnow().isoformat()
+    
+    def get_intermediate_result(self, step_name: str) -> Optional[Any]:
+        """
+        Retrieve intermediate result for a workflow step.
+        
+        Args:
+            step_name: Name of the step
+        
+        Returns:
+            Saved result data or None if not found
+        """
+        if step_name in self.intermediate_results:
+            return self.intermediate_results[step_name].get('data')
+        return None
+    
+    def is_paused(self) -> bool:
+        """Check if session is paused"""
+        return self.status == SessionStatus.PAUSED.value
     
     def is_expired(self) -> bool:
         """Check if session is expired"""

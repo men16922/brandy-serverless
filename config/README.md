@@ -2,6 +2,11 @@
 
 This directory contains configuration management for the AI Branding Chatbot project.
 
+## Modules
+
+- **bedrock_config.py**: Amazon Bedrock service configuration
+- **fallback_config.py**: Fallback provider governance and selection
+
 ## Bedrock Configuration
 
 The `bedrock_config.py` module provides centralized configuration for Amazon Bedrock services.
@@ -203,8 +208,231 @@ if not config.is_agentcore_enabled():
     print(f"BEDROCK_AGENT_ALIAS_ID: {config.agent_alias_id}")
 ```
 
+## Fallback Configuration
+
+The `fallback_config.py` module provides fallback governance for AI providers when Amazon Bedrock is unavailable or when running in development mode.
+
+### Usage
+
+```python
+from config.fallback_config import FallbackConfig, FallbackProvider, get_fallback_config
+
+# Get configuration from environment variables
+config = FallbackConfig.from_env()
+
+# Or use the global singleton
+config = get_fallback_config()
+
+# Check if fallback is enabled
+if config.is_fallback_enabled():
+    provider = config.get_fallback_provider()
+    print(f"Using fallback provider: {provider.value}")
+    
+    if provider == FallbackProvider.OPENAI:
+        openai_config = config.get_openai_config()
+        print(f"OpenAI model: {openai_config['model']}")
+    elif provider == FallbackProvider.GEMINI:
+        gemini_config = config.get_gemini_config()
+        print(f"Gemini model: {gemini_config['model']}")
+else:
+    print("Bedrock-only mode (no fallback)")
+
+# Validate for hackathon submission
+issues = config.validate_hackathon_submission()
+if issues:
+    print("Configuration issues for hackathon:")
+    for issue in issues:
+        print(f"  - {issue}")
+```
+
+### Environment Variables
+
+#### Fallback Control Variables
+
+- `ENABLE_FALLBACK`: Explicit fallback enable flag (`true`/`false`, default: `false`)
+- `DEV_PROFILE`: Development profile flag (`true`/`false`, default: `false`)
+- `ENVIRONMENT`: Current environment (`local`/`dev`/`prod`, default: `prod`)
+- `FALLBACK_PROVIDER`: Preferred fallback provider (`openai`/`gemini`, default: `openai`)
+- `USE_AGENTCORE`: Enable Bedrock AgentCore (`true`/`false`, default: `true`)
+
+#### OpenAI Configuration (Fallback)
+
+- `OPENAI_API_KEY`: OpenAI API key
+- `OPENAI_SECRET_NAME`: AWS Secrets Manager secret name (default: `openai-api-key`)
+- `OPENAI_MODEL`: OpenAI text model (default: `gpt-4`)
+- `OPENAI_DALLE_MODEL`: OpenAI image model (default: `dall-e-3`)
+
+#### Gemini Configuration (Fallback)
+
+- `GEMINI_API_KEY`: Google Gemini API key
+- `GEMINI_MODEL`: Gemini text model (default: `gemini-pro`)
+- `GEMINI_VISION_MODEL`: Gemini vision model (default: `gemini-pro-vision`)
+
+### Fallback Governance Rules
+
+Fallback is **enabled** when ANY of these conditions are met:
+
+1. `ENABLE_FALLBACK=true` (explicit activation)
+2. `DEV_PROFILE=true` (development mode)
+3. `ENVIRONMENT=local` (local development)
+
+Fallback is **disabled** (Bedrock-only) when:
+
+- `ENABLE_FALLBACK=false`
+- `DEV_PROFILE=false`
+- `ENVIRONMENT=prod`
+
+### Hackathon Submission Requirements
+
+For AWS AI Agent Global Hackathon submission, ensure:
+
+```bash
+ENVIRONMENT=prod
+ENABLE_FALLBACK=false
+DEV_PROFILE=false
+USE_AGENTCORE=true
+```
+
+Validate your configuration:
+
+```bash
+python scripts/validate-fallback-config.py
+```
+
+### Provider Selection Logic
+
+The `get_fallback_provider()` method returns:
+
+- `FallbackProvider.NONE` - If fallback is disabled (Bedrock-only)
+- `FallbackProvider.OPENAI` - If `FALLBACK_PROVIDER=openai`
+- `FallbackProvider.GEMINI` - If `FALLBACK_PROVIDER=gemini`
+
+### Configuration Modes
+
+The module supports different operational modes:
+
+#### Production Mode (Hackathon)
+
+```bash
+ENVIRONMENT=prod
+ENABLE_FALLBACK=false
+DEV_PROFILE=false
+USE_AGENTCORE=true
+```
+
+- Bedrock-only (no fallback)
+- AgentCore enabled
+- Suitable for hackathon submission
+
+#### Local Development Mode
+
+```bash
+ENVIRONMENT=local
+ENABLE_FALLBACK=true
+DEV_PROFILE=true
+FALLBACK_PROVIDER=openai
+USE_AGENTCORE=true
+```
+
+- Fallback enabled
+- Uses OpenAI/Gemini when Bedrock unavailable
+- Suitable for local testing
+
+#### Development Server Mode
+
+```bash
+ENVIRONMENT=dev
+ENABLE_FALLBACK=true
+DEV_PROFILE=true
+FALLBACK_PROVIDER=openai
+USE_AGENTCORE=true
+```
+
+- Fallback enabled
+- Deployed to AWS but with fallback safety net
+- Suitable for testing in AWS environment
+
+### Validation Script
+
+Use the validation script to check your configuration:
+
+```bash
+# Validate current configuration
+python scripts/validate-fallback-config.py
+
+# Output includes:
+# - Current environment variables
+# - Fallback configuration analysis
+# - Provider selection test
+# - Hackathon submission validation
+# - Configuration recommendations
+```
+
+### Example Configurations
+
+#### Local Development (.env.local)
+
+```bash
+ENVIRONMENT=local
+LOG_LEVEL=DEBUG
+DEV_PROFILE=true
+USE_AGENTCORE=true
+ENABLE_FALLBACK=true
+FALLBACK_PROVIDER=openai
+OPENAI_API_KEY=your-key-here
+```
+
+#### Development Server (.env.dev)
+
+```bash
+ENVIRONMENT=dev
+LOG_LEVEL=INFO
+DEV_PROFILE=true
+USE_AGENTCORE=true
+ENABLE_FALLBACK=true
+FALLBACK_PROVIDER=openai
+```
+
+#### Production/Hackathon (.env.prod)
+
+```bash
+ENVIRONMENT=prod
+LOG_LEVEL=INFO
+DEV_PROFILE=false
+USE_AGENTCORE=true
+ENABLE_FALLBACK=false
+# No fallback provider needed
+```
+
+### Integration with BaseAgent
+
+The fallback configuration integrates with the BaseAgent class:
+
+```python
+from config.fallback_config import get_fallback_config, FallbackProvider
+
+class MyAgent(BaseAgent):
+    def __init__(self):
+        super().__init__(AgentType.MY_AGENT)
+        self.fallback_config = get_fallback_config()
+    
+    def execute_with_fallback(self, input_data: dict) -> dict:
+        try:
+            # Try Bedrock first
+            return self.execute_with_bedrock(input_data)
+        except Exception as e:
+            if self.fallback_config.is_fallback_enabled():
+                provider = self.fallback_config.get_fallback_provider()
+                if provider == FallbackProvider.OPENAI:
+                    return self.execute_with_openai(input_data)
+                elif provider == FallbackProvider.GEMINI:
+                    return self.execute_with_gemini(input_data)
+            raise
+```
+
 ## Related Documentation
 
 - [Bedrock Client Module](../src/lambda/shared/BEDROCK_CLIENT_README.md)
 - [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
 - [Hackathon Guidelines](../.kiro/steering/hackathon.md)
+- [Fallback Configuration Validation Script](../scripts/validate-fallback-config.py)

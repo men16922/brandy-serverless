@@ -253,7 +253,7 @@
   - _Requirements: 1.5, 3.4_
   - _기존 코드: 완료된 Interior Agent 확장_
 
-- [ ] 19. Report Generator Agent Bedrock 통합
+- [x] 19. Report Generator Agent Bedrock 통합
   - `src/lambda/agents/report-generator/index.py` 수정:
     - BedrockClient 인스턴스 생성
     - 기존 HTML/JSON/텍스트 생성 로직 유지
@@ -265,7 +265,7 @@
 
 ### ⚙️ Phase 5: Fallback 거버넌스 및 자율 실행 (Week 2)
 
-- [ ] 20. Fallback 설정 모듈 구현
+- [x] 20. Fallback 설정 모듈 구현
   - `config/fallback_config.py` 생성:
     - `FallbackConfig` 클래스 구현
     - `is_fallback_enabled()` - 환경 변수 확인 (ENABLE_FALLBACK, DEV_PROFILE)
@@ -277,7 +277,7 @@
   - _Requirements: 1.6_
   - _기존 코드: .env, samconfig.toml 활용_
 
-- [ ] 21. BaseAgent에 Fallback 메서드 추가
+- [x] 21. BaseAgent에 Fallback 메서드 추가
   - `src/lambda/shared/base_agent.py`에 메서드 추가:
     - `execute_with_fallback()` - Bedrock 실패 시 fallback 실행
     - `_should_use_fallback()` - Fallback 사용 여부 결정
@@ -287,7 +287,7 @@
   - _Requirements: 1.6, 5.6_
   - _기존 코드: BaseAgent 클래스 확장_
 
-- [ ] 22. Supervisor Agent 자율 의사결정 로직 구현
+- [x] 22. Supervisor Agent 자율 의사결정 로직 구현
   - `src/lambda/agents/supervisor/index.py` 수정:
     - `autonomous_error_recovery()` 메서드 추가
     - Reasoning Engine으로 복구 전략 결정 (retry/fallback/human)
@@ -297,7 +297,7 @@
   - _Requirements: 4.2, 4.5_
   - _기존 코드: 기존 Supervisor 로직 확장_
 
-- [ ] 23. 워크플로 상태 관리 개선
+- [x] 23. 워크플로 상태 관리 개선
   - 세션 일시 중지 및 재개 기능:
     - `pause_workflow()` - 현재 상태 저장
     - `resume_workflow()` - 저장된 상태에서 재개

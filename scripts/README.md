@@ -2,6 +2,29 @@
 
 This directory contains utility scripts for development, deployment, and verification.
 
+## Script Organization
+
+### Validation Scripts (Simple)
+Quick unit tests without external dependencies:
+- `validate-*-simple.py` - Fast validation scripts
+- Run time: < 5 seconds
+- No Docker or AWS required
+
+### Integration Test Runners
+Comprehensive tests with real services:
+- `run-*-integration-tests.sh` - Full integration test suites
+- Run time: 30-60 seconds
+- Requires Docker Compose (local) or AWS credentials (dev)
+
+### Environment Setup
+- `setup-local.sh` - Start Docker Compose services
+- `verify-bedrock-setup.sh` - Verify AWS Bedrock configuration
+
+### Deployment
+- `sam-build.sh` - Build SAM application
+- `sam-deploy.sh` - Deploy to AWS
+- `sam-local.sh` - Run local API Gateway
+
 ## Available Scripts
 
 ### 🔍 verify-bedrock-setup.sh
@@ -289,9 +312,42 @@ source venv/bin/activate
 echo $VIRTUAL_ENV
 ```
 
+## Recent Changes (2025-10-16)
+
+### Cleanup: Removed Redundant Validation Scripts
+
+The following scripts were removed to reduce duplication:
+- ❌ `validate-workflow-state-management.py` (kept: `-simple.py` version)
+- ❌ `validate-base-agent-fallback.py` (kept: `-simple.py` version)
+- ❌ `validate-signboard-bedrock.py` (kept: `-simple.py` version)
+- ❌ `validate-interior-bedrock.py` (kept: `-simple.py` version)
+
+**Rationale:**
+- Simple versions are sufficient for quick validation
+- Integration tests provide comprehensive coverage
+- Reduces maintenance burden and confusion
+- See [CLEANUP_SUMMARY.md](../CLEANUP_SUMMARY.md) for details
+
+### Current Validation Strategy
+
+```
+Quick Validation (< 5s)
+  ↓
+  validate-*-simple.py
+  ↓
+Integration Tests (30-60s)
+  ↓
+  tests/integration/test_*.py
+  ↓
+End-to-End Tests
+  ↓
+  run-*-integration-tests.sh
+```
+
 ## Additional Resources
 
 - [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
 - [AWS SAM Documentation](https://docs.aws.amazon.com/serverless-application-model/)
 - [Docker Compose Documentation](https://docs.docker.com/compose/)
+- [Cleanup Summary](../CLEANUP_SUMMARY.md)
 - [Project README](../README.md)

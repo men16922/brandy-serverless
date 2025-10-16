@@ -85,6 +85,18 @@ class SupervisorAgent:
             logger.warning("USE_AGENTCORE=true but AgentCore not available, falling back to Step Functions")
             self.use_agentcore = False
         
+        # Reasoning Engine 초기화 (자율 의사결정용)
+        self.reasoning_engine = None
+        try:
+            from bedrock_client import BedrockClient
+            from reasoning_engine import ReasoningEngine
+            
+            bedrock_client = BedrockClient(logger=logger)
+            self.reasoning_engine = ReasoningEngine(bedrock_client=bedrock_client, logger=logger)
+            logger.info("Reasoning Engine initialized for autonomous decision-making")
+        except Exception as e:
+            logger.warning(f"Reasoning Engine not available: {str(e)}")
+        
         logger.info(f"Supervisor Agent initialized: environment={self.environment}, use_agentcore={self.use_agentcore}")
     
     def _ensure_table_exists(self, table_name: str):
@@ -184,9 +196,234 @@ class SupervisorAgent:
             logger.error(f"Failed to update session {session_id}: {str(e)}")
             return False
     
+    def autonomous_error_recovery(
+        self,
+        error: Exception,
+        context: Dict[str, Any],
+        session_id: str,
+        max_retries: int = 3
+    ) -> Dict[str, Any]:
+        """
+        Autonomous error recovery using Reasoning LLM.
+        
+        This method implements Requirements 4.2 and 4.5:
+        - Uses Reasoning LLM to decide recovery strategy (retry/fallback/human)
+        - Implements exponential backoff for retries
+        - Requests human intervention when confidence is low
+        
+        Args:
+            error: Exception that occurred
+            context: Execution context with workflow state
+            session_id: Session ID
+            max_retries: Maximum retry attempts (default: 3)
+        
+        Returns:
+            Dict with:
+                - recovery_strategy: 'retry', 'fallback', or 'human_intervention'
+                - reasoning: Explanation for strategy choice
+                - confidence: Confidence in strategy (0.0-1.0)
+                - action_taken: Description of action
+                - requires_human_input: Boolean flag
+                - retry_delay: Delay in seconds (for retry strategy)
+        """
+        if not self.reasoning_engine:
+            logger.warning("Reasoning Engine not available, using default recovery")
+            return self._default_error_recovery(error, context)
+        
+        try:
+            retry_count = context.get('retry_count', 0)
+            
+            # Use Reasoning LLM to decide recovery strategy
+            logger.info(
+                f"Autonomous error recovery: error={type(error).__name__}, "
+                f"retry_count={retry_count}, session={session_id}"
+            )
+            
+            recovery_context = {
+                'error': str(error),
+                'error_type': type(error).__name__,
+                'context': context,
+                'retry_count': retry_count,
+                'max_retries': max_retries,
+                'session_id': session_id,
+                'current_step': context.get('current_step', 1),
+                'orchestration_mode': context.get('orchestration_mode', 'unknown')
+            }
+            
+            recovery_options = ['retry', 'fallback', 'human_intervention']
+            
+            recovery_decision = self.reasoning_engine.reason_and_decide(
+                context=recovery_context,
+                options=recovery_options,
+                decision_criteria=(
+                    "Select the best error recovery strategy for this workflow error. "
+                    "Consider: retry count, error type, error severity, and user impact. "
+                    "RETRY if: transient error (network, timeout) and retries available. "
+                    "FALLBACK if: alternative approach exists (e.g., Step Functions instead of AgentCore). "
+                    "HUMAN_INTERVENTION if: critical error, max retries exceeded, or unrecoverable."
+                ),
+                temperature=0.3  # Lower temperature for more deterministic decisions
+            )
+            
+            strategy = recovery_decision['decision']
+            confidence = recovery_decision['confidence']
+            
+            # Store recovery reasoning in session
+            self._store_recovery_reasoning(session_id, recovery_decision, recovery_context)
+            
+            # Build result
+            result = {
+                'recovery_strategy': strategy,
+                'reasoning': recovery_decision['reasoning'],
+                'confidence': confidence,
+                'requires_human_input': strategy == 'human_intervention' or confidence < 0.7,
+                'retry_count': retry_count,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            
+            # Execute recovery strategy
+            if strategy == 'retry' and retry_count < max_retries:
+                # Exponential backoff: 2^retry_count seconds
+                retry_delay = min(2 ** retry_count, 60)  # Cap at 60 seconds
+                result['action_taken'] = f"Retrying operation (attempt {retry_count + 1}/{max_retries})"
+                result['retry_delay'] = retry_delay
+                
+                logger.info(
+                    f"Recovery strategy: RETRY (attempt {retry_count + 1}/{max_retries}, "
+                    f"delay={retry_delay}s, confidence={confidence:.2f})"
+                )
+                
+            elif strategy == 'fallback':
+                result['action_taken'] = "Switching to fallback mechanism"
+                result['fallback_mode'] = 'stepfunctions' if self.use_agentcore else 'manual'
+                
+                logger.info(
+                    f"Recovery strategy: FALLBACK (mode={result['fallback_mode']}, "
+                    f"confidence={confidence:.2f})"
+                )
+                
+            else:  # human_intervention or low confidence
+                result['action_taken'] = "Requesting human intervention"
+                result['requires_human_input'] = True
+                result['human_input_reason'] = (
+                    f"Error recovery requires human decision. "
+                    f"Error: {type(error).__name__}, "
+                    f"Confidence: {confidence:.2f}"
+                )
+                
+                logger.warning(
+                    f"Recovery strategy: HUMAN_INTERVENTION "
+                    f"(reason={result['human_input_reason']}, confidence={confidence:.2f})"
+                )
+            
+            # Update session with recovery information
+            self.update_session(session_id, {
+                'last_error': str(error),
+                'last_error_type': type(error).__name__,
+                'recovery_strategy': strategy,
+                'recovery_confidence': Decimal(str(confidence)),
+                'requires_human_input': result['requires_human_input']
+            })
+            
+            return result
+            
+        except Exception as recovery_error:
+            logger.error(f"Error recovery failed: {str(recovery_error)}")
+            return self._default_error_recovery(error, context)
+    
+    def _default_error_recovery(
+        self,
+        error: Exception,
+        context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Default error recovery when Reasoning Engine is not available.
+        
+        Args:
+            error: Exception that occurred
+            context: Execution context
+        
+        Returns:
+            Default recovery strategy
+        """
+        retry_count = context.get('retry_count', 0)
+        max_retries = 3
+        
+        # Simple heuristic: retry transient errors, otherwise request human intervention
+        transient_errors = ['ThrottlingException', 'ServiceUnavailableException', 'TimeoutError']
+        error_type = type(error).__name__
+        
+        if error_type in transient_errors and retry_count < max_retries:
+            retry_delay = min(2 ** retry_count, 60)
+            return {
+                'recovery_strategy': 'retry',
+                'reasoning': f"Transient error detected: {error_type}. Retrying with exponential backoff.",
+                'confidence': 0.8,
+                'requires_human_input': False,
+                'retry_count': retry_count,
+                'retry_delay': retry_delay,
+                'action_taken': f"Retrying operation (attempt {retry_count + 1}/{max_retries})"
+            }
+        else:
+            return {
+                'recovery_strategy': 'human_intervention',
+                'reasoning': f"Non-transient error or max retries exceeded: {error_type}",
+                'confidence': 0.9,
+                'requires_human_input': True,
+                'retry_count': retry_count,
+                'action_taken': "Requesting human intervention",
+                'human_input_reason': f"Error: {str(error)}"
+            }
+    
+    def _store_recovery_reasoning(
+        self,
+        session_id: str,
+        recovery_decision: Dict[str, Any],
+        recovery_context: Dict[str, Any]
+    ) -> None:
+        """
+        Store recovery reasoning in session for audit trail.
+        
+        Args:
+            session_id: Session ID
+            recovery_decision: Recovery decision from Reasoning Engine
+            recovery_context: Context used for decision
+        """
+        try:
+            # Get current reasoning chain
+            session_data = self.get_session(session_id)
+            reasoning_chain = session_data.get('reasoning_chain', []) if session_data else []
+            
+            # Create recovery reasoning step
+            recovery_step = {
+                'step_number': len(reasoning_chain) + 1,
+                'agent_name': 'supervisor',
+                'timestamp': datetime.utcnow().isoformat(),
+                'operation': 'error_recovery',
+                'input_data': recovery_context,
+                'reasoning': recovery_decision['reasoning'],
+                'decision': recovery_decision['decision'],
+                'confidence': float(recovery_decision['confidence']),
+                'alternatives': recovery_decision.get('alternatives', []),
+                'reasoning_steps': recovery_decision.get('reasoning_steps', [])
+            }
+            
+            # Append to reasoning chain
+            reasoning_chain.append(recovery_step)
+            
+            # Update session
+            self.update_session(session_id, {
+                'reasoning_chain': reasoning_chain
+            })
+            
+            logger.info(f"Stored recovery reasoning for session {session_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to store recovery reasoning: {str(e)}")
+    
     def execute_workflow(self, session_id: str, business_info: Dict[str, Any], current_step: int = 1) -> Dict[str, Any]:
         """
-        워크플로 실행 (AgentCore 또는 Step Functions)
+        워크플로 실행 (AgentCore 또는 Step Functions) with autonomous error recovery.
         
         Args:
             session_id: 세션 ID
@@ -196,80 +433,141 @@ class SupervisorAgent:
         Returns:
             워크플로 실행 결과
         """
-        try:
-            orchestration_mode = 'agentcore' if self.use_agentcore else 'stepfunctions'
-            
-            logger.info(
-                f"Executing workflow: session={session_id}, "
-                f"step={current_step}, mode={orchestration_mode}"
-            )
-            
-            if self.use_agentcore and self.agentcore_orchestrator:
-                # AgentCore 오케스트레이션 사용
-                result = self.agentcore_orchestrator.orchestrate_workflow(
-                    session_id=session_id,
-                    business_info=business_info,
-                    current_step=current_step
+        retry_count = 0
+        max_retries = 3
+        
+        while retry_count <= max_retries:
+            try:
+                orchestration_mode = 'agentcore' if self.use_agentcore else 'stepfunctions'
+                
+                logger.info(
+                    f"Executing workflow: session={session_id}, "
+                    f"step={current_step}, mode={orchestration_mode}, retry={retry_count}"
                 )
                 
-                # 구조화된 로깅
-                logger.info(
-                    json.dumps({
-                        'orchestration_mode': 'agentcore',
+                if self.use_agentcore and self.agentcore_orchestrator:
+                    # AgentCore 오케스트레이션 사용
+                    result = self.agentcore_orchestrator.orchestrate_workflow(
+                        session_id=session_id,
+                        business_info=business_info,
+                        current_step=current_step
+                    )
+                    
+                    # 구조화된 로깅
+                    logger.info(
+                        json.dumps({
+                            'orchestration_mode': 'agentcore',
+                            'session_id': session_id,
+                            'current_step': current_step,
+                            'next_step': result.get('next_step'),
+                            'status': result.get('status'),
+                            'latency_ms': result.get('latency_ms'),
+                            'timestamp': datetime.utcnow().isoformat()
+                        })
+                    )
+                    
+                    return result
+                else:
+                    # Step Functions fallback
+                    logger.info(
+                        f"Using Step Functions fallback for session {session_id}"
+                    )
+                    
+                    # 기존 Step Functions 로직 (향후 구현)
+                    # 현재는 placeholder 응답 반환
+                    result = {
+                        'status': 'pending',
                         'session_id': session_id,
                         'current_step': current_step,
-                        'next_step': result.get('next_step'),
-                        'status': result.get('status'),
-                        'latency_ms': result.get('latency_ms'),
-                        'timestamp': datetime.utcnow().isoformat()
-                    })
+                        'next_step': current_step + 1 if current_step < 5 else 5,
+                        'message': 'Step Functions orchestration (not yet implemented)',
+                        'orchestration_mode': 'stepfunctions'
+                    }
+                    
+                    # 구조화된 로깅
+                    logger.info(
+                        json.dumps({
+                            'orchestration_mode': 'stepfunctions',
+                            'session_id': session_id,
+                            'current_step': current_step,
+                            'next_step': result.get('next_step'),
+                            'status': result.get('status'),
+                            'timestamp': datetime.utcnow().isoformat()
+                        })
+                    )
+                    
+                    return result
+                    
+            except Exception as e:
+                logger.error(
+                    f"Workflow execution failed: session={session_id}, "
+                    f"error={str(e)}, retry={retry_count}"
                 )
                 
-                return result
-            else:
-                # Step Functions fallback
-                logger.info(
-                    f"Using Step Functions fallback for session {session_id}"
-                )
-                
-                # 기존 Step Functions 로직 (향후 구현)
-                # 현재는 placeholder 응답 반환
-                result = {
-                    'status': 'pending',
+                # Autonomous error recovery
+                recovery_context = {
                     'session_id': session_id,
                     'current_step': current_step,
-                    'next_step': current_step + 1 if current_step < 5 else 5,
-                    'message': 'Step Functions orchestration (not yet implemented)',
-                    'orchestration_mode': 'stepfunctions'
+                    'retry_count': retry_count,
+                    'orchestration_mode': orchestration_mode,
+                    'business_info': business_info
                 }
                 
-                # 구조화된 로깅
-                logger.info(
-                    json.dumps({
-                        'orchestration_mode': 'stepfunctions',
-                        'session_id': session_id,
-                        'current_step': current_step,
-                        'next_step': result.get('next_step'),
-                        'status': result.get('status'),
-                        'timestamp': datetime.utcnow().isoformat()
-                    })
+                recovery_result = self.autonomous_error_recovery(
+                    error=e,
+                    context=recovery_context,
+                    session_id=session_id,
+                    max_retries=max_retries
                 )
                 
-                return result
-                
-        except Exception as e:
-            logger.error(
-                f"Workflow execution failed: session={session_id}, "
-                f"error={str(e)}"
-            )
-            
-            return {
-                'status': 'error',
-                'session_id': session_id,
-                'current_step': current_step,
-                'error': str(e),
-                'orchestration_mode': orchestration_mode
-            }
+                # Check recovery strategy
+                if recovery_result['recovery_strategy'] == 'retry' and retry_count < max_retries:
+                    retry_count += 1
+                    retry_delay = recovery_result.get('retry_delay', 2 ** retry_count)
+                    
+                    logger.info(f"Retrying workflow execution after {retry_delay}s delay")
+                    import time
+                    time.sleep(retry_delay)
+                    continue
+                    
+                elif recovery_result['recovery_strategy'] == 'fallback':
+                    # Try fallback mode
+                    if self.use_agentcore:
+                        logger.info("Switching to Step Functions fallback")
+                        self.use_agentcore = False
+                        retry_count += 1
+                        continue
+                    else:
+                        # Already in fallback mode, return error
+                        return {
+                            'status': 'error',
+                            'session_id': session_id,
+                            'current_step': current_step,
+                            'error': str(e),
+                            'recovery_result': recovery_result,
+                            'orchestration_mode': orchestration_mode
+                        }
+                else:
+                    # Human intervention required
+                    return {
+                        'status': 'error',
+                        'session_id': session_id,
+                        'current_step': current_step,
+                        'error': str(e),
+                        'recovery_result': recovery_result,
+                        'requires_human_input': True,
+                        'orchestration_mode': orchestration_mode
+                    }
+        
+        # Max retries exceeded
+        return {
+            'status': 'error',
+            'session_id': session_id,
+            'current_step': current_step,
+            'error': 'Max retries exceeded',
+            'retry_count': retry_count,
+            'orchestration_mode': orchestration_mode
+        }
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
