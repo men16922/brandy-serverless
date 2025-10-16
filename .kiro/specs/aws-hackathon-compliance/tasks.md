@@ -306,7 +306,7 @@
   - _Requirements: 4.4, 4.6_
   - _기존 코드: BaseAgent.update_session_data() 활용_
 
-- [ ] 24. Streamlit UI 상태 업데이트 개선
+- [x] 24. Streamlit UI 상태 업데이트 개선
   - `src/streamlit/app.py` 수정:
     - Polling 간격 최적화 (5초 → 2초)
     - 진행 상황 표시 강화 (progress bar, step indicator)
@@ -317,7 +317,7 @@
 
 ### 🧪 Phase 6: 통합 테스트 (Week 2-3)
 
-- [ ] 25. 전체 워크플로 통합 테스트 작성
+- [x] 25. 전체 워크플로 통합 테스트 작성
   - `tests/integration/test_hackathon_workflow.py` 생성:
     - `test_full_workflow_with_bedrock()` - Bedrock 사용한 5단계 워크플로
     - `test_autonomous_execution()` - 자율적 작업 실행 (Requirement 4.1)

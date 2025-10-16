@@ -51,9 +51,13 @@ def init_session_state():
         st.session_state.polling_active = False
     if 'agent_status' not in st.session_state:
         st.session_state.agent_status = {}
+    if 'reasoning_chain' not in st.session_state:
+        st.session_state.reasoning_chain = []
+    if 'error_recovery' not in st.session_state:
+        st.session_state.error_recovery = None
 
 def display_progress_bar():
-    """Display workflow progress bar with step indicators"""
+    """Display enhanced workflow progress bar with step indicators"""
     st.markdown("### 워크플로 진행 상황")
     
     # Create progress columns
@@ -65,26 +69,49 @@ def display_progress_bar():
             if st.session_state.current_step > step["id"]:
                 status = "✅"  # Completed
                 color = "green"
+                bg_color = "#e8f5e9"
             elif st.session_state.current_step == step["id"]:
                 status = "🔄"  # In progress
                 color = "blue"
+                bg_color = "#e3f2fd"
             else:
                 status = "⏳"  # Pending
                 color = "gray"
+                bg_color = "#f5f5f5"
             
-            # Display step
+            # Get agent status for this step
+            agent_name = step["agent"]
+            agent_info = st.session_state.agent_status.get(agent_name, {})
+            latency = agent_info.get("latency_ms", 0)
+            latency_text = f"{latency}ms" if latency > 0 else ""
+            
+            # Display step with enhanced information
             st.markdown(f"""
-            <div style="text-align: center; padding: 10px; border: 2px solid {color}; border-radius: 10px; margin: 5px;">
+            <div style="text-align: center; padding: 10px; border: 2px solid {color}; border-radius: 10px; margin: 5px; background-color: {bg_color};">
                 <div style="font-size: 24px;">{status}</div>
-                <div style="font-weight: bold;">{step["name"]}</div>
-                <div style="font-size: 12px; color: gray;">{step["description"]}</div>
+                <div style="font-weight: bold; margin: 5px 0;">{step["name"]}</div>
+                <div style="font-size: 11px; color: #666; margin-bottom: 5px;">{step["description"]}</div>
+                {f'<div style="font-size: 10px; color: {color}; font-weight: bold;">{latency_text}</div>' if latency_text else ''}
             </div>
             """, unsafe_allow_html=True)
     
-    # Overall progress bar
+    # Overall progress bar with percentage
     progress = st.session_state.current_step / len(WORKFLOW_STEPS)
     st.progress(progress)
-    st.write(f"진행률: {int(progress * 100)}% ({st.session_state.current_step}/{len(WORKFLOW_STEPS)} 단계)")
+    
+    # Enhanced progress information
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("진행률", f"{int(progress * 100)}%")
+    with col2:
+        st.metric("현재 단계", f"{st.session_state.current_step}/{len(WORKFLOW_STEPS)}")
+    with col3:
+        # Calculate estimated time remaining (rough estimate)
+        if st.session_state.current_step > 1:
+            # Estimate based on average time per step (assuming 1 minute per step)
+            remaining_steps = len(WORKFLOW_STEPS) - st.session_state.current_step
+            estimated_minutes = remaining_steps * 1
+            st.metric("예상 남은 시간", f"~{estimated_minutes}분")
 
 def display_agent_status():
     """Display real-time agent execution status"""
@@ -112,6 +139,113 @@ def display_agent_status():
                     <div style="font-size: 12px;">응답시간: {latency_text}</div>
                 </div>
                 """, unsafe_allow_html=True)
+
+def display_reasoning_chain():
+    """Display reasoning chain from Bedrock Claude (expandable section)"""
+    if st.session_state.reasoning_chain and len(st.session_state.reasoning_chain) > 0:
+        with st.expander("🧠 AI 의사결정 과정 (Reasoning Chain)", expanded=False):
+            st.markdown("**Bedrock Claude의 Chain-of-Thought 추론 과정**")
+            
+            for i, step in enumerate(st.session_state.reasoning_chain):
+                step_number = step.get("stepNumber", i + 1)
+                agent_name = step.get("agentName", "Unknown")
+                reasoning = step.get("reasoning", "")
+                decision = step.get("decision", "")
+                confidence = step.get("confidence", 0.0)
+                timestamp = step.get("timestamp", "")
+                
+                # Confidence color coding
+                if confidence >= 0.8:
+                    confidence_color = "green"
+                    confidence_label = "높음"
+                elif confidence >= 0.6:
+                    confidence_color = "orange"
+                    confidence_label = "중간"
+                else:
+                    confidence_color = "red"
+                    confidence_label = "낮음"
+                
+                st.markdown(f"""
+                <div style="border-left: 4px solid #4CAF50; padding: 10px; margin: 10px 0; background-color: #f9f9f9;">
+                    <div style="font-weight: bold; margin-bottom: 5px;">
+                        Step {step_number}: {agent_name}
+                        <span style="float: right; color: {confidence_color};">
+                            신뢰도: {confidence:.2f} ({confidence_label})
+                        </span>
+                    </div>
+                    <div style="font-size: 12px; color: #666; margin-bottom: 8px;">
+                        {timestamp[:19] if timestamp else ""}
+                    </div>
+                    <div style="margin-bottom: 8px;">
+                        <strong>추론 과정:</strong><br/>
+                        {reasoning}
+                    </div>
+                    <div style="background-color: #e8f5e9; padding: 8px; border-radius: 4px;">
+                        <strong>결정:</strong> {decision}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Show alternatives if available
+                alternatives = step.get("alternatives", [])
+                if alternatives:
+                    st.markdown("**고려된 대안:**")
+                    for alt in alternatives[:3]:  # Show max 3 alternatives
+                        st.markdown(f"- {alt}")
+                
+                st.markdown("---")
+
+def display_error_recovery():
+    """Display error recovery strategy when errors occur"""
+    if st.session_state.error_recovery:
+        error_info = st.session_state.error_recovery
+        
+        st.warning("⚠️ 오류 발생 및 자동 복구 진행 중")
+        
+        with st.expander("🔧 오류 복구 전략", expanded=True):
+            error_type = error_info.get("error_type", "Unknown")
+            error_message = error_info.get("error_message", "")
+            recovery_strategy = error_info.get("recovery_strategy", "")
+            retry_count = error_info.get("retry_count", 0)
+            max_retries = error_info.get("max_retries", 3)
+            fallback_used = error_info.get("fallback_used", False)
+            
+            st.markdown(f"""
+            <div style="padding: 15px; background-color: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
+                <div style="font-weight: bold; margin-bottom: 10px;">
+                    오류 유형: {error_type}
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>오류 메시지:</strong><br/>
+                    {error_message}
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>복구 전략:</strong><br/>
+                    {recovery_strategy}
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>재시도 횟수:</strong> {retry_count}/{max_retries}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if fallback_used:
+                st.info("🔄 Fallback 메커니즘이 활성화되었습니다. OpenAI/Gemini를 사용하여 계속 진행합니다.")
+            
+            # Show recovery actions
+            recovery_actions = error_info.get("recovery_actions", [])
+            if recovery_actions:
+                st.markdown("**수행된 복구 작업:**")
+                for action in recovery_actions:
+                    st.markdown(f"✓ {action}")
+            
+            # Show next steps
+            if retry_count < max_retries:
+                st.info(f"🔄 자동으로 재시도 중입니다... ({retry_count + 1}/{max_retries})")
+            elif not fallback_used:
+                st.warning("⚠️ 최대 재시도 횟수에 도달했습니다. Fallback 메커니즘을 시도합니다.")
+            else:
+                st.error("❌ 복구에 실패했습니다. 사용자 개입이 필요합니다.")
 
 def create_session(session_request: Dict[str, Any]) -> Optional[str]:
     """Create a new workflow session"""
@@ -163,7 +297,7 @@ def get_session_status(session_id: str) -> Optional[Dict[str, Any]]:
         return None
 
 def poll_session_status():
-    """Poll session status and update UI"""
+    """Poll session status and update UI (optimized to 2 seconds)"""
     if st.session_state.session_id and st.session_state.polling_active:
         status_data = get_session_status(st.session_state.session_id)
         
@@ -180,6 +314,14 @@ def poll_session_status():
                     "tool": agent_info.get("tool", ""),
                     "timestamp": agent_info.get("timestamp", "")
                 }
+            
+            # Store reasoning chain if available
+            if "reasoningChain" in status_data:
+                st.session_state.reasoning_chain = status_data["reasoningChain"]
+            
+            # Store error recovery info if available
+            if "errorRecovery" in status_data:
+                st.session_state.error_recovery = status_data["errorRecovery"]
             
             # Check if workflow is completed
             if status_data.get("status") == "completed":
@@ -771,10 +913,16 @@ def main():
         # Display agent status
         display_agent_status()
         
-        # Poll status if active
+        # Display error recovery if there are errors
+        display_error_recovery()
+        
+        # Display reasoning chain
+        display_reasoning_chain()
+        
+        # Poll status if active (optimized to 2 seconds)
         if st.session_state.polling_active:
             poll_session_status()
-            time.sleep(2)  # Wait 2 seconds before next poll
+            time.sleep(2)  # Optimized: 5초 → 2초
             st.rerun()
         
         # Display current step content

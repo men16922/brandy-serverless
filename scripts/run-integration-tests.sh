@@ -1,6 +1,6 @@
 #!/bin/bash
-# Integration Test Runner for AI Branding Chatbot
-# Supports both local and dev environments
+# Comprehensive Integration Test Runner
+# Runs tests in both local (Docker) and AWS dev environments
 
 set -e
 
@@ -11,27 +11,21 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Script directory
+# Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+VENV_PATH="$PROJECT_ROOT/venv"
+COMPOSE_FILE="$PROJECT_ROOT/docker-compose.local.yml"
+
+# Test environment selection
+TEST_ENV="${1:-local}"  # Default to local if not specified
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}AI Branding Chatbot - Integration Tests${NC}"
+echo -e "${BLUE}AI Branding Chatbot Integration Tests${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
-
-# Parse arguments
-ENVIRONMENT=${1:-local}
-TEST_FILTER=${2:-}
-
-if [[ "$ENVIRONMENT" != "local" && "$ENVIRONMENT" != "dev" ]]; then
-    echo -e "${RED}❌ Invalid environment: $ENVIRONMENT${NC}"
-    echo "Usage: $0 [local|dev] [test_filter]"
-    echo "Example: $0 local test_bedrock"
-    exit 1
-fi
-
-echo -e "${BLUE}📋 Environment: ${ENVIRONMENT}${NC}"
+echo -e "Test Environment: ${GREEN}$TEST_ENV${NC}"
+echo -e "Project Root: $PROJECT_ROOT"
 echo ""
 
 # Function to check if command exists
@@ -39,179 +33,307 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Check prerequisites
-echo -e "${YELLOW}🔍 Checking prerequisites...${NC}"
-
-if ! command_exists python3; then
-    echo -e "${RED}❌ Python 3 not found${NC}"
-    exit 1
-fi
-echo -e "${GREEN}✅ Python 3 found: $(python3 --version)${NC}"
-
-if ! command_exists docker; then
-    echo -e "${RED}❌ Docker not found${NC}"
-    exit 1
-fi
-echo -e "${GREEN}✅ Docker found: $(docker --version)${NC}"
-
-if ! command_exists docker-compose; then
-    echo -e "${RED}❌ Docker Compose not found${NC}"
-    exit 1
-fi
-echo -e "${GREEN}✅ Docker Compose found: $(docker-compose --version)${NC}"
-
-echo ""
-
-# Check if virtual environment exists
-if [ ! -d "$PROJECT_ROOT/venv" ]; then
-    echo -e "${YELLOW}⚠️  Virtual environment not found. Creating...${NC}"
-    python3 -m venv "$PROJECT_ROOT/venv"
-    echo -e "${GREEN}✅ Virtual environment created${NC}"
-fi
-
-# Activate virtual environment
-source "$PROJECT_ROOT/venv/bin/activate"
-echo -e "${GREEN}✅ Virtual environment activated${NC}"
-
-# Install/upgrade test dependencies
-echo ""
-echo -e "${YELLOW}📦 Installing test dependencies...${NC}"
-pip install -q pytest pytest-asyncio boto3 requests python-dotenv
-echo -e "${GREEN}✅ Test dependencies installed${NC}"
-
-echo ""
-
-# Environment-specific setup
-if [ "$ENVIRONMENT" = "local" ]; then
-    echo -e "${YELLOW}🐳 Setting up local environment...${NC}"
+# Function to check Docker services
+check_docker_services() {
+    echo -e "${YELLOW}Checking Docker services...${NC}"
     
-    # Check if Docker daemon is running
+    if ! command_exists docker; then
+        echo -e "${RED}❌ Docker not found${NC}"
+        return 1
+    fi
+    
     if ! docker info >/dev/null 2>&1; then
-        echo -e "${RED}❌ Docker daemon is not running${NC}"
-        echo "Please start Docker Desktop and try again"
-        exit 1
-    fi
-    echo -e "${GREEN}✅ Docker daemon is running${NC}"
-    
-    # Start Docker Compose services
-    echo -e "${YELLOW}🚀 Starting Docker Compose services...${NC}"
-    cd "$PROJECT_ROOT"
-    docker-compose -f docker-compose.local.yml up -d
-    
-    # Wait for services to be ready
-    echo -e "${YELLOW}⏳ Waiting for services to be ready...${NC}"
-    sleep 5
-    
-    # Check service health
-    MAX_RETRIES=30
-    RETRY_COUNT=0
-    
-    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-        if docker-compose -f docker-compose.local.yml ps | grep -q "Up"; then
-            echo -e "${GREEN}✅ Docker services are running${NC}"
-            break
-        fi
-        RETRY_COUNT=$((RETRY_COUNT + 1))
-        echo -e "${YELLOW}   Attempt $RETRY_COUNT/$MAX_RETRIES...${NC}"
-        sleep 2
-    done
-    
-    if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-        echo -e "${RED}❌ Services failed to start${NC}"
-        docker-compose -f docker-compose.local.yml logs
-        exit 1
+        echo -e "${RED}❌ Docker daemon not running${NC}"
+        return 1
     fi
     
-    # Display service URLs
+    echo -e "${GREEN}✓ Docker is available${NC}"
+    return 0
+}
+
+# Function to start Docker Compose services
+start_docker_services() {
+    echo -e "${YELLOW}Starting Docker Compose services...${NC}"
+    
+    docker-compose -f "$COMPOSE_FILE" up -d
+    
+    echo -e "${YELLOW}Waiting for services to be healthy...${NC}"
+    sleep 10
+    
+    # Check DynamoDB Local
+    if curl -s http://localhost:8000 >/dev/null 2>&1; then
+        echo -e "${GREEN}✓ DynamoDB Local is running (port 8000)${NC}"
+    else
+        echo -e "${RED}❌ DynamoDB Local not responding${NC}"
+        return 1
+    fi
+    
+    # Check MinIO
+    if curl -s http://localhost:9000/minio/health/live >/dev/null 2>&1; then
+        echo -e "${GREEN}✓ MinIO is running (port 9000)${NC}"
+    else
+        echo -e "${RED}❌ MinIO not responding${NC}"
+        return 1
+    fi
+    
+    # Check Chroma
+    if curl -s http://localhost:8001 >/dev/null 2>&1; then
+        echo -e "${GREEN}✓ Chroma is running (port 8001)${NC}"
+    else
+        echo -e "${RED}❌ Chroma not responding${NC}"
+        return 1
+    fi
+    
+    # Check DynamoDB Admin UI
+    if curl -s http://localhost:8002 >/dev/null 2>&1; then
+        echo -e "${GREEN}✓ DynamoDB Admin UI is running (port 8002)${NC}"
+    else
+        echo -e "${YELLOW}⚠️  DynamoDB Admin UI not responding (non-critical)${NC}"
+    fi
+    
     echo ""
-    echo -e "${BLUE}📍 Local Services:${NC}"
-    echo -e "   DynamoDB Local:    http://localhost:8000"
-    echo -e "   DynamoDB Admin UI: http://localhost:8002"
-    echo -e "   MinIO Console:     http://localhost:9001 (minioadmin/minioadmin)"
-    echo -e "   Chroma:            http://localhost:8001"
+    echo -e "${GREEN}✅ All Docker services are healthy${NC}"
+    echo ""
+    return 0
+}
+
+# Function to activate virtual environment
+activate_venv() {
+    echo -e "${YELLOW}Activating virtual environment...${NC}"
     
-    # Load test environment variables
+    if [ ! -d "$VENV_PATH" ]; then
+        echo -e "${RED}❌ Virtual environment not found at $VENV_PATH${NC}"
+        echo -e "${YELLOW}Creating virtual environment...${NC}"
+        python3 -m venv "$VENV_PATH"
+    fi
+    
+    source "$VENV_PATH/bin/activate"
+    
+    # Verify pytest is installed
+    if ! command_exists pytest; then
+        echo -e "${YELLOW}Installing test dependencies...${NC}"
+        pip install -q pytest pytest-asyncio boto3 requests
+    fi
+    
+    echo -e "${GREEN}✓ Virtual environment activated${NC}"
+    echo ""
+}
+
+# Function to run local tests
+run_local_tests() {
+    echo -e "${BLUE}========================================${NC}"
+    echo -e "${BLUE}Running LOCAL Integration Tests${NC}"
+    echo -e "${BLUE}========================================${NC}"
+    echo ""
+    
+    # Check and start Docker services
+    if ! check_docker_services; then
+        echo -e "${RED}❌ Docker services check failed${NC}"
+        exit 1
+    fi
+    
+    if ! start_docker_services; then
+        echo -e "${RED}❌ Failed to start Docker services${NC}"
+        exit 1
+    fi
+    
+    # Activate virtual environment
+    activate_venv
+    
+    # Set environment variables for local testing
     export ENVIRONMENT=local
-    export $(cat "$PROJECT_ROOT/.env.test" | grep -v '^#' | xargs)
+    export DYNAMODB_ENDPOINT=http://localhost:8000
+    export S3_ENDPOINT=http://localhost:9000
+    export CHROMA_ENDPOINT=http://localhost:8001
+    export SESSIONS_TABLE=branding-chatbot-sessions-test
+    export S3_BUCKET=branding-chatbot-assets-test
+    export AWS_ACCESS_KEY_ID=dummy
+    export AWS_SECRET_ACCESS_KEY=dummy
+    export AWS_DEFAULT_REGION=us-east-1
     
-elif [ "$ENVIRONMENT" = "dev" ]; then
-    echo -e "${YELLOW}☁️  Setting up dev environment...${NC}"
+    # Run tests
+    echo -e "${YELLOW}Running integration tests...${NC}"
+    echo ""
+    
+    "$VENV_PATH/bin/python" -m pytest \
+        tests/integration/test_hackathon_workflow.py \
+        -v \
+        --tb=short \
+        --color=yes
+    
+    TEST_EXIT_CODE=$?
+    
+    echo ""
+    if [ $TEST_EXIT_CODE -eq 0 ]; then
+        echo -e "${GREEN}✅ All local tests passed!${NC}"
+        echo ""
+        echo -e "${BLUE}Verification URLs:${NC}"
+        echo -e "  • DynamoDB Admin: ${GREEN}http://localhost:8002${NC}"
+        echo -e "  • MinIO Console: ${GREEN}http://localhost:9001${NC} (minioadmin/minioadmin)"
+        echo -e "  • Chroma API: ${GREEN}http://localhost:8001${NC}"
+    else
+        echo -e "${RED}❌ Some tests failed${NC}"
+    fi
+    
+    return $TEST_EXIT_CODE
+}
+
+# Function to run AWS dev tests
+run_aws_dev_tests() {
+    echo -e "${BLUE}========================================${NC}"
+    echo -e "${BLUE}Running AWS DEV Integration Tests${NC}"
+    echo -e "${BLUE}========================================${NC}"
+    echo ""
     
     # Check AWS credentials
     if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
         echo -e "${RED}❌ AWS credentials not found${NC}"
-        echo "Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY"
+        echo -e "${YELLOW}Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY${NC}"
         exit 1
     fi
-    echo -e "${GREEN}✅ AWS credentials found${NC}"
     
-    # Check Bedrock access
-    echo -e "${YELLOW}🔍 Checking Bedrock access...${NC}"
-    if aws bedrock list-foundation-models --region us-east-1 >/dev/null 2>&1; then
-        echo -e "${GREEN}✅ Bedrock access confirmed${NC}"
+    echo -e "${GREEN}✓ AWS credentials found${NC}"
+    
+    # Activate virtual environment
+    activate_venv
+    
+    # Set environment variables for AWS dev testing
+    export ENVIRONMENT=dev
+    export AWS_DEFAULT_REGION=us-east-1
+    export SESSIONS_TABLE=ai-branding-chatbot-sessions
+    export S3_BUCKET=ai-branding-chatbot-assets
+    export BEDROCK_REGION=us-east-1
+    export ENABLE_FALLBACK=false  # Use Bedrock only in dev
+    
+    # Check if SAM stack is deployed
+    echo -e "${YELLOW}Checking SAM stack deployment...${NC}"
+    
+    STACK_NAME="branding-chatbot"
+    if aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region us-east-1 >/dev/null 2>&1; then
+        echo -e "${GREEN}✓ SAM stack '$STACK_NAME' is deployed${NC}"
+        
+        # Get API Gateway URL
+        API_URL=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --region us-east-1 \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
+            --output text)
+        
+        if [ -n "$API_URL" ]; then
+            echo -e "${GREEN}✓ API Gateway URL: $API_URL${NC}"
+            export API_BASE_URL="$API_URL"
+        fi
     else
-        echo -e "${YELLOW}⚠️  Bedrock access check failed (may still work)${NC}"
+        echo -e "${YELLOW}⚠️  SAM stack not found. Some tests may be skipped.${NC}"
     fi
     
-    # Load dev environment variables
-    export ENVIRONMENT=dev
-    export ENABLE_FALLBACK=false
-    export BEDROCK_REGION=us-east-1
-fi
-
-echo ""
-
-# Run integration tests
-echo -e "${YELLOW}🧪 Running integration tests...${NC}"
-echo ""
-
-cd "$PROJECT_ROOT"
-
-# Build pytest command
-PYTEST_CMD="pytest tests/integration/"
-
-if [ -n "$TEST_FILTER" ]; then
-    PYTEST_CMD="$PYTEST_CMD -k $TEST_FILTER"
-fi
-
-PYTEST_CMD="$PYTEST_CMD -v -s --tb=short"
-
-# Add markers for environment
-if [ "$ENVIRONMENT" = "local" ]; then
-    PYTEST_CMD="$PYTEST_CMD -m 'not requires_aws'"
-elif [ "$ENVIRONMENT" = "dev" ]; then
-    PYTEST_CMD="$PYTEST_CMD"
-fi
-
-echo -e "${BLUE}Running: $PYTEST_CMD${NC}"
-echo ""
-
-# Run tests
-if eval $PYTEST_CMD; then
     echo ""
-    echo -e "${GREEN}========================================${NC}"
-    echo -e "${GREEN}✅ All integration tests passed!${NC}"
-    echo -e "${GREEN}========================================${NC}"
-    TEST_EXIT_CODE=0
-else
+    
+    # Run tests
+    echo -e "${YELLOW}Running AWS dev integration tests...${NC}"
     echo ""
-    echo -e "${RED}========================================${NC}"
-    echo -e "${RED}❌ Some integration tests failed${NC}"
-    echo -e "${RED}========================================${NC}"
-    TEST_EXIT_CODE=1
-fi
+    
+    "$VENV_PATH/bin/python" -m pytest \
+        tests/integration/test_hackathon_workflow.py \
+        -v \
+        --tb=short \
+        --color=yes \
+        -m "not local_only"
+    
+    TEST_EXIT_CODE=$?
+    
+    echo ""
+    if [ $TEST_EXIT_CODE -eq 0 ]; then
+        echo -e "${GREEN}✅ All AWS dev tests passed!${NC}"
+        echo ""
+        echo -e "${BLUE}AWS Resources:${NC}"
+        echo -e "  • DynamoDB Table: ${GREEN}$SESSIONS_TABLE${NC}"
+        echo -e "  • S3 Bucket: ${GREEN}$S3_BUCKET${NC}"
+        echo -e "  • Region: ${GREEN}$AWS_DEFAULT_REGION${NC}"
+    else
+        echo -e "${RED}❌ Some tests failed${NC}"
+    fi
+    
+    return $TEST_EXIT_CODE
+}
 
-echo ""
+# Function to run specific test
+run_specific_test() {
+    local test_name="$1"
+    
+    echo -e "${BLUE}Running specific test: ${GREEN}$test_name${NC}"
+    echo ""
+    
+    activate_venv
+    
+    # Set environment based on TEST_ENV
+    if [ "$TEST_ENV" = "local" ]; then
+        check_docker_services && start_docker_services
+        export ENVIRONMENT=local
+        export DYNAMODB_ENDPOINT=http://localhost:8000
+        export S3_ENDPOINT=http://localhost:9000
+    else
+        export ENVIRONMENT=dev
+    fi
+    
+    "$VENV_PATH/bin/python" -m pytest \
+        "tests/integration/test_hackathon_workflow.py::$test_name" \
+        -v \
+        -s \
+        --tb=short \
+        --color=yes
+}
 
-# Cleanup for local environment
-if [ "$ENVIRONMENT" = "local" ]; then
-    echo -e "${YELLOW}🧹 Cleanup options:${NC}"
-    echo "   Keep services running: docker-compose -f docker-compose.local.yml ps"
-    echo "   Stop services:         docker-compose -f docker-compose.local.yml down"
-    echo "   Stop and clean:        docker-compose -f docker-compose.local.yml down -v"
-fi
+# Function to show test summary
+show_test_summary() {
+    echo ""
+    echo -e "${BLUE}========================================${NC}"
+    echo -e "${BLUE}Test Summary${NC}"
+    echo -e "${BLUE}========================================${NC}"
+    echo ""
+    echo -e "Available test classes:"
+    echo -e "  1. ${GREEN}TestFullWorkflowWithBedrock${NC} - Complete 5-step workflow"
+    echo -e "  2. ${GREEN}TestAutonomousExecution${NC} - Autonomous agent execution"
+    echo -e "  3. ${GREEN}TestFallbackMechanism${NC} - Fallback to alternative providers"
+    echo -e "  4. ${GREEN}TestPDFReportGeneration${NC} - PDF report generation"
+    echo -e "  5. ${GREEN}TestConcurrentSessions${NC} - Concurrent session handling"
+    echo -e "  6. ${GREEN}TestWorkflowStateManagement${NC} - Workflow pause/resume"
+    echo ""
+    echo -e "Usage:"
+    echo -e "  ${YELLOW}./scripts/run-integration-tests.sh${NC}              # Run all local tests"
+    echo -e "  ${YELLOW}./scripts/run-integration-tests.sh local${NC}        # Run all local tests"
+    echo -e "  ${YELLOW}./scripts/run-integration-tests.sh dev${NC}          # Run all AWS dev tests"
+    echo -e "  ${YELLOW}./scripts/run-integration-tests.sh specific <test>${NC}  # Run specific test"
+    echo ""
+}
 
-echo ""
-echo -e "${BLUE}Test run completed for ${ENVIRONMENT} environment${NC}"
-
-exit $TEST_EXIT_CODE
+# Main execution
+case "$TEST_ENV" in
+    local)
+        run_local_tests
+        exit $?
+        ;;
+    dev)
+        run_aws_dev_tests
+        exit $?
+        ;;
+    specific)
+        if [ -z "$2" ]; then
+            echo -e "${RED}❌ Please specify test name${NC}"
+            show_test_summary
+            exit 1
+        fi
+        run_specific_test "$2"
+        exit $?
+        ;;
+    help|--help|-h)
+        show_test_summary
+        exit 0
+        ;;
+    *)
+        echo -e "${RED}❌ Invalid environment: $TEST_ENV${NC}"
+        echo -e "${YELLOW}Valid options: local, dev, specific, help${NC}"
+        show_test_summary
+        exit 1
+        ;;
+esac
