@@ -77,6 +77,14 @@ run_tests() {
     # 환경 검증 먼저 실행
     python scripts/validate-environment.py
     
+    # Bedrock 설정 검증 (선택사항 - AWS 자격증명이 있는 경우)
+    if [ -n "$AWS_ACCESS_KEY_ID" ] || aws sts get-caller-identity &> /dev/null; then
+        print_status "Bedrock 설정 검증 중..."
+        ./scripts/verify-bedrock-setup.sh || print_warning "Bedrock 검증 실패 (로컬 개발은 계속 가능)"
+    else
+        print_warning "AWS 자격증명 없음 - Bedrock 검증 건너뜀 (로컬 개발 모드)"
+    fi
+    
     # 통합 테스트 실행
     python -m pytest tests/integration/ -v
     
@@ -87,6 +95,16 @@ validate_env() {
     print_status "환경 검증 중..."
     check_venv
     python scripts/validate-environment.py
+    
+    # Bedrock 설정 검증 (선택사항)
+    if [ -n "$AWS_ACCESS_KEY_ID" ] || aws sts get-caller-identity &> /dev/null; then
+        print_status "Bedrock 설정 검증 중..."
+        ./scripts/verify-bedrock-setup.sh
+    else
+        print_warning "AWS 자격증명 없음 - Bedrock 검증 건너뜀"
+        echo "Bedrock 검증을 실행하려면 AWS 자격증명을 설정하세요:"
+        echo "  aws configure"
+    fi
 }
 
 build_sam() {
@@ -121,8 +139,8 @@ show_help() {
     echo ""
     echo "Commands:"
     echo "  setup     - 로컬 환경 설정 (Docker 서비스 시작)"
-    echo "  test      - 통합 테스트 실행"
-    echo "  validate  - 환경 검증"
+    echo "  test      - 통합 테스트 실행 (Bedrock 검증 포함)"
+    echo "  validate  - 환경 검증 (Docker + Bedrock)"
     echo "  build     - SAM 애플리케이션 빌드"
     echo "  api       - 로컬 API 서버 시작"
     echo "  app       - Streamlit 앱 시작"
@@ -131,8 +149,13 @@ show_help() {
     echo ""
     echo "예시:"
     echo "  $0 setup    # 로컬 환경 설정"
-    echo "  $0 test     # 테스트 실행"
+    echo "  $0 test     # 테스트 실행 (Bedrock 검증 포함)"
+    echo "  $0 validate # 환경 및 Bedrock 검증"
     echo "  $0 api      # API 서버 시작"
+    echo ""
+    echo "Bedrock 검증:"
+    echo "  AWS 자격증명이 설정된 경우 자동으로 Bedrock 설정을 검증합니다."
+    echo "  로컬 개발만 하는 경우 AWS 자격증명 없이도 사용 가능합니다."
 }
 
 case $COMMAND in

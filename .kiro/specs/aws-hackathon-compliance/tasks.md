@@ -328,7 +328,7 @@
   - _Requirements: 10.4, 10.7_
   - _기존 코드: tests/integration/test_workflow.py 패턴 참고_
 
-- [ ] 26. Docker Compose 환경 및 스크립트 업데이트
+- [x] 26. Docker Compose 환경 및 스크립트 업데이트
   - `docker-compose.local.yml` 유지 (변경 없음)
   - `scripts/dev.sh` 업데이트:
     - Bedrock 검증 스크립트 호출 추가

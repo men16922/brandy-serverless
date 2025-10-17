@@ -40,31 +40,37 @@ cd brandy-serverless
 python3 -m venv venv
 source venv/bin/activate
 
-# 개발환경 자동 설정 (의존성 설치)
-./scripts/activate-dev.sh
+# 의존성 설치
+pip install -r requirements.txt
 ```
 
-### 2. 로컬 개발 시작
+### 2. AWS 배포
 ```bash
-./scripts/dev.sh setup     # Docker 서비스 시작
-./scripts/dev.sh validate  # 환경 검증
+# AWS 자격증명 설정
+aws configure
 
-# 인테리어 데이터 초기화 (최초 1회)
-python scripts/initialize_interior_data.py
+# OpenAI API 키를 Secrets Manager에 저장
+aws secretsmanager create-secret \
+    --name openai-api-key \
+    --secret-string '{"api_key":"sk-your-key-here"}' \
+    --region us-east-1
 
-# API 키 설정 (OpenAI)
-cp .env.example .env
-# .env 파일을 열어서 실제 API 키로 수정하세요
-./scripts/dev.sh test      # 테스트 실행 (29개 모두 통과)
-./scripts/dev.sh api       # API 서버 시작 (별도 터미널)
-./scripts/dev.sh app       # Streamlit 웹 앱 시작 (별도 터미널)
+# AWS dev 환경 배포 (5-10분 소요)
+./deploy_to_dev.sh
 ```
 
-### 3. 확인
+### 3. Streamlit 앱 실행
+```bash
+# Streamlit 시작
+streamlit run src/streamlit/app.py
+
+# 브라우저 자동 오픈: http://localhost:8501
+```
+
+### 4. 확인
 - **웹 앱**: http://localhost:8501 (Streamlit UI)
-- **API 테스트**: http://localhost:3000
-- **데이터 확인**: http://localhost:8002 (DynamoDB Admin)
-- **파일 확인**: http://localhost:9001 (MinIO Console)
+- **AWS Console**: CloudFormation, Lambda, DynamoDB, S3
+- **로그 확인**: `sam logs --stack-name ai-branding-chatbot-dev --tail`
 
 ## 🎨 웹 앱 사용법
 
@@ -131,11 +137,38 @@ lsof -i :3000,8501,8000,9000
 ## 🧪 테스트 (실제 DB 사용)
 
 ```bash
-./scripts/dev.sh test      # 29개 통합 테스트 실행
-./scripts/dev.sh validate  # 환경 검증
+./scripts/dev.sh test      # 통합 테스트 실행 (Bedrock 검증 포함)
+./scripts/dev.sh validate  # 환경 및 Bedrock 검증
 ```
 
 **특징**: Mock 사용 안함. 실제 DynamoDB, MinIO, Chroma 사용하여 신뢰할 수 있는 테스트
+
+### Bedrock 로컬 테스트
+
+AWS Bedrock을 로컬에서 테스트하려면:
+
+```bash
+# 1. AWS 자격증명 설정
+aws configure
+# 또는 환경 변수 설정
+export AWS_ACCESS_KEY_ID=your_key
+export AWS_SECRET_ACCESS_KEY=your_secret
+export AWS_DEFAULT_REGION=us-east-1
+
+# 2. Bedrock 설정 검증
+./scripts/verify-bedrock-setup.sh
+
+# 3. 환경 변수 설정 (.env 파일)
+BEDROCK_REGION=us-east-1
+CLAUDE_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
+SDXL_MODEL_ID=stability.stable-diffusion-xl-v1
+ENABLE_FALLBACK=true  # 로컬 개발 시 true, 제출 시 false
+
+# 4. Bedrock 통합 테스트 실행
+python -m pytest tests/integration/test_bedrock_integration.py -v
+```
+
+**참고**: AWS 자격증명 없이도 로컬 개발 가능 (Fallback 모드)
 
 ## 🛠️ 개발 명령어
 
@@ -174,6 +207,64 @@ docker-compose -f docker-compose.local.yml down -v  # 서비스 중지 + 볼륨 
 - **MinIO Console**: http://localhost:9001 (minioadmin/minioadmin)
 - **Chroma API**: http://localhost:8001 (벡터 DB)
 
+## ⚙️ 환경 변수 설정
+
+### 필수 환경 변수 (.env 파일)
+
+```bash
+# OpenAI API (로컬 개발용 - Fallback)
+OPENAI_API_KEY=sk-...
+
+# AWS Bedrock 설정 (프로덕션)
+BEDROCK_REGION=us-east-1
+CLAUDE_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
+SDXL_MODEL_ID=stability.stable-diffusion-xl-v1
+
+# Bedrock AgentCore (선택사항)
+BEDROCK_AGENT_ID=your-agent-id
+BEDROCK_AGENT_ALIAS_ID=your-agent-alias-id
+BEDROCK_KB_ID=your-knowledge-base-id
+
+# Fallback 설정
+ENABLE_FALLBACK=true   # 로컬 개발: true, 해커톤 제출: false
+DEV_PROFILE=true       # 로컬 개발: true, 프로덕션: false
+ENVIRONMENT=local      # local/dev/prod
+
+# AWS 자격증명 (Bedrock 사용 시)
+AWS_ACCESS_KEY_ID=your_key
+AWS_SECRET_ACCESS_KEY=your_secret
+AWS_DEFAULT_REGION=us-east-1
+```
+
+### 환경별 설정
+
+**로컬 개발 (.env.local)**
+```bash
+ENABLE_FALLBACK=true
+DEV_PROFILE=true
+ENVIRONMENT=local
+# OpenAI API 키만 필요 (Bedrock 선택사항)
+```
+
+**해커톤 제출 (.env.prod)**
+```bash
+ENABLE_FALLBACK=false  # Bedrock Only!
+DEV_PROFILE=false
+ENVIRONMENT=prod
+BEDROCK_REGION=us-east-1
+# AWS 자격증명 필수
+```
+
+### 환경 변수 검증
+
+```bash
+# 전체 환경 검증
+./scripts/dev.sh validate
+
+# Bedrock 설정만 검증
+./scripts/verify-bedrock-setup.sh
+```
+
 ## 📁 프로젝트 구조
 
 ```
@@ -190,8 +281,27 @@ docker-compose -f docker-compose.local.yml down -v  # 서비스 중지 + 볼륨 
 ├── src/lambda/shared/                 # 공통 유틸리티 (Lambda Layer)
 ├── statemachine/                      # Step Functions 정의
 ├── scripts/                           # SAM 빌드/배포 스크립트
+│   ├── dev.sh                         # 통합 개발 스크립트
+│   ├── verify-bedrock-setup.sh        # Bedrock 검증 스크립트
+│   └── validate-environment.py        # 환경 검증 스크립트
 ├── tests/integration/                 # Docker 기반 통합 테스트
 └── docker-compose.local.yml           # 로컬 개발 서비스
+```
+
+## 📚 추가 문서
+
+- **빠른 시작**: `QUICK_START.md` - 5분 빠른 시작 가이드
+- **AWS 배포**: `DEPLOY_TO_AWS_DEV.md` - AWS dev 환경 배포 상세 가이드
+- **프로젝트 정리**: `PROJECT_CLEANUP_SUMMARY.md` - 정리 내역 및 구조
+
+## 🗑️ 환경 정리
+
+```bash
+# CloudFormation 스택 삭제
+aws cloudformation delete-stack --stack-name ai-branding-chatbot-dev
+
+# S3 버킷 비우기
+aws s3 rm s3://ai-branding-chatbot-assets-dev/ --recursive
 ```
 
 ## 라이선스

@@ -1,0 +1,12 @@
+{
+  "Parameters": {
+    "ENVIRONMENT": "local",
+    "AWS_REGION": "us-east-1",
+    "DYNAMODB_ENDPOINT": "http://host.docker.internal:8000",
+    "S3_ENDPOINT": "http://host.docker.internal:9000",
+    "CHROMA_ENDPOINT": "http://host.docker.internal:8001",
+    "ENABLE_FALLBACK": "true",
+    "DEV_PROFILE": "true",
+    "LOG_LEVEL": "INFO"
+  }
+}

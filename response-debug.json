@@ -1,1 +1,0 @@
-{"statusCode": 500, "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Allow-Methods": "OPTIONS,POST,GET"}, "body": "{\"error\": true, \"message\": \"execute: Failed to update session data\", \"agent\": \"interior\", \"timestamp\": \"2025-10-13T09:45:02.407790\"}"}
