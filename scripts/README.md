@@ -1,29 +1,32 @@
 # Scripts Directory
 
-This directory contains utility scripts for development, deployment, and verification.
+This directory contains utility scripts for AWS deployment, validation, and testing.
+
+## AWS-Only Architecture
+
+This project uses **AWS-only architecture**:
+- Streamlit runs locally (localhost:8501)
+- All backend services use AWS (DynamoDB, S3, Lambda, API Gateway)
+- No Docker Compose or local services required
 
 ## Script Organization
 
-### Validation Scripts (Simple)
-Quick unit tests without external dependencies:
+### Validation Scripts
+Quick validation without external dependencies:
 - `validate-*-simple.py` - Fast validation scripts
+- `validate-*.py` - Comprehensive validation scripts
 - Run time: < 5 seconds
-- No Docker or AWS required
+- No Docker required, AWS credentials needed for some
 
-### Integration Test Runners
-Comprehensive tests with real services:
-- `run-*-integration-tests.sh` - Full integration test suites
-- Run time: 30-60 seconds
-- Requires Docker Compose (local) or AWS credentials (dev)
-
-### Environment Setup
-- `setup-local.sh` - Start Docker Compose services
-- `verify-bedrock-setup.sh` - Verify AWS Bedrock configuration
-
-### Deployment
+### Deployment Scripts
+- `safe_deploy.sh` - Safe AWS deployment with checks
 - `sam-build.sh` - Build SAM application
 - `sam-deploy.sh` - Deploy to AWS
-- `sam-local.sh` - Run local API Gateway
+- `deploy-to-aws.sh` - Alternative deployment script
+
+### Testing Scripts
+- `run-integration-tests.py` - Integration tests using AWS dev environment
+- `test-dev.sh` - Test dev environment
 
 ## Available Scripts
 
@@ -99,38 +102,6 @@ BEDROCK_AGENT_ALIAS_ID=your-alias-id \
 
 ---
 
-### 🚀 setup-local.sh
-
-Sets up local development environment with Docker Compose services.
-
-**Purpose:**
-- Starts DynamoDB Local, MinIO, and Chroma services
-- Validates Python virtual environment
-- Performs health checks on all services
-- Installs Python dependencies
-
-**Usage:**
-```bash
-# Ensure virtual environment is activated first
-source venv/bin/activate
-
-# Run setup
-./scripts/setup-local.sh
-```
-
-**Services Started:**
-- DynamoDB Local (port 8000)
-- DynamoDB Admin UI (port 8002)
-- MinIO (ports 9000/9001)
-- Chroma (port 8001)
-
-**Requirements:**
-- Docker and Docker Compose installed
-- Python virtual environment activated
-- Port 8000, 8001, 8002, 9000, 9001 available
-
----
-
 ### 🔧 validate-bedrock-config.py
 
 Python script to validate Bedrock configuration from environment variables.
@@ -177,17 +148,6 @@ Deploys SAM application to AWS.
 
 ---
 
-### 🧪 sam-local.sh
-
-Starts SAM local API Gateway for testing.
-
-**Usage:**
-```bash
-./scripts/sam-local.sh
-```
-
----
-
 ## Development Workflow
 
 ### Initial Setup
@@ -196,34 +156,43 @@ Starts SAM local API Gateway for testing.
 python3 -m venv venv
 source venv/bin/activate
 
-# 2. Setup local services
-./scripts/setup-local.sh
+# 2. Install dependencies
+pip install -r requirements.txt
 
 # 3. Verify Bedrock configuration
 ./scripts/verify-bedrock-setup.sh
 ```
 
-### Before Deployment
+### Deployment to AWS
 ```bash
 # 1. Verify Bedrock setup
 ./scripts/verify-bedrock-setup.sh
 
-# 2. Build SAM application
+# 2. Deploy using safe deployment script (recommended)
+./safe_deploy.sh
+
+# Or manually:
+# Build SAM application
 ./scripts/sam-build.sh
 
-# 3. Deploy to AWS
+# Deploy to AWS
 ./scripts/sam-deploy.sh --guided
 ```
 
-### Local Testing
+### Local Development
 ```bash
-# 1. Start local services
-./scripts/setup-local.sh
+# 1. Deploy to AWS dev environment
+./safe_deploy.sh
 
-# 2. Start local API
-./scripts/sam-local.sh
+# 2. Run Streamlit locally (connects to AWS)
+streamlit run src/streamlit/app.py
 
-# 3. Run integration tests
+# 3. Access at http://localhost:8501
+```
+
+### Testing
+```bash
+# Run integration tests (uses AWS dev environment)
 python -m pytest tests/integration/ -v
 ```
 
@@ -285,22 +254,27 @@ Add required permissions to your IAM policy:
 }
 ```
 
-### setup-local.sh Issues
+### Deployment Issues
 
-**Docker not running:**
+**SAM build fails:**
 ```bash
-# Start Docker Desktop (macOS/Windows)
-# Or start Docker daemon (Linux)
-sudo systemctl start docker
+# Clean build artifacts
+rm -rf .aws-sam
+
+# Rebuild
+sam build
 ```
 
-**Port conflicts:**
+**Deployment fails:**
 ```bash
-# Check what's using ports
-lsof -i :8000,8001,8002,9000,9001
+# Check CloudFormation stack status
+aws cloudformation describe-stacks --stack-name ai-branding-chatbot-dev
 
-# Kill conflicting processes
-sudo lsof -ti:8000 | xargs kill -9
+# Delete failed stack
+aws cloudformation delete-stack --stack-name ai-branding-chatbot-dev
+
+# Retry deployment
+./safe_deploy.sh
 ```
 
 **Virtual environment not activated:**
@@ -312,42 +286,40 @@ source venv/bin/activate
 echo $VIRTUAL_ENV
 ```
 
-## Recent Changes (2025-10-16)
+## Recent Changes (2025-10-18)
 
-### Cleanup: Removed Redundant Validation Scripts
+### AWS-Only Architecture Migration
 
-The following scripts were removed to reduce duplication:
-- ❌ `validate-workflow-state-management.py` (kept: `-simple.py` version)
-- ❌ `validate-base-agent-fallback.py` (kept: `-simple.py` version)
-- ❌ `validate-signboard-bedrock.py` (kept: `-simple.py` version)
-- ❌ `validate-interior-bedrock.py` (kept: `-simple.py` version)
+**Removed:**
+- ❌ `setup-local.sh` - No longer needed (no Docker Compose)
+- ❌ `test-local.sh` - Use AWS dev environment instead
+- ❌ `test-local-environment.sh` - AWS-only testing
+- ❌ `sam-local.sh` - Deploy to AWS instead
 
 **Rationale:**
-- Simple versions are sufficient for quick validation
-- Integration tests provide comprehensive coverage
-- Reduces maintenance burden and confusion
-- See [CLEANUP_SUMMARY.md](../CLEANUP_SUMMARY.md) for details
+- Simplified architecture: Streamlit local + AWS backend
+- Consistent dev/prod environments
+- No Docker Compose complexity
+- Direct AWS service usage
 
-### Current Validation Strategy
+### Current Development Strategy
 
 ```
-Quick Validation (< 5s)
+Local Development
   ↓
-  validate-*-simple.py
+Streamlit (localhost:8501)
   ↓
-Integration Tests (30-60s)
+AWS API Gateway
   ↓
-  tests/integration/test_*.py
+Lambda Functions
   ↓
-End-to-End Tests
-  ↓
-  run-*-integration-tests.sh
+DynamoDB + S3 + Bedrock
 ```
 
 ## Additional Resources
 
 - [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
 - [AWS SAM Documentation](https://docs.aws.amazon.com/serverless-application-model/)
-- [Docker Compose Documentation](https://docs.docker.com/compose/)
-- [Cleanup Summary](../CLEANUP_SUMMARY.md)
+- [Streamlit Documentation](https://docs.streamlit.io/)
 - [Project README](../README.md)
+- [Deployment Guide](../DEPLOYMENT_FIX.md)

@@ -10,51 +10,49 @@ import time
 from typing import Dict, Any, List, Tuple, Optional
 from datetime import datetime
 
-# Add shared modules to path
-sys.path.append('/opt/python')
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'shared'))
+# Add shared modules to path - Lambda Layer structure
+sys.path.insert(0, '/opt/python/python')
+
+# Product Insight specific models (always defined)
+class AnalysisResult:
+    def __init__(self, summary: str, score: float, insights: List[str], 
+                 market_trends: List[str], recommendations: List[str]):
+        self.summary = summary
+        self.score = score
+        self.insights = insights
+        self.market_trends = market_trends
+        self.recommendations = recommendations
+        self.generated_at = datetime.utcnow().isoformat()
+    
+    def to_dict(self):
+        return {
+            'summary': self.summary,
+            'score': self.score,
+            'insights': self.insights,
+            'market_trends': self.market_trends,
+            'recommendations': self.recommendations,
+            'generated_at': self.generated_at
+        }
+
+class BusinessInfo:
+    def __init__(self, industry: str, region: str, size: str, **kwargs):
+        self.industry = industry
+        self.region = region
+        self.size = size
+    
+    def validate(self):
+        return bool(self.industry and self.region and self.size)
 
 try:
-    from base_agent import BaseAgent
-    from models import AgentType, AnalysisResult, BusinessInfo
-    from knowledge_base import get_knowledge_base
+    from shared.base_agent import BaseAgent
+    from shared.models import AgentType
+    from shared.knowledge_base import get_knowledge_base
 except ImportError:
     # For testing purposes, create mock implementations
-    from datetime import datetime
-    from typing import Dict, Any, List
     from enum import Enum
     
     class AgentType(Enum):
         PRODUCT_INSIGHT = "product_insight"
-    
-    class AnalysisResult:
-        def __init__(self, summary: str, score: float, insights: List[str], 
-                     market_trends: List[str], recommendations: List[str]):
-            self.summary = summary
-            self.score = score
-            self.insights = insights
-            self.market_trends = market_trends
-            self.recommendations = recommendations
-            self.generated_at = datetime.utcnow().isoformat()
-        
-        def to_dict(self):
-            return {
-                'summary': self.summary,
-                'score': self.score,
-                'insights': self.insights,
-                'market_trends': self.market_trends,
-                'recommendations': self.recommendations,
-                'generated_at': self.generated_at
-            }
-    
-    class BusinessInfo:
-        def __init__(self, industry: str, region: str, size: str, **kwargs):
-            self.industry = industry
-            self.region = region
-            self.size = size
-        
-        def validate(self):
-            return bool(self.industry and self.region and self.size)
     
     class BaseAgent:
         def __init__(self, agent_type):
@@ -87,9 +85,7 @@ except ImportError:
                 return latency_ms
             return 0
         
-        def update_session_data(self, session_id: str, updates: Dict[str, Any]):
-            # Mock implementation
-            return True
+        # Removed mock update_session_data - using BaseAgent's implementation
         
         def create_lambda_response(self, status_code: int, body: Any, headers=None):
             return {

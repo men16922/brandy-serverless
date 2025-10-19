@@ -40,32 +40,18 @@ except ImportError as e:
 
 class SupervisorAgent:
     def __init__(self):
-        # DynamoDB 설정 (로컬 환경 감지)
-        self.environment = os.getenv('ENVIRONMENT', 'local')
+        # 환경 설정 (dev 환경만 사용)
+        self.environment = os.getenv('ENVIRONMENT', 'dev')
         
-        if self.environment == 'local':
-            # 로컬 DynamoDB 연결
-            # host.docker.internal은 Docker 컨테이너 내부용
-            # 로컬 스크립트 실행 시에는 localhost 사용
-            endpoint_url = os.getenv('DYNAMODB_ENDPOINT', 'http://localhost:8000')
-            self.dynamodb = boto3.resource(
-                'dynamodb',
-                endpoint_url=endpoint_url,
-                region_name='us-east-1',
-                aws_access_key_id='dummy',
-                aws_secret_access_key='dummy'
-            )
-        else:
-            # AWS DynamoDB 연결
-            self.dynamodb = boto3.resource('dynamodb')
+        # AWS DynamoDB 연결 (로컬 엔드포인트 제거)
+        self.dynamodb = boto3.resource('dynamodb')
         
         # 테이블 이름
         table_name = os.getenv('SESSIONS_TABLE', 'ai-branding-chatbot-sessions')
         
         try:
             self.table = self.dynamodb.Table(table_name)
-            # 테이블이 없으면 생성
-            self._ensure_table_exists(table_name)
+            logger.info(f"Connected to DynamoDB table: {table_name}")
         except Exception as e:
             logger.error(f"Failed to connect to DynamoDB: {str(e)}")
             raise
@@ -468,21 +454,67 @@ class SupervisorAgent:
                     
                     return result
                 else:
-                    # Step Functions fallback
+                    # Step Functions orchestration
                     logger.info(
-                        f"Using Step Functions fallback for session {session_id}"
+                        f"Using Step Functions for session {session_id}"
                     )
                     
-                    # 기존 Step Functions 로직 (향후 구현)
-                    # 현재는 placeholder 응답 반환
-                    result = {
-                        'status': 'pending',
-                        'session_id': session_id,
-                        'current_step': current_step,
-                        'next_step': current_step + 1 if current_step < 5 else 5,
-                        'message': 'Step Functions orchestration (not yet implemented)',
-                        'orchestration_mode': 'stepfunctions'
-                    }
+                    # Start Step Functions execution
+                    sfn_client = boto3.client('stepfunctions')
+                    
+                    # Construct State Machine ARN dynamically
+                    project_name = os.getenv('PROJECT_NAME', 'ai-branding-chatbot')
+                    env = os.getenv('ENVIRONMENT', 'dev')
+                    region = os.getenv('AWS_REGION', 'us-east-1')
+                    account_id = boto3.client('sts').get_caller_identity()['Account']
+                    
+                    state_machine_arn = f'arn:aws:states:{region}:{account_id}:stateMachine:{project_name}-workflow-{env}'
+                    
+                    logger.info(f"Using State Machine ARN: {state_machine_arn}")
+                    
+                    try:
+                        # Prepare input for Step Functions
+                        sfn_input = {
+                            'sessionId': session_id,
+                            'businessInfo': business_info,
+                            'currentStep': current_step
+                        }
+                        
+                        # Start execution
+                        execution_response = sfn_client.start_execution(
+                            stateMachineArn=state_machine_arn,
+                            name=f'workflow-{session_id}-{int(datetime.utcnow().timestamp())}',
+                            input=json.dumps(sfn_input)
+                        )
+                        
+                        execution_arn = execution_response['executionArn']
+                        
+                        logger.info(f"Started Step Functions execution: {execution_arn}")
+                        
+                        # Update session with execution ARN
+                        self.update_session(session_id, {
+                            'executionArn': execution_arn,
+                            'status': 'in_progress'
+                        })
+                        
+                        result = {
+                            'status': 'in_progress',
+                            'session_id': session_id,
+                            'current_step': current_step,
+                            'execution_arn': execution_arn,
+                            'message': 'Workflow started via Step Functions',
+                            'orchestration_mode': 'stepfunctions'
+                        }
+                        
+                    except Exception as sfn_error:
+                        logger.error(f"Failed to start Step Functions: {str(sfn_error)}")
+                        result = {
+                            'status': 'error',
+                            'session_id': session_id,
+                            'current_step': current_step,
+                            'error': str(sfn_error),
+                            'orchestration_mode': 'stepfunctions'
+                        }
                     
                     # 구조화된 로깅
                     logger.info(
@@ -490,8 +522,8 @@ class SupervisorAgent:
                             'orchestration_mode': 'stepfunctions',
                             'session_id': session_id,
                             'current_step': current_step,
-                            'next_step': result.get('next_step'),
                             'status': result.get('status'),
+                            'execution_arn': result.get('execution_arn'),
                             'timestamp': datetime.utcnow().isoformat()
                         })
                     )
@@ -713,6 +745,26 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'totalSteps': 5
             }
             
+            # Parse interior data (check both new 'interiors' and old 'interior_recommendations')
+            interior_data = None
+            
+            # Try new format first: 'interiors' field (Map type)
+            if 'interiors' in session_data:
+                interior_data = {
+                    'recommendations': session_data.get('interiors', []),
+                    'generatedImages': len([r for r in session_data.get('interiors', []) if r.get('imageUrl')])
+                }
+            # Fallback to old format: 'interior_recommendations' (JSON string)
+            elif 'interior_recommendations' in session_data:
+                try:
+                    interior_json = session_data.get('interior_recommendations')
+                    if isinstance(interior_json, str):
+                        interior_data = json.loads(interior_json)
+                    else:
+                        interior_data = interior_json
+                except (json.JSONDecodeError, TypeError) as e:
+                    logger.warning(f"Failed to parse interior_recommendations: {str(e)}")
+            
             status_response = {
                 'sessionId': session_id,
                 'currentStep': current_step,
@@ -726,7 +778,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'analysis': session_data.get('analysisResult'),
                     'names': session_data.get('namesResult'),
                     'signboards': session_data.get('signboardsResult'),
-                    'interiors': session_data.get('interiorsResult'),
+                    'interiors': interior_data or session_data.get('interiorsResult'),  # Use parsed interior_recommendations
                     'report': session_data.get('reportResult')
                 }
             }

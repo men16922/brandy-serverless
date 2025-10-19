@@ -144,8 +144,7 @@ dmypy.json
 .DS_Store
 Thumbs.db
 
-# Local data
-data/chroma/
+# Local data (AWS-only, no local services)
 data/local/
 
 # Test files (exclude integration tests and specific test scripts)

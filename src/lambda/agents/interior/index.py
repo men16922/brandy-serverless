@@ -10,8 +10,8 @@ import time
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-# Add shared modules to path
-sys.path.append('/opt/python')
+# Add shared modules to path - Lambda Layer structure
+sys.path.insert(0, '/opt/python/python')
 
 # Interior-specific models (always defined)
 class InteriorRecommendation:
@@ -122,8 +122,7 @@ except ImportError as e:
         def get_session_data(self, session_id: str):
             return None
         
-        def update_session_data(self, session_id: str, updates: Dict[str, Any]):
-            return True
+        # Removed mock update_session_data - using BaseAgent's implementation
         
         def create_lambda_response(self, status_code: int, body: Any, headers=None):
             return {
@@ -452,6 +451,10 @@ class InteriorAgent(BaseAgent):
     def execute(self, event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         """Interior Agent 실행 로직"""
         try:
+            # 비동기 모드 확인
+            headers = event.get('headers', {})
+            is_async = headers.get('x-async-mode') == 'true'
+            
             # 요청 파싱
             if isinstance(event.get('body'), str):
                 body = json.loads(event['body'])
@@ -468,8 +471,60 @@ class InteriorAgent(BaseAgent):
                     "error": "sessionId is required"
                 })
             
+            # 비동기 모드: 즉시 202 반환하고 별도 Lambda 호출로 백그라운드 실행
+            if is_async:
+                self.logger.info(f"Async mode enabled for session: {session_id}")
+                
+                # Lambda를 비동기로 재호출 (InvocationType='Event')
+                try:
+                    import boto3
+                    lambda_client = boto3.client('lambda')
+                    
+                    # 동기 모드로 재호출 (x-async-mode 헤더 제거)
+                    sync_event = event.copy()
+                    if 'headers' in sync_event:
+                        sync_headers = sync_event['headers'].copy()
+                        sync_headers.pop('x-async-mode', None)
+                        sync_event['headers'] = sync_headers
+                    
+                    # 현재 Lambda 함수 이름 가져오기
+                    function_name = os.getenv('AWS_LAMBDA_FUNCTION_NAME')
+                    
+                    self.logger.info(f"Invoking Lambda asynchronously: {function_name}")
+                    
+                    # 비동기 호출 (Event 타입)
+                    lambda_client.invoke(
+                        FunctionName=function_name,
+                        InvocationType='Event',  # 비동기 호출
+                        Payload=json.dumps(sync_event)
+                    )
+                    
+                    self.logger.info(f"Async Lambda invocation successful for session: {session_id}")
+                    
+                except Exception as invoke_error:
+                    self.logger.error(f"Failed to invoke Lambda asynchronously: {str(invoke_error)}")
+                    # 실패해도 202 반환 (폴링으로 확인 가능)
+                
+                # 즉시 202 반환
+                return self.create_lambda_response(202, {
+                    "message": "Interior generation started",
+                    "sessionId": session_id,
+                    "status": "processing"
+                })
+            
+            # 동기 모드: 기존 로직
             # 실행 시작
             self.start_execution(session_id, "interior.recommend")
+            
+            # 시작 상태 저장
+            try:
+                from datetime import datetime
+                self.update_session_data(session_id, {
+                    "interiorGenerationStatus": "in_progress",
+                    "interiorGenerationStartedAt": datetime.utcnow().isoformat()
+                })
+            except Exception as status_error:
+                self.logger.warning(f"Failed to set initial status: {str(status_error)}")
             
             # 비즈니스 정보 파싱
             if isinstance(business_info_data, str):
@@ -639,14 +694,200 @@ Please recommend 3 interior design styles that best match this business, providi
             regional_info = self.regional_trends.get(region, self.regional_trends.get("seoul", {}))
             size_info = self.size_considerations.get(size, self.size_considerations.get("medium", {}))
             
+            # 이미지 생성 (Multi-provider: 2개 Bedrock SDXL + 1개 DALL-E)
+            self.logger.info(f"Generating interior images for {len(recommendations)} styles")
+            recommendations_with_images = []
+            enable_fallback = os.getenv('ENABLE_FALLBACK', 'false').lower() == 'true'
+            
+            for idx, rec in enumerate(recommendations):
+                rec_dict = self._recommendation_to_dict(rec)
+                image_url = None
+                provider_used = None
+                
+                # 인테리어 이미지 프롬프트 생성
+                style_name = rec.style
+                prompt = self._create_interior_image_prompt(
+                    style_name,
+                    business_info.industry,
+                    rec.color_scheme,
+                    rec.materials
+                )
+                
+                # 마지막 추천(3번째)은 항상 DALL-E 사용 (fallback 활성화 시)
+                use_dalle_first = (idx == len(recommendations) - 1) and enable_fallback
+                
+                if use_dalle_first:
+                    # DALL-E로 먼저 시도
+                    try:
+                        self.logger.info(f"[{style_name}] Using DALL-E (designated provider for option {idx+1})...")
+                        
+                        # Import OpenAI
+                        from openai import OpenAI
+                        client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+                        
+                        # Generate with DALL-E
+                        response = client.images.generate(
+                            model="dall-e-3",
+                            prompt=prompt,
+                            size="1024x1024",
+                            quality="standard",
+                            n=1
+                        )
+                        
+                        dalle_url = response.data[0].url
+                        
+                        # Upload to S3
+                        image_url = self._upload_image_to_s3(
+                            dalle_url,
+                            f"interiors/{session_id}-{style_name}-{int(time.time())}.png"
+                        )
+                        
+                        if image_url:
+                            provider_used = "openai-dalle3"
+                            self.logger.info(f"[{style_name}] ✅ DALL-E succeeded")
+                        else:
+                            self.logger.warning(f"[{style_name}] ⚠️ DALL-E S3 upload failed")
+                            
+                    except Exception as dalle_error:
+                        self.logger.error(f"[{style_name}] ❌ DALL-E failed: {str(dalle_error)}")
+                        # DALL-E 실패 시 Bedrock으로 fallback
+                        use_dalle_first = False
+                
+                # Bedrock SDXL 사용 (첫 2개 또는 DALL-E 실패 시)
+                if not use_dalle_first or not image_url:
+                    try:
+                        self.logger.info(f"[{style_name}] Using Bedrock Titan Image Generator...")
+                        
+                        # Bedrock Titan Image Generator 직접 호출
+                        import boto3
+                        import base64
+                        
+                        bedrock_runtime = boto3.client('bedrock-runtime', region_name='us-east-1')
+                        
+                        # Titan Image Generator v2 요청
+                        request_body = {
+                            "taskType": "TEXT_IMAGE",
+                            "textToImageParams": {
+                                "text": prompt[:512],  # Titan은 512자 제한
+                                "negativeText": "low quality, blurry, distorted"
+                            },
+                            "imageGenerationConfig": {
+                                "numberOfImages": 1,
+                                "quality": "standard",
+                                "height": 1024,
+                                "width": 1024,
+                                "cfgScale": 8.0
+                            }
+                        }
+                        
+                        response = bedrock_runtime.invoke_model(
+                            modelId="amazon.titan-image-generator-v2:0",
+                            body=json.dumps(request_body)
+                        )
+                        
+                        response_body = json.loads(response['body'].read())
+                        
+                        if 'images' in response_body and len(response_body['images']) > 0:
+                            # Base64 디코딩
+                            image_data = base64.b64decode(response_body['images'][0])
+                            
+                            # S3에 직접 업로드
+                            s3_client = boto3.client('s3')
+                            bucket_name = os.getenv('S3_BUCKET_NAME', 'ai-branding-chatbot-assets-908601828278')
+                            s3_key = f"interiors/{session_id}-{style_name}-{int(time.time())}.png"
+                            
+                            s3_client.put_object(
+                                Bucket=bucket_name,
+                                Key=s3_key,
+                                Body=image_data,
+                                ContentType='image/png'
+                            )
+                            
+                            # Generate presigned URL (valid for 7 days)
+                            image_url = s3_client.generate_presigned_url(
+                                'get_object',
+                                Params={'Bucket': bucket_name, 'Key': s3_key},
+                                ExpiresIn=604800  # 7 days
+                            )
+                            provider_used = "bedrock-titan"
+                            self.logger.info(f"[{style_name}] ✅ Bedrock Titan succeeded: {image_url}")
+                        else:
+                            self.logger.warning(f"[{style_name}] ⚠️ Bedrock Titan returned no images")
+                            
+                    except Exception as bedrock_error:
+                        self.logger.warning(f"[{style_name}] ❌ Bedrock SDXL failed: {str(bedrock_error)}")
+                        
+                        # Bedrock 실패 시 DALL-E fallback (아직 시도 안했으면)
+                        if not use_dalle_first and enable_fallback:
+                            try:
+                                self.logger.info(f"[{style_name}] Attempting DALL-E fallback...")
+                                
+                                from openai import OpenAI
+                                client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+                                
+                                response = client.images.generate(
+                                    model="dall-e-3",
+                                    prompt=prompt,
+                                    size="1024x1024",
+                                    quality="standard",
+                                    n=1
+                                )
+                                
+                                dalle_url = response.data[0].url
+                                image_url = self._upload_image_to_s3(
+                                    dalle_url,
+                                    f"interiors/{session_id}-{style_name}-{int(time.time())}.png"
+                                )
+                                
+                                if image_url:
+                                    provider_used = "openai-dalle3"
+                                    self.logger.info(f"[{style_name}] ✅ DALL-E fallback succeeded")
+                                    
+                            except Exception as dalle_error:
+                                self.logger.error(f"[{style_name}] ❌ DALL-E fallback failed: {str(dalle_error)}")
+                
+                # Set result
+                if image_url:
+                    rec_dict['imageUrl'] = image_url
+                    rec_dict['isGenerated'] = True
+                    rec_dict['prompt'] = prompt
+                    rec_dict['provider'] = provider_used
+                else:
+                    rec_dict['imageUrl'] = None
+                    rec_dict['isGenerated'] = False
+                    rec_dict['provider'] = None
+                
+                recommendations_with_images.append(rec_dict)
+            
+            # 생성된 이미지 수 계산
+            generated_count = sum(1 for rec in recommendations_with_images if rec.get('isGenerated'))
+            providers_used = [rec.get('provider') for rec in recommendations_with_images if rec.get('provider')]
+            self.logger.info(f"Generated {generated_count}/{len(recommendations)} interior images. Providers: {providers_used}")
+            
+            # DynamoDB에 저장 (Map 타입으로)
+            try:
+                self._save_interior_to_dynamodb(session_id, recommendations_with_images)
+            except Exception as save_error:
+                self.logger.error(f"DynamoDB save failed but continuing: {str(save_error)}")
+            
+            # Provider 정보 생성
+            providers_summary = "bedrock-claude"
+            if providers_used:
+                unique_providers = list(set(providers_used))
+                if "bedrock-sdxl" in unique_providers:
+                    providers_summary += "+sdxl"
+                if "openai-dalle3" in unique_providers:
+                    providers_summary += "+dalle3"
+            
             # 결과 구성
             result = {
                 "sessionId": session_id,
-                "recommendations": [self._recommendation_to_dict(rec) for rec in recommendations],
+                "recommendations": recommendations_with_images,
                 "totalRecommendations": len(recommendations),
+                "generatedImages": generated_count,
                 "reasoning": bedrock_data.get('reasoning', ''),
                 "confidence": bedrock_data.get('confidence', 0.8),
-                "generatedBy": "bedrock-claude",
+                "generatedBy": providers_summary,
                 "industryInsights": {
                     "priorityFactors": industry_info.get("priority_factors", []),
                     "specialRequirements": industry_info.get("special_requirements", []),
@@ -670,7 +911,7 @@ Please recommend 3 interior design styles that best match this business, providi
             
             self.logger.info(
                 f"Bedrock interior recommendations generated: {len(recommendations)} styles, "
-                f"confidence={result['confidence']:.2f}, latency={result['latency_ms']}ms"
+                f"{generated_count} images, confidence={result['confidence']:.2f}, latency={result['latency_ms']}ms"
             )
             
             return result
@@ -1291,11 +1532,26 @@ Please recommend 3 interior design styles that best match this business, providi
     
     def _save_interior_recommendations(self, session_id: str, 
                                      interior_recommendations: InteriorRecommendations) -> None:
-        """InteriorRecommendations를 세션에 저장"""
+        """InteriorRecommendations를 세션에 저장 (Legacy method - backward compatibility)"""
         try:
+            from decimal import Decimal
+            
+            # Decimal을 float로 변환하는 helper (JSON serialization용)
+            def decimal_to_float(obj):
+                if isinstance(obj, Decimal):
+                    return float(obj)
+                elif isinstance(obj, dict):
+                    return {k: decimal_to_float(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [decimal_to_float(item) for item in obj]
+                return obj
+            
             recommendations_data = {
                 "recommendations": [self._recommendation_to_dict(rec) for rec in interior_recommendations.recommendations]
             }
+            
+            # Decimal을 float로 변환 (JSON serialization을 위해)
+            recommendations_data = decimal_to_float(recommendations_data)
             
             updates = {
                 "interior_recommendations": json.dumps(recommendations_data)
@@ -1308,6 +1564,155 @@ Please recommend 3 interior design styles that best match this business, providi
         except Exception as e:
             self.logger.error(f"Failed to save interior recommendations: {str(e)}")
             raise
+    
+    def _save_interior_to_dynamodb(self, session_id: str, 
+                                   recommendations: List[Dict[str, Any]]) -> None:
+        """
+        Save interior recommendations to DynamoDB as Map type (not JSON string)
+        
+        Args:
+            session_id: Session identifier
+            recommendations: List of recommendation dicts with imageUrl
+        
+        DynamoDB Structure:
+            {
+                "interiors": [  # List of Maps
+                    {
+                        "style": "cozy",
+                        "description": "...",
+                        "imageUrl": "https://s3.../xxx.png",
+                        "isGenerated": true,
+                        "provider": "bedrock-titan",
+                        ...
+                    }
+                ],
+                "interiorGenerationStatus": "completed",
+                "interiorGenerationCompletedAt": "2025-10-19T12:24:37.863Z"
+            }
+        """
+        try:
+            from decimal import Decimal
+            from datetime import datetime
+            
+            # Convert float to Decimal for DynamoDB
+            def float_to_decimal(obj):
+                if isinstance(obj, float):
+                    return Decimal(str(obj))
+                elif isinstance(obj, dict):
+                    return {k: float_to_decimal(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [float_to_decimal(item) for item in obj]
+                return obj
+            
+            # Convert to DynamoDB-friendly format (float -> Decimal)
+            recommendations_clean = float_to_decimal(recommendations)
+            
+            # Prepare updates
+            updates = {
+                "interiors": recommendations_clean,  # Map type, not JSON string!
+                "interiorGenerationStatus": "completed",
+                "interiorGenerationCompletedAt": datetime.utcnow().isoformat()
+            }
+            
+            # Log the structure for debugging
+            self.logger.info(f"Saving interior data to DynamoDB: {len(recommendations_clean)} recommendations")
+            
+            # Log field names for verification (without JSON serialization to avoid Decimal issues)
+            if recommendations_clean:
+                sample_fields = list(recommendations_clean[0].keys())
+                self.logger.info(f"Interior recommendation fields: {sample_fields}")
+                # Log sample values (convert Decimal to string for logging)
+                sample_data = {k: str(v) if isinstance(v, Decimal) else v for k, v in list(recommendations_clean[0].items())[:5]}
+                self.logger.info(f"Sample data (first 5 fields): {sample_data}")
+            
+            # Save to DynamoDB
+            success = self.update_session_data(session_id, updates)
+            
+            if not success:
+                raise Exception("Failed to update session data in DynamoDB")
+            
+            self.logger.info(f"✅ Successfully saved {len(recommendations_clean)} interiors to DynamoDB as Map type")
+            
+        except Exception as e:
+            self.logger.error(f"❌ Failed to save interior data to DynamoDB: {str(e)}")
+            # Don't raise - allow Lambda to return response even if DynamoDB save fails
+            # Streamlit can still display from API response
+    
+    def _upload_image_to_s3(self, image_url: str, s3_key: str) -> Optional[str]:
+        """이미지를 S3에 업로드"""
+        try:
+            import requests
+            import boto3
+            
+            # Download image
+            response = requests.get(image_url, timeout=30)
+            response.raise_for_status()
+            image_data = response.content
+            
+            # Upload to S3
+            s3_client = boto3.client('s3')
+            bucket_name = os.getenv('S3_BUCKET_NAME', 'ai-branding-chatbot-assets-908601828278')
+            
+            s3_client.put_object(
+                Bucket=bucket_name,
+                Key=s3_key,
+                Body=image_data,
+                ContentType='image/png'
+            )
+            
+            # Generate presigned URL (valid for 7 days)
+            s3_url = s3_client.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': bucket_name, 'Key': s3_key},
+                ExpiresIn=604800  # 7 days
+            )
+            self.logger.info(f"Image uploaded to S3: {s3_url}")
+            return s3_url
+            
+        except Exception as e:
+            self.logger.error(f"Failed to upload image to S3: {str(e)}")
+            return None
+    
+    def _create_interior_image_prompt(self, style: str, industry: str, 
+                                      colors: List[str], materials: List[str]) -> str:
+        """인테리어 이미지 프롬프트 생성"""
+        # 스타일별 키워드
+        style_keywords = {
+            'modern': 'sleek, minimalist, contemporary',
+            'cozy': 'warm, comfortable, inviting',
+            'industrial': 'raw, urban, edgy',
+            'classic': 'elegant, timeless, refined',
+            'scandinavian': 'bright, airy, natural'
+        }
+        
+        style_desc = style_keywords.get(style.lower(), 'stylish, professional')
+        
+        # 업종별 키워드
+        industry_keywords = {
+            'restaurant': 'dining area, tables and chairs, welcoming atmosphere',
+            'cafe': 'coffee shop, cozy seating, relaxed ambiance',
+            'retail': 'store interior, display shelves, shopping space',
+            'office': 'workspace, desks, professional environment'
+        }
+        
+        industry_desc = industry_keywords.get(industry.lower(), 'commercial space')
+        
+        # 색상 및 소재 정보
+        color_desc = ', '.join(colors[:3]) if colors else 'neutral tones'
+        material_desc = ', '.join(materials[:3]) if materials else 'modern materials'
+        
+        prompt = f"""Professional interior design photograph of a {style} style {industry} space.
+        
+{style_desc}, {industry_desc}.
+
+Color palette: {color_desc}
+Materials: {material_desc}
+
+High-quality, realistic, well-lit, professional photography, 
+architectural digest style, wide angle view, 8k resolution, 
+no people, clean and organized space"""
+        
+        return prompt
     
     def _recommendation_to_dict(self, recommendation: InteriorRecommendation) -> Dict[str, Any]:
         """InteriorRecommendation을 딕셔너리로 변환"""

@@ -1,56 +1,6 @@
 version = 0.1
 
-# Local development configuration
-[local]
-[local.global]
-[local.global.parameters]
-stack_name = "ai-branding-chatbot-local"
-
-[local.build]
-[local.build.parameters]
-cached = true
-parallel = true
-
-[local.validate]
-[local.validate.parameters]
-lint = true
-
-[local.local_start_api]
-[local.local_start_api.parameters]
-warm_containers = "EAGER"
-parameter_overrides = "Environment=local ProjectName=ai-branding-chatbot"
-env_vars = """
-ENVIRONMENT=local
-DYNAMODB_ENDPOINT=http://host.docker.internal:8000
-S3_ENDPOINT=http://host.docker.internal:9000
-CHROMA_ENDPOINT=http://host.docker.internal:8001
-DYNAMODB_TABLE=ai-branding-chatbot-sessions-local
-S3_BUCKET=ai-branding-chatbot-assets-local
-AWS_ACCESS_KEY_ID=dummy
-AWS_SECRET_ACCESS_KEY=dummy
-AWS_DEFAULT_REGION=us-east-1
-LOG_LEVEL=DEBUG
-OPENAI_SECRET_NAME=openai-api-key
-"""
-
-[local.local_start_lambda]
-[local.local_start_lambda.parameters]
-warm_containers = "EAGER"
-env_vars = """
-ENVIRONMENT=local
-DYNAMODB_ENDPOINT=http://host.docker.internal:8000
-S3_ENDPOINT=http://host.docker.internal:9000
-CHROMA_ENDPOINT=http://host.docker.internal:8001
-DYNAMODB_TABLE=ai-branding-chatbot-sessions-local
-S3_BUCKET=ai-branding-chatbot-assets-local
-AWS_ACCESS_KEY_ID=dummy
-AWS_SECRET_ACCESS_KEY=dummy
-AWS_DEFAULT_REGION=us-east-1
-LOG_LEVEL=DEBUG
-OPENAI_SECRET_NAME=openai-api-key
-"""
-
-# Development environment configuration
+# AWS-only architecture - Development environment configuration
 [dev]
 [dev.global]
 [dev.global.parameters]

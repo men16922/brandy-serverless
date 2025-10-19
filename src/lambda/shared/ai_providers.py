@@ -8,6 +8,7 @@ import asyncio
 import aiohttp
 import boto3
 import base64
+import time
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from datetime import datetime
@@ -15,6 +16,7 @@ import os
 import uuid
 
 from .models import ImageResult
+from .utils import exponential_backoff
 
 
 class AIProvider(ABC):
@@ -22,8 +24,8 @@ class AIProvider(ABC):
     
     def __init__(self, provider_name: str):
         self.provider_name = provider_name
-        self.timeout = 30
-        self.max_retries = 3
+        self.timeout = 50  # Increased from 30 to 50 seconds for DALL-E/Gemini
+        self.max_retries = 2  # Reduced retries to fit within Lambda timeout
         self.retry_delay = 1
     
     @abstractmethod
@@ -32,7 +34,10 @@ class AIProvider(ABC):
         pass
     
     def _create_image_result(self, url: str, style: str, prompt: str, 
-                           metadata: Dict[str, Any] = None, is_fallback: bool = False) -> ImageResult:
+                           metadata: Dict[str, Any] = None, is_fallback: bool = False,
+                           error_message: Optional[str] = None,
+                           generation_time_ms: Optional[int] = None,
+                           retry_count: Optional[int] = None) -> ImageResult:
         """ImageResult 객체 생성 헬퍼"""
         return ImageResult(
             url=url,
@@ -40,7 +45,10 @@ class AIProvider(ABC):
             style=style,
             prompt=prompt,
             metadata=metadata or {},
-            is_fallback=is_fallback
+            is_fallback=is_fallback,
+            error_message=error_message,
+            generation_time_ms=generation_time_ms,
+            retry_count=retry_count
         )
 
 
@@ -130,14 +138,14 @@ class DALLEProvider(AIProvider):
                             )
                         elif response.status == 429:  # Rate limit
                             if attempt < self.max_retries - 1:
-                                wait_time = self.retry_delay * (2 ** attempt)
+                                wait_time = exponential_backoff(attempt, base_delay=self.retry_delay)
                                 await asyncio.sleep(wait_time)
                                 continue
                             else:
                                 raise Exception(f"Rate limit exceeded after {self.max_retries} attempts")
                         elif response.status >= 500:  # Server error
                             if attempt < self.max_retries - 1:
-                                wait_time = self.retry_delay * (2 ** attempt)
+                                wait_time = exponential_backoff(attempt, base_delay=self.retry_delay)
                                 await asyncio.sleep(wait_time)
                                 continue
                             else:
@@ -149,13 +157,15 @@ class DALLEProvider(AIProvider):
                             
             except asyncio.TimeoutError:
                 if attempt < self.max_retries - 1:
-                    await asyncio.sleep(self.retry_delay)
+                    wait_time = exponential_backoff(attempt, base_delay=self.retry_delay)
+                    await asyncio.sleep(wait_time)
                     continue
                 else:
                     raise Exception(f"Request timeout after {self.max_retries} attempts")
             except Exception as e:
                 if attempt < self.max_retries - 1:
-                    await asyncio.sleep(self.retry_delay)
+                    wait_time = exponential_backoff(attempt, base_delay=self.retry_delay)
+                    await asyncio.sleep(wait_time)
                     continue
                 else:
                     raise e
@@ -207,54 +217,113 @@ class DALLEProvider(AIProvider):
 
 
 class SDXLProvider(AIProvider):
-    """AWS Bedrock Stability AI SDXL Provider"""
+    """AWS Bedrock Image Generator Provider (Titan Image Generator v2)"""
     
-    def __init__(self, region: str = None):
+    def __init__(self, region: str = None, logger = None):
         super().__init__("sdxl")
         self.region = region or os.getenv('AWS_REGION', 'us-east-1')
-        self.model_id = "stability.stable-diffusion-xl-v1"
+        # Use Titan Image Generator (SDXL is deprecated)
+        # Check both IMAGE_MODEL_ID and SDXL_MODEL_ID for backward compatibility
+        self.model_id = os.getenv('IMAGE_MODEL_ID') or os.getenv('SDXL_MODEL_ID', 'amazon.titan-image-generator-v2:0')
+        self.logger = logger or self._create_logger()
+        
+        # Log initialization attempt
+        self.logger.info(f"Initializing SDXLProvider: region={self.region}, model_id={self.model_id}")
+        
+        # Check environment
+        environment = os.getenv('ENVIRONMENT', 'prod')
+        self.logger.info(f"Environment: {environment}")
         
         # Bedrock 클라이언트 초기화
         try:
-            if os.getenv('ENVIRONMENT') == 'local':
+            if environment == 'local':
                 # 로컬 환경에서는 Mock 클라이언트 사용
+                self.logger.info("Using mock Bedrock client for local environment")
                 self.bedrock_client = None
             else:
+                # Check AWS credentials
+                try:
+                    import boto3
+                    sts = boto3.client('sts')
+                    identity = sts.get_caller_identity()
+                    self.logger.info(f"AWS credentials found: Account={identity.get('Account')}, ARN={identity.get('Arn')}")
+                except Exception as cred_error:
+                    self.logger.error(f"AWS credentials check failed: {cred_error}")
+                    raise Exception(f"AWS credentials not configured: {cred_error}")
+                
+                # Initialize Bedrock client
+                self.logger.info(f"Creating Bedrock runtime client in region: {self.region}")
                 self.bedrock_client = boto3.client('bedrock-runtime', region_name=self.region)
+                self.logger.info("Bedrock runtime client created successfully")
+                
+                # Validate client can access Bedrock
+                try:
+                    # Test connection by listing models (if available)
+                    self.logger.info("Validating Bedrock client access...")
+                    # Note: We can't easily test without making an actual API call
+                    self.logger.info("Bedrock client validation skipped (will validate on first API call)")
+                except Exception as validation_error:
+                    self.logger.warning(f"Bedrock client validation warning: {validation_error}")
+                    
         except Exception as e:
-            print(f"Failed to initialize Bedrock client: {e}")
+            self.logger.error(f"Failed to initialize Bedrock client: {type(e).__name__}: {str(e)}")
+            self.logger.error(f"Error details: region={self.region}, environment={environment}")
             self.bedrock_client = None
+            # Re-raise to make initialization failure visible
+            raise Exception(f"SDXLProvider initialization failed: {str(e)}")
+    
+    def _create_logger(self):
+        """Create logger for SDXL provider"""
+        import logging
+        logger = logging.getLogger('sdxl_provider')
+        logger.setLevel(logging.INFO)
+        if not logger.handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+        return logger
     
     async def generate_image(self, prompt: str, style: str = "default", **kwargs) -> ImageResult:
         """SDXL 이미지 생성"""
         
+        start_time = time.time()
+        self.logger.info(f"Starting SDXL image generation: style={style}, prompt_length={len(prompt)}")
+        
         # 로컬 환경에서는 Mock 이미지 생성
-        if os.getenv('ENVIRONMENT') == 'local' or not self.bedrock_client:
+        environment = os.getenv('ENVIRONMENT', 'prod')
+        if environment == 'local' or not self.bedrock_client:
+            self.logger.info(f"Using mock image generation: environment={environment}, bedrock_client={'None' if not self.bedrock_client else 'available'}")
             return await self._generate_mock_image(prompt, style, **kwargs)
         
         if not self.bedrock_client:
-            raise Exception("Bedrock client not available")
+            error_msg = "Bedrock client not available"
+            self.logger.error(error_msg)
+            raise Exception(error_msg)
         
-        # SDXL 요청 페이로드 구성
+        # Titan Image Generator 요청 페이로드 구성
         payload = {
-            "text_prompts": [
-                {
-                    "text": self._optimize_prompt_for_sdxl(prompt),
-                    "weight": 1.0
-                }
-            ],
-            "cfg_scale": kwargs.get("cfg_scale", 7.0),
-            "steps": kwargs.get("steps", 30),
-            "seed": kwargs.get("seed", 0),
-            "width": kwargs.get("width", 1024),
-            "height": kwargs.get("height", 1024),
-            "samples": 1,
-            "style_preset": self._map_style_to_sdxl(style)
+            "taskType": "TEXT_IMAGE",
+            "textToImageParams": {
+                "text": self._optimize_prompt_for_titan(prompt)
+            },
+            "imageGenerationConfig": {
+                "numberOfImages": 1,
+                "quality": "premium",
+                "height": kwargs.get("height", 1024),
+                "width": kwargs.get("width", 1024),
+                "cfgScale": kwargs.get("cfg_scale", 8.0),
+                "seed": kwargs.get("seed", 0)
+            }
         }
         
         # 재시도 로직
         for attempt in range(self.max_retries):
             try:
+                self.logger.info(f"SDXL API call attempt {attempt + 1}/{self.max_retries}: model_id={self.model_id}")
+                # Note: Some loggers don't have debug method
+                self.logger.info(f"SDXL payload keys: {list(payload.keys())}")
+                
                 # Bedrock API 호출
                 response = self.bedrock_client.invoke_model(
                     modelId=self.model_id,
@@ -263,17 +332,24 @@ class SDXLProvider(AIProvider):
                     body=json.dumps(payload)
                 )
                 
-                # 응답 파싱
-                response_body = json.loads(response['body'].read())
+                self.logger.info(f"SDXL API call successful on attempt {attempt + 1}")
                 
-                if 'artifacts' in response_body and len(response_body['artifacts']) > 0:
+                # 응답 파싱 (Titan Image Generator)
+                response_body = json.loads(response['body'].read())
+                self.logger.info(f"Titan Image Generator response keys: {list(response_body.keys())}")
+                
+                if 'images' in response_body and len(response_body['images']) > 0:
                     # Base64 이미지 데이터 추출
-                    image_data = response_body['artifacts'][0]['base64']
+                    image_data = response_body['images'][0]
+                    image_size = len(image_data)
+                    
+                    latency_ms = int((time.time() - start_time) * 1000)
+                    self.logger.info(f"Titan image generated successfully: size={image_size} bytes, latency={latency_ms}ms")
                     
                     # 임시 URL 생성 (실제로는 S3에 업로드 후 URL 반환)
                     image_url = f"data:image/png;base64,{image_data}"
                     
-                    return self._create_image_result(
+                    result = self._create_image_result(
                         url=image_url,
                         style=style,
                         prompt=prompt,
@@ -281,54 +357,69 @@ class SDXLProvider(AIProvider):
                             "original_prompt": prompt,
                             "generation_time": datetime.utcnow().isoformat(),
                             "attempt": attempt + 1,
-                            "model": "sdxl-v1",
-                            "cfg_scale": payload["cfg_scale"],
-                            "steps": payload["steps"],
-                            "style_preset": payload["style_preset"]
+                            "model": "titan-image-generator-v2",
+                            "cfg_scale": payload["imageGenerationConfig"]["cfgScale"],
+                            "seed": payload["imageGenerationConfig"]["seed"],
+                            "latency_ms": latency_ms
                         }
                     )
+                    # Add retry_count and generation_time_ms to result
+                    result.retry_count = attempt
+                    result.generation_time_ms = latency_ms
+                    return result
                 else:
-                    raise Exception("No image generated in response")
+                    error_msg = "No image generated in Titan response"
+                    self.logger.error(f"{error_msg}: response_body={response_body}")
+                    raise Exception(error_msg)
                     
             except Exception as e:
+                error_type = type(e).__name__
+                error_msg = str(e)
+                self.logger.error(f"SDXL generation attempt {attempt + 1} failed: {error_type}: {error_msg}")
+                
                 if attempt < self.max_retries - 1:
-                    await asyncio.sleep(self.retry_delay * (2 ** attempt))
+                    # Use exponential backoff with jitter
+                    retry_delay = exponential_backoff(attempt, base_delay=self.retry_delay, max_delay=30.0)
+                    self.logger.info(f"Retrying in {retry_delay:.2f}s (attempt {attempt + 1}/{self.max_retries})...")
+                    await asyncio.sleep(retry_delay)
                     continue
                 else:
-                    raise Exception(f"SDXL generation failed after {self.max_retries} attempts: {str(e)}")
+                    final_error = f"SDXL generation failed after {self.max_retries} attempts: {error_msg}"
+                    self.logger.error(final_error)
+                    raise Exception(final_error)
     
-    def _optimize_prompt_for_sdxl(self, prompt: str) -> str:
-        """SDXL 특화 프롬프트 최적화"""
-        # SDXL은 더 상세한 프롬프트를 선호
-        sdxl_enhancements = [
-            "high quality", "detailed", "professional photography",
-            "sharp focus", "8k resolution", "masterpiece"
-        ]
+    def _optimize_prompt_for_titan(self, prompt: str) -> str:
+        """
+        Titan Image Generator 특화 프롬프트 최적화
         
-        # 기존 프롬프트에 SDXL 최적화 키워드 추가
-        enhanced_prompt = prompt
+        CRITICAL: Titan Image Generator v2 has a 512 character limit for prompts.
+        ValidationException will be raised if prompt exceeds this limit.
+        """
+        MAX_TITAN_PROMPT_LENGTH = 512
         
-        # 이미 포함되지 않은 키워드만 추가
-        for enhancement in sdxl_enhancements:
-            if enhancement not in enhanced_prompt.lower():
-                enhanced_prompt += f", {enhancement}"
+        # Log original prompt length
+        original_length = len(prompt)
+        self.logger.info(f"Optimizing prompt for Titan: original_length={original_length}")
         
-        # 길이 제한
-        if len(enhanced_prompt) > 1000:
-            enhanced_prompt = enhanced_prompt[:1000] + "..."
+        # If prompt is already within limit, return as-is
+        if original_length <= MAX_TITAN_PROMPT_LENGTH:
+            self.logger.info(f"Prompt within limit ({original_length}/{MAX_TITAN_PROMPT_LENGTH}), no truncation needed")
+            return prompt
         
-        return enhanced_prompt
-    
-    def _map_style_to_sdxl(self, style: str) -> str:
-        """스타일을 SDXL style_preset으로 매핑"""
-        style_mapping = {
-            "modern": "photographic",
-            "classic": "enhance", 
-            "vibrant": "comic-book",
-            "default": "photographic"
-        }
+        # Prompt exceeds limit - need to truncate intelligently
+        self.logger.warning(
+            f"Prompt exceeds Titan limit: {original_length} > {MAX_TITAN_PROMPT_LENGTH}, "
+            f"truncating..."
+        )
         
-        return style_mapping.get(style, "photographic")
+        # Truncate with ellipsis, leaving room for it
+        truncated_prompt = prompt[:MAX_TITAN_PROMPT_LENGTH - 3] + "..."
+        
+        self.logger.info(
+            f"Prompt truncated: {original_length} → {len(truncated_prompt)} characters"
+        )
+        
+        return truncated_prompt
     
     async def _generate_mock_image(self, prompt: str, style: str = "default", **kwargs) -> ImageResult:
         """Mock SDXL 이미지 생성 (개발/테스트용)"""
@@ -473,7 +564,8 @@ class GeminiProvider(AIProvider):
                         
                 except Exception as e:
                     if attempt < self.max_retries - 1:
-                        await asyncio.sleep(self.retry_delay * (2 ** attempt))
+                        wait_time = exponential_backoff(attempt, base_delay=self.retry_delay)
+                        await asyncio.sleep(wait_time)
                         continue
                     else:
                         raise Exception(f"Vertex AI Imagen failed after {self.max_retries} attempts: {str(e)}")
@@ -545,14 +637,34 @@ class AIProviderFactory:
     @staticmethod
     def create_provider(provider_type: str, **kwargs) -> AIProvider:
         """Provider 타입에 따라 적절한 Provider 인스턴스 생성"""
-        if provider_type.lower() == "dalle":
-            return DALLEProvider(api_key=kwargs.get("api_key"))
-        elif provider_type.lower() == "sdxl":
-            return SDXLProvider(region=kwargs.get("region"))
-        elif provider_type.lower() == "gemini":
-            return GeminiProvider(api_key=kwargs.get("api_key"))
-        else:
-            raise ValueError(f"Unknown provider type: {provider_type}")
+        import logging
+        logger = logging.getLogger('ai_provider_factory')
+        
+        logger.info(f"Creating AI provider: type={provider_type}, kwargs={list(kwargs.keys())}")
+        
+        try:
+            if provider_type.lower() == "dalle":
+                logger.info("Initializing DALL-E provider...")
+                provider = DALLEProvider(api_key=kwargs.get("api_key"))
+                logger.info("DALL-E provider created successfully")
+                return provider
+            elif provider_type.lower() == "sdxl":
+                logger.info("Initializing SDXL provider...")
+                provider = SDXLProvider(region=kwargs.get("region"), logger=kwargs.get("logger"))
+                logger.info("SDXL provider created successfully")
+                return provider
+            elif provider_type.lower() == "gemini":
+                logger.info("Initializing Gemini provider...")
+                provider = GeminiProvider(api_key=kwargs.get("api_key"))
+                logger.info("Gemini provider created successfully")
+                return provider
+            else:
+                error_msg = f"Unknown provider type: {provider_type}"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+        except Exception as e:
+            logger.error(f"Failed to create {provider_type} provider: {type(e).__name__}: {str(e)}")
+            raise
     
     @staticmethod
     def get_available_providers() -> List[str]:

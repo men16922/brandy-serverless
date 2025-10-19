@@ -8,9 +8,9 @@ from datetime import datetime
 import os
 from typing import Dict, Any, List
 
-# 공통 유틸리티 import
+# 공통 유틸리티 import - Lambda Layer structure
 import sys
-sys.path.append('/opt/python')
+sys.path.insert(0, '/opt/python/python')
 from shared.utils import setup_logging, get_aws_clients, create_response
 from shared.agent_communication import AgentCommunication
 from shared.knowledge_base import get_knowledge_base

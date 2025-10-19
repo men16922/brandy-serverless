@@ -29,218 +29,139 @@ def load_env_file():
 # Load environment variables from .env.test
 load_env_file()
 
-# Set default environment variables for tests (fallback)
-os.environ.setdefault('ENVIRONMENT', 'local')
-os.environ.setdefault('SESSIONS_TABLE', 'branding-chatbot-sessions-test')
+# Set default environment variables for tests (AWS dev environment)
+os.environ.setdefault('ENVIRONMENT', 'dev')
+os.environ.setdefault('SESSIONS_TABLE', 'ai-branding-chatbot-sessions')
 os.environ.setdefault('AWS_DEFAULT_REGION', 'us-east-1')
+os.environ.setdefault('S3_BUCKET', 'ai-branding-chatbot-assets-908601828278')
 
 # Add project root to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'src', 'lambda'))
 
 
-class DockerComposeManager:
-    """Docker Compose service management"""
+class AWSEnvironmentChecker:
+    """AWS environment availability checker"""
     
     def __init__(self):
-        self.compose_file = "docker-compose.local.yml"
-        self.services = ["dynamodb-local", "minio", "chroma"]
+        self.region = os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
     
-    def is_docker_available(self) -> bool:
-        """Check if Docker is running"""
+    def is_aws_configured(self) -> bool:
+        """Check if AWS credentials are configured"""
         try:
-            result = subprocess.run(
-                ["docker", "--version"],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            return result.returncode == 0
-        except Exception:
+            sts = boto3.client('sts')
+            sts.get_caller_identity()
+            return True
+        except Exception as e:
+            print(f"❌ AWS credentials not configured: {e}")
             return False
     
-    def are_services_running(self) -> bool:
-        """Check if Docker Compose services are running"""
+    def check_services(self) -> bool:
+        """Check if required AWS services are accessible"""
         try:
-            result = subprocess.run(
-                ["docker-compose", "-f", self.compose_file, "ps", "-q"],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            running_containers = result.stdout.strip().split('\n')
-            return len([c for c in running_containers if c]) >= len(self.services)
-        except Exception:
+            # Check DynamoDB
+            dynamodb = boto3.client('dynamodb', region_name=self.region)
+            dynamodb.list_tables()
+            
+            # Check S3
+            s3 = boto3.client('s3', region_name=self.region)
+            s3.list_buckets()
+            
+            print("✅ AWS services are accessible")
+            return True
+            
+        except Exception as e:
+            print(f"❌ AWS services not accessible: {e}")
             return False
-    
-    def wait_for_health(self, timeout: int = 60) -> bool:
-        """Wait for all services to be healthy"""
-        start_time = time.time()
-        
-        while time.time() - start_time < timeout:
-            try:
-                # Check DynamoDB Local
-                dynamodb = boto3.client(
-                    'dynamodb',
-                    endpoint_url='http://localhost:8000',
-                    region_name='us-east-1',
-                    aws_access_key_id='dummy',
-                    aws_secret_access_key='dummy'
-                )
-                dynamodb.list_tables()
-                
-                # Check MinIO
-                response = requests.get('http://localhost:9000/minio/health/live', timeout=5)
-                if response.status_code != 200:
-                    raise Exception("MinIO not healthy")
-                
-                # Check Chroma (port check)
-                import socket
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(5)
-                result = sock.connect_ex(('localhost', 8001))
-                sock.close()
-                if result != 0:
-                    raise Exception("Chroma not healthy")
-                
-                print("✅ All Docker services are healthy")
-                return True
-                
-            except Exception as e:
-                print(f"⏳ Waiting for services... ({e})")
-                time.sleep(2)
-        
-        return False
 
 
 @pytest.fixture(scope="session")
-def docker_services():
+def aws_environment():
     """
-    Session-scoped fixture for Docker Compose services.
-    Checks if services are running and healthy.
+    Session-scoped fixture for AWS environment.
+    Checks if AWS credentials are configured and services are accessible.
     """
-    manager = DockerComposeManager()
+    checker = AWSEnvironmentChecker()
     
-    if not manager.is_docker_available():
-        pytest.skip("Docker not available")
+    if not checker.is_aws_configured():
+        pytest.skip("AWS credentials not configured. Run: aws configure")
     
-    if not manager.are_services_running():
-        pytest.skip(
-            "Docker Compose services not running. "
-            "Run: docker-compose -f docker-compose.local.yml up -d"
-        )
+    if not checker.check_services():
+        pytest.skip("AWS services not accessible")
     
-    if not manager.wait_for_health():
-        pytest.skip("Services failed health check")
+    yield checker
     
-    yield manager
-    
-    print("🧹 Docker services session completed")
+    print("🧹 AWS environment session completed")
 
 
 @pytest.fixture
 def dynamodb_client():
-    """Create DynamoDB Local client"""
-    return boto3.client(
-        'dynamodb',
-        endpoint_url='http://localhost:8000',
-        region_name='us-east-1',
-        aws_access_key_id='dummy',
-        aws_secret_access_key='dummy'
-    )
+    """Create AWS DynamoDB client"""
+    return boto3.client('dynamodb', region_name=os.getenv('AWS_DEFAULT_REGION', 'us-east-1'))
 
 
 @pytest.fixture
 def s3_client():
-    """Create MinIO S3 client"""
-    return boto3.client(
-        's3',
-        endpoint_url='http://localhost:9000',
-        aws_access_key_id='minioadmin',
-        aws_secret_access_key='minioadmin',
-        region_name='us-east-1'
-    )
+    """Create AWS S3 client"""
+    return boto3.client('s3', region_name=os.getenv('AWS_DEFAULT_REGION', 'us-east-1'))
 
 
 @pytest.fixture
 def test_table_name():
-    """Standard test table name"""
-    return 'branding-chatbot-sessions-test'
+    """AWS DynamoDB table name for tests"""
+    return os.getenv('SESSIONS_TABLE', 'ai-branding-chatbot-sessions')
 
 
 @pytest.fixture
-def cleanup_dynamodb_table(dynamodb_client, test_table_name):
-    """Cleanup fixture that removes test table after test"""
-    yield
-    
-    try:
-        dynamodb_client.delete_table(TableName=test_table_name)
-        print(f"✅ Cleaned up test table: {test_table_name}")
-    except Exception as e:
-        print(f"⚠️ Cleanup warning: {e}")
+def test_bucket_name():
+    """AWS S3 bucket name for tests"""
+    return os.getenv('S3_BUCKET', 'ai-branding-chatbot-assets-908601828278')
 
 
 class TestEnvironment:
-    """Test environment setup and management"""
+    """AWS test environment setup and management"""
     
     def __init__(self):
-        self.dynamodb = boto3.client(
-            'dynamodb',
-            endpoint_url='http://localhost:8000',
-            region_name='us-east-1',
-            aws_access_key_id='dummy',
-            aws_secret_access_key='dummy'
-        )
-        self.table_name = 'branding-chatbot-sessions-test'
+        self.region = os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
+        self.dynamodb = boto3.client('dynamodb', region_name=self.region)
+        self.table_name = os.getenv('SESSIONS_TABLE', 'ai-branding-chatbot-sessions')
+        self.bucket_name = os.getenv('S3_BUCKET', 'ai-branding-chatbot-assets-908601828278')
     
-    def setup_dynamodb_table(self):
-        """Create DynamoDB test table"""
+    def verify_dynamodb_table(self):
+        """Verify DynamoDB table exists"""
         try:
-            # Delete existing table
-            try:
-                self.dynamodb.delete_table(TableName=self.table_name)
-                time.sleep(2)
-            except:
-                pass
-            
-            # Create new table
-            self.dynamodb.create_table(
-                TableName=self.table_name,
-                KeySchema=[
-                    {'AttributeName': 'sessionId', 'KeyType': 'HASH'}
-                ],
-                AttributeDefinitions=[
-                    {'AttributeName': 'sessionId', 'AttributeType': 'S'}
-                ],
-                BillingMode='PAY_PER_REQUEST'
-            )
-            
-            # Wait for table creation
-            waiter = self.dynamodb.get_waiter('table_exists')
-            waiter.wait(TableName=self.table_name, WaiterConfig={'Delay': 1, 'MaxAttempts': 30})
-            
-            print(f"✅ DynamoDB table '{self.table_name}' created")
+            self.dynamodb.describe_table(TableName=self.table_name)
+            print(f"✅ DynamoDB table '{self.table_name}' exists")
             return True
-            
         except Exception as e:
-            print(f"❌ Failed to create DynamoDB table: {e}")
+            print(f"❌ DynamoDB table not found: {e}")
+            return False
+    
+    def verify_s3_bucket(self):
+        """Verify S3 bucket exists"""
+        try:
+            s3 = boto3.client('s3', region_name=self.region)
+            s3.head_bucket(Bucket=self.bucket_name)
+            print(f"✅ S3 bucket '{self.bucket_name}' exists")
+            return True
+        except Exception as e:
+            print(f"❌ S3 bucket not found: {e}")
             return False
     
     def cleanup_test_data(self):
-        """Cleanup test data"""
-        try:
-            self.dynamodb.delete_table(TableName=self.table_name)
-            print(f"✅ Test table '{self.table_name}' cleaned up")
-        except Exception as e:
-            print(f"⚠️ Cleanup warning: {e}")
+        """Cleanup test data (optional - AWS resources persist)"""
+        print(f"ℹ️ Test data cleanup skipped (AWS resources persist)")
 
 
 @pytest.fixture
-def test_environment(docker_services):
-    """Test environment fixture with DynamoDB table setup"""
+def test_environment(aws_environment):
+    """Test environment fixture with AWS resource verification"""
     env = TestEnvironment()
     
-    if not env.setup_dynamodb_table():
-        pytest.skip("Failed to setup test environment")
+    if not env.verify_dynamodb_table():
+        pytest.skip("DynamoDB table not found. Deploy to AWS first: ./safe_deploy.sh")
+    
+    if not env.verify_s3_bucket():
+        pytest.skip("S3 bucket not found. Deploy to AWS first: ./safe_deploy.sh")
     
     yield env
     

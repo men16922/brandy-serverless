@@ -8,11 +8,11 @@
       "Parameters": {
         "sessionId.$": "$.sessionId",
         "currentStep": 1,
-        "timestamp.$": "$$.State.EnteredTime"
+        "timestamp.$": "$$.State.EnteredTime",
+        "businessInfo.$": "$.businessInfo"
       },
       "Next": "BusinessAnalysis"
     },
-    
     "BusinessAnalysis": {
       "Type": "Parallel",
       "Comment": "Parallel business analysis by Product Insight and Market Analyst agents",
@@ -35,7 +35,11 @@
               "TimeoutSeconds": 30,
               "Retry": [
                 {
-                  "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException"
+                  ],
                   "IntervalSeconds": 2,
                   "MaxAttempts": 3,
                   "BackoffRate": 2.0
@@ -43,7 +47,9 @@
               ],
               "Catch": [
                 {
-                  "ErrorEquals": ["States.ALL"],
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
                   "Next": "ProductInsightFallback",
                   "ResultPath": "$.error"
                 }
@@ -54,7 +60,7 @@
               "Type": "Pass",
               "Comment": "Fallback result for Product Insight analysis",
               "Parameters": {
-                "analysis": "기본 분석 결과",
+                "analysis": "\uae30\ubcf8 \ubd84\uc11d \uacb0\uacfc",
                 "score": 70,
                 "fallback": true
               },
@@ -81,7 +87,11 @@
               "TimeoutSeconds": 30,
               "Retry": [
                 {
-                  "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException"
+                  ],
                   "IntervalSeconds": 2,
                   "MaxAttempts": 3,
                   "BackoffRate": 2.0
@@ -89,7 +99,9 @@
               ],
               "Catch": [
                 {
-                  "ErrorEquals": ["States.ALL"],
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
                   "Next": "MarketAnalysisFallback",
                   "ResultPath": "$.error"
                 }
@@ -100,8 +112,8 @@
               "Type": "Pass",
               "Comment": "Fallback result for Market Analysis",
               "Parameters": {
-                "trends": "기본 시장 동향",
-                "competition": "보통",
+                "trends": "\uae30\ubcf8 \uc2dc\uc7a5 \ub3d9\ud5a5",
+                "competition": "\ubcf4\ud1b5",
                 "fallback": true
               },
               "ResultPath": "$.marketAnalysis",
@@ -113,7 +125,6 @@
       "Next": "BusinessNameSuggestion",
       "ResultPath": "$.analysisResults"
     },
-
     "BusinessNameSuggestion": {
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
@@ -130,7 +141,11 @@
       "TimeoutSeconds": 30,
       "Retry": [
         {
-          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
           "IntervalSeconds": 2,
           "MaxAttempts": 3,
           "BackoffRate": 2.0
@@ -138,36 +153,47 @@
       ],
       "Catch": [
         {
-          "ErrorEquals": ["States.ALL"],
+          "ErrorEquals": [
+            "States.ALL"
+          ],
           "Next": "NameSuggestionFallback",
           "ResultPath": "$.error"
         }
       ],
       "Next": "WaitForNameSelection"
     },
-
     "NameSuggestionFallback": {
       "Type": "Pass",
       "Comment": "Fallback business names",
       "Parameters": {
         "suggestions": [
-          {"name": "비즈니스플러스", "score": 75, "description": "기본 제안 1"},
-          {"name": "스마트솔루션", "score": 70, "description": "기본 제안 2"},
-          {"name": "프로서비스", "score": 65, "description": "기본 제안 3"}
+          {
+            "name": "\ube44\uc988\ub2c8\uc2a4\ud50c\ub7ec\uc2a4",
+            "score": 75,
+            "description": "\uae30\ubcf8 \uc81c\uc548 1"
+          },
+          {
+            "name": "\uc2a4\ub9c8\ud2b8\uc194\ub8e8\uc158",
+            "score": 70,
+            "description": "\uae30\ubcf8 \uc81c\uc548 2"
+          },
+          {
+            "name": "\ud504\ub85c\uc11c\ube44\uc2a4",
+            "score": 65,
+            "description": "\uae30\ubcf8 \uc81c\uc548 3"
+          }
         ],
         "fallback": true
       },
       "ResultPath": "$.namesSuggestion",
       "Next": "WaitForNameSelection"
     },
-
     "WaitForNameSelection": {
       "Type": "Wait",
       "Comment": "Wait for user to select a business name",
       "Seconds": 1,
       "Next": "SignboardGeneration"
     },
-
     "SignboardGeneration": {
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
@@ -185,7 +211,11 @@
       "TimeoutSeconds": 90,
       "Retry": [
         {
-          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
           "IntervalSeconds": 5,
           "MaxAttempts": 2,
           "BackoffRate": 2.0
@@ -193,36 +223,47 @@
       ],
       "Catch": [
         {
-          "ErrorEquals": ["States.ALL"],
+          "ErrorEquals": [
+            "States.ALL"
+          ],
           "Next": "SignboardFallback",
           "ResultPath": "$.error"
         }
       ],
       "Next": "WaitForSignboardSelection"
     },
-
     "SignboardFallback": {
       "Type": "Pass",
       "Comment": "Fallback signboard images",
       "Parameters": {
         "signboards": [
-          {"id": "fallback-1", "url": "s3://fallbacks/signboard-1.png", "description": "기본 간판 1"},
-          {"id": "fallback-2", "url": "s3://fallbacks/signboard-2.png", "description": "기본 간판 2"},
-          {"id": "fallback-3", "url": "s3://fallbacks/signboard-3.png", "description": "기본 간판 3"}
+          {
+            "id": "fallback-1",
+            "url": "s3://fallbacks/signboard-1.png",
+            "description": "\uae30\ubcf8 \uac04\ud310 1"
+          },
+          {
+            "id": "fallback-2",
+            "url": "s3://fallbacks/signboard-2.png",
+            "description": "\uae30\ubcf8 \uac04\ud310 2"
+          },
+          {
+            "id": "fallback-3",
+            "url": "s3://fallbacks/signboard-3.png",
+            "description": "\uae30\ubcf8 \uac04\ud310 3"
+          }
         ],
         "fallback": true
       },
       "ResultPath": "$.signboardResults",
       "Next": "WaitForSignboardSelection"
     },
-
     "WaitForSignboardSelection": {
       "Type": "Wait",
       "Comment": "Wait for user to select a signboard design",
       "Seconds": 1,
       "Next": "InteriorRecommendation"
     },
-
     "InteriorRecommendation": {
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
@@ -240,7 +281,11 @@
       "TimeoutSeconds": 90,
       "Retry": [
         {
-          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
           "IntervalSeconds": 5,
           "MaxAttempts": 2,
           "BackoffRate": 2.0
@@ -248,36 +293,50 @@
       ],
       "Catch": [
         {
-          "ErrorEquals": ["States.ALL"],
+          "ErrorEquals": [
+            "States.ALL"
+          ],
           "Next": "InteriorFallback",
           "ResultPath": "$.error"
         }
       ],
       "Next": "WaitForInteriorSelection"
     },
-
     "InteriorFallback": {
       "Type": "Pass",
       "Comment": "Fallback interior designs",
       "Parameters": {
         "interiors": [
-          {"id": "fallback-1", "url": "s3://fallbacks/interior-1.png", "description": "기본 인테리어 1", "budget": "중간"},
-          {"id": "fallback-2", "url": "s3://fallbacks/interior-2.png", "description": "기본 인테리어 2", "budget": "경제적"},
-          {"id": "fallback-3", "url": "s3://fallbacks/interior-3.png", "description": "기본 인테리어 3", "budget": "고급"}
+          {
+            "id": "fallback-1",
+            "url": "s3://fallbacks/interior-1.png",
+            "description": "\uae30\ubcf8 \uc778\ud14c\ub9ac\uc5b4 1",
+            "budget": "\uc911\uac04"
+          },
+          {
+            "id": "fallback-2",
+            "url": "s3://fallbacks/interior-2.png",
+            "description": "\uae30\ubcf8 \uc778\ud14c\ub9ac\uc5b4 2",
+            "budget": "\uacbd\uc81c\uc801"
+          },
+          {
+            "id": "fallback-3",
+            "url": "s3://fallbacks/interior-3.png",
+            "description": "\uae30\ubcf8 \uc778\ud14c\ub9ac\uc5b4 3",
+            "budget": "\uace0\uae09"
+          }
         ],
         "fallback": true
       },
       "ResultPath": "$.interiorResults",
       "Next": "WaitForInteriorSelection"
     },
-
     "WaitForInteriorSelection": {
       "Type": "Wait",
       "Comment": "Wait for user to select interior design",
       "Seconds": 1,
       "Next": "GenerateFinalReport"
     },
-
     "GenerateFinalReport": {
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
@@ -297,7 +356,11 @@
       "TimeoutSeconds": 180,
       "Retry": [
         {
-          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
           "IntervalSeconds": 10,
           "MaxAttempts": 2,
           "BackoffRate": 2.0
@@ -305,20 +368,20 @@
       ],
       "Catch": [
         {
-          "ErrorEquals": ["States.ALL"],
+          "ErrorEquals": [
+            "States.ALL"
+          ],
           "Next": "ReportGenerationFailed",
           "ResultPath": "$.error"
         }
       ],
       "Next": "WorkflowComplete"
     },
-
     "ReportGenerationFailed": {
       "Type": "Fail",
       "Comment": "Report generation failed after retries",
       "Cause": "Unable to generate final PDF report"
     },
-
     "WorkflowComplete": {
       "Type": "Pass",
       "Comment": "Workflow completed successfully",

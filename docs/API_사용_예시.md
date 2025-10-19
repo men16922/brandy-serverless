@@ -8,7 +8,7 @@
 
 ### 요청
 ```bash
-curl -X POST http://localhost:3000/sessions \
+curl -X POST https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev/sessions \
   -H "Content-Type: application/json" \
   -d '{
     "businessInfo": {
@@ -34,7 +34,7 @@ curl -X POST http://localhost:3000/sessions \
 
 ### 요청
 ```bash
-curl -X POST http://localhost:3000/analysis \
+curl -X POST https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev/analysis \
   -H "Content-Type: application/json" \
   -d '{
     "sessionId": "abc123-def456-ghi789"
@@ -56,7 +56,7 @@ curl -X POST http://localhost:3000/analysis \
 
 ### 요청
 ```bash
-curl -X GET http://localhost:3000/sessions/abc123-def456-ghi789
+curl -X GET https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev/sessions/abc123-def456-ghi789
 ```
 
 ### 응답 (분석 완료 후)
@@ -97,7 +97,7 @@ curl -X GET http://localhost:3000/sessions/abc123-def456-ghi789
 
 ### 요청
 ```bash
-curl -X POST http://localhost:3000/names/suggest \
+curl -X POST https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev/names/suggest \
   -H "Content-Type: application/json" \
   -d '{
     "sessionId": "abc123-def456-ghi789"
@@ -145,7 +145,7 @@ curl -X POST http://localhost:3000/names/suggest \
 
 ### 요청
 ```bash
-curl -X POST http://localhost:3000/signboards/generate \
+curl -X POST https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev/signboards/generate \
   -H "Content-Type: application/json" \
   -d '{
     "sessionId": "abc123-def456-ghi789",
@@ -206,7 +206,7 @@ curl -X POST http://localhost:3000/signboards/generate \
 
 ### 요청
 ```bash
-curl -X POST http://localhost:3000/interiors/generate \
+curl -X POST https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev/interiors/generate \
   -H "Content-Type: application/json" \
   -d '{
     "sessionId": "abc123-def456-ghi789",
@@ -258,7 +258,7 @@ curl -X POST http://localhost:3000/interiors/generate \
 
 ### 요청
 ```bash
-curl -X POST http://localhost:3000/report/generate \
+curl -X POST https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev/report/generate \
   -H "Content-Type: application/json" \
   -d '{
     "sessionId": "abc123-def456-ghi789"
@@ -280,7 +280,7 @@ curl -X POST http://localhost:3000/report/generate \
 
 ### 요청
 ```bash
-curl -X GET http://localhost:3000/report/url/abc123-def456-ghi789
+curl -X GET https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev/report/url/abc123-def456-ghi789
 ```
 
 ### 응답
@@ -349,8 +349,8 @@ http://localhost:9001 (minioadmin/minioadmin)
 # 2. API 서버 시작  
 ./scripts/dev.sh api
 
-# 3. 다른 터미널에서 API 호출 테스트
-curl -X POST http://localhost:3000/sessions \
+# 3. API 호출 테스트 (AWS API Gateway)
+curl -X POST https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev/sessions \
   -H "Content-Type: application/json" \
   -d '{"businessInfo": {"industry": "restaurant", "region": "seoul", "size": "small"}}'
 

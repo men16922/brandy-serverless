@@ -7,6 +7,7 @@ import json
 import time
 import logging
 import os
+import random
 from typing import Dict, Any, Optional, List, Callable
 from datetime import datetime
 import boto3
@@ -75,18 +76,29 @@ class BedrockClient:
             'CLAUDE_MODEL_ID',
             'us.anthropic.claude-sonnet-4-20250514-v1:0'
         )
-        self.sdxl_model_id = os.getenv(
-            'SDXL_MODEL_ID',
-            'stability.stable-diffusion-xl-v1'
+        # Titan Image Generator (SDXL is deprecated)
+        self.image_model_id = os.getenv(
+            'IMAGE_MODEL_ID',
+            'amazon.titan-image-generator-v2:0'
         )
+        # Keep sdxl_model_id for backward compatibility
+        self.sdxl_model_id = self.image_model_id
         
         # Configuration
         self.max_retries = int(os.getenv('BEDROCK_MAX_RETRIES', '3'))
         self.timeout = int(os.getenv('BEDROCK_TIMEOUT', '30'))
+        self.base_delay = float(os.getenv('BEDROCK_BASE_DELAY', '1.0'))
+        self.max_delay = float(os.getenv('BEDROCK_MAX_DELAY', '30.0'))
+        self.rate_limit_delay = float(os.getenv('BEDROCK_RATE_LIMIT_DELAY', '2.0'))
         
         self.logger.info(
             f"Bedrock models configured: Claude={self.claude_model_id}, "
-            f"SDXL={self.sdxl_model_id}"
+            f"Image={self.image_model_id} (Titan Image Generator v2)"
+        )
+        self.logger.info(
+            f"Throttle protection: max_retries={self.max_retries}, "
+            f"base_delay={self.base_delay}s, max_delay={self.max_delay}s, "
+            f"rate_limit_delay={self.rate_limit_delay}s"
         )
     
     def _create_logger(self) -> logging.Logger:
@@ -210,21 +222,22 @@ class BedrockClient:
         negative_prompt: Optional[str] = None,
         width: int = 1024,
         height: int = 1024,
-        cfg_scale: float = 7.0,
-        steps: int = 30,
-        seed: Optional[int] = None
+        cfg_scale: float = 8.0,
+        seed: Optional[int] = None,
+        **kwargs
     ) -> Dict[str, Any]:
         """
-        Invoke Stable Diffusion XL for image generation.
+        Invoke Amazon Titan Image Generator for image generation.
+        (Previously SDXL, now using Titan Image Generator v2)
         
         Args:
             prompt: Image generation prompt
             negative_prompt: Negative prompt (what to avoid)
-            width: Image width (must be divisible by 64)
-            height: Image height (must be divisible by 64)
-            cfg_scale: Classifier-free guidance scale
-            steps: Number of diffusion steps
-            seed: Random seed for reproducibility
+            width: Image width (512, 768, 1024, 1152, 1173, 1280, 1408, 1536)
+            height: Image height (same options as width)
+            cfg_scale: Classifier-free guidance scale (1.1-10.0)
+            seed: Random seed for reproducibility (0-2147483646)
+            **kwargs: Additional parameters (ignored for compatibility)
         
         Returns:
             Dict with 'image_base64', 'seed', 'latency_ms'
@@ -235,40 +248,45 @@ class BedrockClient:
         start_time = time.time()
         
         try:
-            # Validate dimensions
-            if width % 64 != 0 or height % 64 != 0:
-                raise ValidationException(
-                    f"Width and height must be divisible by 64. Got: {width}x{height}"
+            # Validate dimensions for Titan Image Generator
+            valid_dimensions = [512, 768, 1024, 1152, 1173, 1280, 1408, 1536]
+            if width not in valid_dimensions or height not in valid_dimensions:
+                self.logger.warning(
+                    f"Invalid dimensions {width}x{height}, using 1024x1024"
                 )
+                width = height = 1024
             
-            # Build request body for SDXL
+            # Build request body for Titan Image Generator
             request_body = {
-                "text_prompts": [{"text": prompt, "weight": 1.0}],
-                "cfg_scale": cfg_scale,
-                "steps": steps,
-                "width": width,
-                "height": height
+                "taskType": "TEXT_IMAGE",
+                "textToImageParams": {
+                    "text": prompt
+                },
+                "imageGenerationConfig": {
+                    "numberOfImages": 1,
+                    "quality": "premium",
+                    "height": height,
+                    "width": width,
+                    "cfgScale": cfg_scale
+                }
             }
             
             if negative_prompt:
-                request_body["text_prompts"].append({
-                    "text": negative_prompt,
-                    "weight": -1.0
-                })
+                request_body["textToImageParams"]["negativeText"] = negative_prompt
             
             if seed is not None:
-                request_body["seed"] = seed
+                request_body["imageGenerationConfig"]["seed"] = seed
             
             # Log API call
             self.logger.info(
-                f"Invoking SDXL: model={self.sdxl_model_id}, "
-                f"size={width}x{height}, steps={steps}"
+                f"Invoking Titan Image Generator: model={self.image_model_id}, "
+                f"size={width}x{height}, cfg_scale={cfg_scale}"
             )
             
             # Invoke with retry
             response = self.invoke_with_retry(
                 lambda: self.bedrock_runtime.invoke_model(
-                    modelId=self.sdxl_model_id,
+                    modelId=self.image_model_id,
                     body=json.dumps(request_body),
                     contentType='application/json',
                     accept='application/json'
@@ -280,15 +298,15 @@ class BedrockClient:
             
             latency_ms = int((time.time() - start_time) * 1000)
             
-            # Extract image data
-            artifacts = response_body.get('artifacts', [])
-            if not artifacts:
-                raise BedrockException("No image artifacts in SDXL response")
+            # Extract image data from Titan response
+            images = response_body.get('images', [])
+            if not images:
+                raise BedrockException("No images in Titan Image Generator response")
             
             result = {
-                'image_base64': artifacts[0].get('base64'),
-                'seed': response_body.get('seed'),
-                'finish_reason': artifacts[0].get('finishReason'),
+                'image_base64': images[0],
+                'seed': seed,
+                'finish_reason': 'SUCCESS',
                 'latency_ms': latency_ms,
                 'model_id': self.sdxl_model_id
             }
@@ -313,6 +331,180 @@ class BedrockClient:
                 error_message=str(e)
             )
             raise self._handle_bedrock_error(e, 'invoke_sdxl')
+    
+    def batch_evaluate_names(
+        self,
+        names: List[str],
+        business_info: Dict[str, Any],
+        analysis_result: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """
+        Evaluate multiple business names in a single Bedrock API call.
+        
+        This method batches name evaluation to reduce API calls from N to 1,
+        significantly improving performance and reducing throttling risk.
+        
+        Args:
+            names: List of business names to evaluate (typically 3)
+            business_info: Business context (industry, region, size)
+            analysis_result: Analysis results for context
+        
+        Returns:
+            List of evaluation results with scores (as floats, convert to Decimal later)
+        
+        Example:
+            [
+                {
+                    "name": "CafeBreeze",
+                    "pronunciation_score": 85.0,
+                    "memorability_score": 90.0,
+                    "relevance_score": 80.0,
+                    "search_score": 75.0,
+                    "overall_score": 82.5,
+                    "reasoning": "Easy to pronounce and memorable..."
+                },
+                ...
+            ]
+        
+        Raises:
+            BedrockException: On API errors
+        """
+        start_time = time.time()
+        
+        try:
+            # Build batched evaluation prompt
+            names_list = "\n".join([f"{i+1}. {name}" for i, name in enumerate(names)])
+            
+            industry = business_info.get('industry', 'general')
+            region = business_info.get('region', 'unknown')
+            size = business_info.get('size', 'medium')
+            description = business_info.get('description', '')
+            
+            # Get market trends from analysis if available
+            market_context = ""
+            if analysis_result:
+                trends = analysis_result.get('market_trends', [])
+                if trends:
+                    market_context = "\n\nMarket trends:\n" + "\n".join([f"- {t}" for t in trends[:3]])
+            
+            prompt = f"""You are a business naming expert. Evaluate the following {len(names)} business names for a {industry} business in {region} (size: {size}).
+
+Names to evaluate:
+{names_list}
+
+Business context:
+- Industry: {industry}
+- Region: {region}
+- Size: {size}
+{f"- Description: {description}" if description else ""}
+{market_context}
+
+For each name, provide:
+1. pronunciation_score (0-100): How easy is it to pronounce?
+2. memorability_score (0-100): How memorable is it?
+3. relevance_score (0-100): How relevant to the business?
+4. search_score (0-100): How SEO-friendly?
+5. overall_score (0-100): Weighted average (pronunciation 20%, memorability 30%, relevance 30%, search 20%)
+6. reasoning: Brief explanation (2-3 sentences)
+
+Return ONLY a valid JSON array with this exact format (no markdown, no code blocks):
+[
+  {{
+    "name": "Name1",
+    "pronunciation_score": 85.0,
+    "memorability_score": 90.0,
+    "relevance_score": 80.0,
+    "search_score": 75.0,
+    "overall_score": 82.5,
+    "reasoning": "Brief explanation"
+  }},
+  ...
+]"""
+
+            self.logger.info(f"Batch evaluating {len(names)} names")
+            
+            # Invoke Claude with throttle protection
+            response = self.invoke_claude(
+                prompt=prompt,
+                max_tokens=2048,
+                temperature=0.3  # Lower temperature for more consistent scoring
+            )
+            
+            # Parse JSON response
+            response_text = response['text'].strip()
+            
+            # Remove markdown code blocks if present
+            if response_text.startswith('```'):
+                # Extract JSON from code block
+                lines = response_text.split('\n')
+                json_lines = []
+                in_code_block = False
+                for line in lines:
+                    if line.startswith('```'):
+                        in_code_block = not in_code_block
+                        continue
+                    if in_code_block or (not line.startswith('```')):
+                        json_lines.append(line)
+                response_text = '\n'.join(json_lines).strip()
+            
+            try:
+                evaluations = json.loads(response_text)
+            except json.JSONDecodeError as e:
+                self.logger.error(f"Failed to parse JSON response: {response_text[:200]}")
+                # Return default scores if parsing fails
+                evaluations = [
+                    {
+                        "name": name,
+                        "pronunciation_score": 75.0,
+                        "memorability_score": 75.0,
+                        "relevance_score": 75.0,
+                        "search_score": 75.0,
+                        "overall_score": 75.0,
+                        "reasoning": "Default scores due to parsing error"
+                    }
+                    for name in names
+                ]
+            
+            # Validate and ensure all names are present
+            evaluated_names = {e['name'] for e in evaluations if 'name' in e}
+            for name in names:
+                if name not in evaluated_names:
+                    self.logger.warning(f"Name '{name}' missing from evaluation, adding default scores")
+                    evaluations.append({
+                        "name": name,
+                        "pronunciation_score": 70.0,
+                        "memorability_score": 70.0,
+                        "relevance_score": 70.0,
+                        "search_score": 70.0,
+                        "overall_score": 70.0,
+                        "reasoning": "Default scores - not evaluated"
+                    })
+            
+            latency_ms = int((time.time() - start_time) * 1000)
+            
+            self.logger.info(
+                f"Batch evaluation complete: {len(evaluations)} names evaluated in {latency_ms}ms"
+            )
+            
+            return evaluations
+            
+        except Exception as e:
+            latency_ms = int((time.time() - start_time) * 1000)
+            self.logger.error(f"Batch evaluation failed after {latency_ms}ms: {str(e)}")
+            
+            # Return default scores for all names on error
+            return [
+                {
+                    "name": name,
+                    "pronunciation_score": 70.0,
+                    "memorability_score": 70.0,
+                    "relevance_score": 70.0,
+                    "search_score": 70.0,
+                    "overall_score": 70.0,
+                    "reasoning": f"Default scores due to error: {str(e)[:100]}"
+                }
+                for name in names
+            ]
     
     def query_knowledge_base(
         self,
@@ -408,6 +600,182 @@ class BedrockClient:
             )
             raise self._handle_bedrock_error(e, 'query_knowledge_base')
     
+    def calculate_backoff_delay(self, attempt: int) -> float:
+        """
+        Calculate exponential backoff delay with jitter.
+        
+        Formula: min(max_delay, base_delay * 2^attempt + random(0, 1))
+        
+        Args:
+            attempt: Retry attempt number (0-indexed)
+        
+        Returns:
+            Delay in seconds
+        
+        Example:
+            - Attempt 0: 1.0 * 2^0 + jitter = 1.0-2.0s
+            - Attempt 1: 1.0 * 2^1 + jitter = 2.0-3.0s
+            - Attempt 2: 1.0 * 2^2 + jitter = 4.0-5.0s
+            - Attempt 3: 1.0 * 2^3 + jitter = 8.0-9.0s
+        """
+        delay = min(self.max_delay, self.base_delay * (2 ** attempt))
+        jitter = random.uniform(0, 1)
+        return delay + jitter
+    
+    def add_rate_limit_delay(self, delay_seconds: Optional[float] = None) -> None:
+        """
+        Add delay between API calls to prevent throttling.
+        
+        Args:
+            delay_seconds: Delay duration (default: from config)
+        """
+        delay = delay_seconds or self.rate_limit_delay
+        if delay > 0:
+            self.logger.info(f"Rate limiting: sleeping for {delay}s")
+            time.sleep(delay)
+    
+    def invoke_with_throttle_protection(
+        self,
+        model_id: str,
+        prompt: str,
+        max_retries: Optional[int] = None,
+        base_delay: Optional[float] = None,
+        max_delay: Optional[float] = None
+    ) -> Dict[str, Any]:
+        """
+        Invoke Bedrock with exponential backoff and jitter for throttle protection.
+        
+        This is a high-level wrapper that handles throttling gracefully with:
+        - Exponential backoff with jitter
+        - Structured logging of throttling events
+        - Configurable retry parameters
+        
+        Args:
+            model_id: Bedrock model ID
+            prompt: Input prompt
+            max_retries: Maximum retry attempts (default: from config)
+            base_delay: Initial delay in seconds (default: from config)
+            max_delay: Maximum delay in seconds (default: from config)
+        
+        Returns:
+            API response dict
+        
+        Raises:
+            ThrottlingException: After max retries exceeded
+        """
+        max_retries = max_retries or self.max_retries
+        base_delay = base_delay or self.base_delay
+        max_delay = max_delay or self.max_delay
+        
+        start_time = time.time()
+        total_retry_time = 0.0
+        throttle_count = 0
+        
+        for attempt in range(max_retries + 1):
+            try:
+                # Use appropriate invoke method based on model
+                if 'claude' in model_id.lower() or 'anthropic' in model_id.lower():
+                    result = self.invoke_claude(prompt)
+                else:
+                    # For other models, use generic invoke
+                    result = self._invoke_generic(model_id, prompt)
+                
+                # Log success with throttling metrics
+                if throttle_count > 0:
+                    self.logger.info(
+                        f"Succeeded after {throttle_count} throttling events. "
+                        f"Total retry time: {total_retry_time:.2f}s"
+                    )
+                
+                return result
+                
+            except (ThrottlingException, ClientError) as e:
+                # Check if it's a throttling error
+                is_throttling = False
+                if isinstance(e, ThrottlingException):
+                    is_throttling = True
+                elif isinstance(e, ClientError):
+                    error_code = e.response.get('Error', {}).get('Code', '')
+                    is_throttling = (error_code == 'ThrottlingException')
+                
+                if is_throttling and attempt < max_retries:
+                    throttle_count += 1
+                    
+                    # Calculate backoff delay with jitter
+                    delay = min(max_delay, base_delay * (2 ** attempt))
+                    jitter = random.uniform(0, 1)
+                    wait_time = delay + jitter
+                    total_retry_time += wait_time
+                    
+                    # Structured logging
+                    self.logger.warning(
+                        f"Throttled by Bedrock API. "
+                        f"Retrying in {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})",
+                        extra={
+                            'throttle_event': {
+                                'model_id': model_id,
+                                'attempt': attempt + 1,
+                                'max_retries': max_retries,
+                                'wait_time': wait_time,
+                                'total_retry_time': total_retry_time,
+                                'timestamp': datetime.utcnow().isoformat()
+                            }
+                        }
+                    )
+                    
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    # Max retries exceeded or non-throttling error
+                    total_time = time.time() - start_time
+                    self.logger.error(
+                        f"Max retries exceeded or non-retryable error. "
+                        f"Total time: {total_time:.2f}s, Throttle events: {throttle_count}",
+                        extra={
+                            'throttle_summary': {
+                                'model_id': model_id,
+                                'total_attempts': attempt + 1,
+                                'throttle_count': throttle_count,
+                                'total_retry_time': total_retry_time,
+                                'total_time': total_time
+                            }
+                        }
+                    )
+                    raise
+            
+            except Exception as e:
+                # Non-retryable error
+                self.logger.error(f"Non-retryable error: {str(e)}")
+                raise
+        
+        # Should not reach here
+        raise ThrottlingException(
+            f"Max retries exceeded for {model_id} after {max_retries} attempts"
+        )
+    
+    def _invoke_generic(self, model_id: str, prompt: str) -> Dict[str, Any]:
+        """
+        Generic invoke method for non-Claude models.
+        
+        Args:
+            model_id: Bedrock model ID
+            prompt: Input prompt
+        
+        Returns:
+            API response dict
+        """
+        request_body = {"prompt": prompt}
+        
+        response = self.bedrock_runtime.invoke_model(
+            modelId=model_id,
+            body=json.dumps(request_body),
+            contentType='application/json',
+            accept='application/json'
+        )
+        
+        response_body = json.loads(response['body'].read())
+        return response_body
+    
     def invoke_with_retry(
         self,
         func: Callable,
@@ -440,11 +808,11 @@ class BedrockClient:
                 # Check if retryable
                 if error_code == 'ThrottlingException':
                     if attempt < max_retries:
-                        # Exponential backoff: 1s, 2s, 4s, 8s...
-                        wait_time = 2 ** attempt
+                        # Use new backoff calculation with jitter
+                        wait_time = self.calculate_backoff_delay(attempt)
                         self.logger.warning(
                             f"Throttled by Bedrock API. "
-                            f"Retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})"
+                            f"Retrying in {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})"
                         )
                         time.sleep(wait_time)
                         continue
@@ -455,10 +823,10 @@ class BedrockClient:
                 
                 elif error_code == 'ServiceUnavailableException':
                     if attempt < max_retries:
-                        wait_time = 2 ** attempt
+                        wait_time = self.calculate_backoff_delay(attempt)
                         self.logger.warning(
                             f"Bedrock service unavailable. "
-                            f"Retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})"
+                            f"Retrying in {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})"
                         )
                         time.sleep(wait_time)
                         continue

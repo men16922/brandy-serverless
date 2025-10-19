@@ -27,8 +27,12 @@ API_ENDPOINT=$(aws cloudformation describe-stacks \
     --output text 2>/dev/null)
 
 if [ -z "$API_ENDPOINT" ]; then
-    echo "⚠️  Could not find API Gateway endpoint. Using default localhost:3000"
-    API_ENDPOINT="http://localhost:3000"
+    echo "⚠️  Could not find API Gateway endpoint from CloudFormation. Using .env default"
+    API_ENDPOINT=$(grep API_BASE_URL .env | cut -d '=' -f2)
+    if [ -z "$API_ENDPOINT" ]; then
+        echo "❌ No API endpoint found in .env file. Please set API_BASE_URL"
+        exit 1
+    fi
 else
     echo "✅ API Endpoint: $API_ENDPOINT"
 fi

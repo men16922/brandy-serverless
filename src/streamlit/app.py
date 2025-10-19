@@ -6,13 +6,22 @@ import requests
 import os
 import json
 import time
+import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from PIL import Image
 import io
 
-# Configuration
-API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:3000')
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Configuration - AWS-only architecture
+# Streamlit runs locally, all backend services use AWS
+API_BASE_URL = os.getenv('API_BASE_URL', 'https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev')
 
 # Workflow steps configuration
 WORKFLOW_STEPS = [
@@ -426,18 +435,76 @@ def step1_business_analysis():
             
             # Create session
             with st.spinner("세션을 생성하고 분석을 시작하는 중..."):
-                # Add sessionId to business_info for API compatibility
+                # Create session without autoStart (we'll trigger steps manually)
                 session_request = {
                     "businessInfo": business_info
                 }
+                logger.info(f"Creating session with: {session_request}")
+                st.write("🔍 **디버그:** 세션 생성 요청 중...")
+                
                 session_id = create_session(session_request)
                 
                 if session_id:
+                    logger.info(f"Session created: {session_id}")
+                    st.write(f"✅ **디버그:** 세션 생성됨 - {session_id}")
+                    
                     st.session_state.session_id = session_id
                     st.session_state.business_info = business_info
                     st.session_state.current_step = 1
                     st.session_state.polling_active = True
                     st.success(f"세션이 생성되었습니다: {session_id}")
+                    
+                    # Start Step 1: Business Analysis
+                    st.write("🔍 **디버그:** 비즈니스 분석 API 호출 중...")
+                    with st.spinner("🔍 AI가 업종, 지역, 시장 트렌드를 분석하고 있습니다..."):
+                        try:
+                            analysis_payload = {
+                                "sessionId": session_id,
+                                "businessInfo": business_info
+                            }
+                            logger.info(f"Calling analysis API with: {analysis_payload}")
+                            st.write(f"📤 **디버그:** 분석 요청 - {API_BASE_URL}/analysis")
+                            
+                            analysis_response = requests.post(
+                                f"{API_BASE_URL}/analysis",
+                                json=analysis_payload,
+                                timeout=90  # Increased for Bedrock Claude processing
+                            )
+                            
+                            logger.info(f"Analysis response status: {analysis_response.status_code}")
+                            st.write(f"📥 **디버그:** 분석 응답 상태 - {analysis_response.status_code}")
+                            
+                            if analysis_response.status_code == 200:
+                                response_data = analysis_response.json()
+                                logger.info(f"Analysis response: {response_data}")
+                                st.write("📊 **디버그:** 분석 응답 데이터:")
+                                st.json(response_data)
+                                
+                                # Store analysis result in session state immediately
+                                if 'analysis' in response_data:
+                                    if not st.session_state.session_data:
+                                        st.session_state.session_data = {'results': {}}
+                                    if 'results' not in st.session_state.session_data:
+                                        st.session_state.session_data['results'] = {}
+                                    st.session_state.session_data['results']['analysis'] = response_data['analysis']
+                                    st.write("✅ **디버그:** 분석 결과를 세션 상태에 저장했습니다!")
+                                    
+                                    # Disable polling since we have the result
+                                    st.session_state.polling_active = False
+                                    st.write("✅ **디버그:** 폴링 비활성화 - 결과를 받았습니다!")
+                                
+                                st.success("✅ 비즈니스 분석 완료!")
+                                st.info("💡 페이지를 새로고침하면 '다음 단계: 상호명 제안' 버튼이 표시됩니다.")
+                                st.info("💡 또는 아래로 스크롤하여 분석 결과를 확인하세요!")
+                            else:
+                                st.warning(f"⚠️ 분석 응답: {analysis_response.status_code}")
+                                st.write(f"❌ **디버그:** 응답 내용: {analysis_response.text}")
+                        except Exception as e:
+                            logger.error(f"Analysis error: {str(e)}", exc_info=True)
+                            st.error(f"분석 오류: {str(e)}")
+                            st.write(f"❌ **디버그:** 예외 발생 - {type(e).__name__}: {str(e)}")
+                    
+                    time.sleep(2)  # Give time to read debug info
                     st.rerun()
                 else:
                     st.error("세션 생성에 실패했습니다.")
@@ -486,6 +553,157 @@ def display_analysis_results():
             st.markdown("**추천사항**")
             for rec in recommendations:
                 st.markdown(f"• {rec}")
+        
+        # Next step button
+        st.markdown("---")
+        if st.button("➡️ 다음 단계: 상호명 제안", key="next_to_names", type="primary"):
+            # 비동기 폴링 방식으로 상호명 생성
+            try:
+                logger.info(f"Starting async name generation for session: {st.session_state.session_id}")
+                logger.info(f"API URL: {API_BASE_URL}/names/suggest")
+                
+                # 1. 비동기 요청 시작 (재시도 포함) - 로딩창 표시
+                with st.spinner("🚀 상호명 생성 요청 중..."):
+                    start_success = False
+                    for start_attempt in range(3):  # 최대 3회 재시도
+                        try:
+                            logger.info(f"Async request attempt {start_attempt + 1}/3")
+                            start_response = requests.post(
+                                f"{API_BASE_URL}/names/suggest",
+                                headers={'x-async-mode': 'true'},
+                                json={
+                                    "sessionId": st.session_state.session_id,
+                                    "businessInfo": st.session_state.business_info,
+                                    "analysisResult": analysis
+                                },
+                                timeout=90  # Increased for Bedrock processing + Lambda cold start
+                            )
+                            
+                            if start_response.status_code == 202:
+                                logger.info("Name generation started successfully")
+                                start_success = True
+                                st.success("✅ 상호명 생성이 시작되었습니다!")
+                                break
+                            else:
+                                error_msg = f"상호명 생성 시작 실패: {start_response.status_code}"
+                                logger.error(error_msg)
+                                logger.error(f"Response: {start_response.text}")
+                                if start_attempt >= 2:  # 마지막 시도
+                                    st.error(error_msg)
+                                    st.json(start_response.json())
+                                    return
+                                time.sleep(1)  # 재시도 전 대기 (2초 → 1초)
+                        
+                        except requests.Timeout:
+                            logger.warning(f"Start request timeout (attempt {start_attempt + 1}/3)")
+                            if start_attempt >= 2:  # 마지막 시도
+                                st.error("⏱️ 요청 시작 타임아웃: Lambda 함수가 응답하지 않습니다.")
+                                st.info("💡 잠시 후 다시 시도하거나, CloudWatch 로그를 확인하세요.")
+                                return
+                            time.sleep(1)  # 재시도 전 대기 (2초 → 1초)
+                        
+                        except Exception as e:
+                            logger.error(f"Start request error: {str(e)}")
+                            if start_attempt >= 2:  # 마지막 시도
+                                raise
+                            time.sleep(1)  # 재시도 전 대기 (2초 → 1초)
+                
+                if not start_success:
+                    st.error("상호명 생성을 시작할 수 없습니다.")
+                    return
+                
+                # 2. 폴링으로 결과 대기 - 진행률 표시
+                st.info("💡 AI가 비즈니스에 최적화된 상호명을 생성하고 있습니다...")
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                max_attempts = 90  # 90 * 2초 = 180초 (Lambda 최대 실행 시간 고려)
+                for attempt in range(max_attempts):
+                    time.sleep(2)  # 폴링 주기: 3초 → 2초
+                    
+                    try:
+                        status_response = requests.get(
+                            f"{API_BASE_URL}/names/status/{st.session_state.session_id}",
+                            timeout=15  # Status 조회는 빠르지만 여유있게
+                        )
+                        
+                        progress = min((attempt + 1) / max_attempts, 0.95)
+                        progress_bar.progress(progress)
+                        elapsed = (attempt + 1) * 2  # 2초 주기로 변경
+                        status_text.text(f"🔄 상호명 생성 중... ({elapsed}초 경과 / 최대 180초)")
+                        
+                        # HTTP status code가 아닌 body의 statusCode 확인
+                        status_data = status_response.json()
+                        body_status_code = status_data.get('statusCode')
+                        
+                        if body_status_code == 200:
+                            # 완료
+                            progress_bar.progress(1.0)
+                            status_text.text("✅ 완료!")
+                            logger.info("Name generation completed successfully")
+                            
+                            # 세션 데이터 업데이트
+                            suggestions = status_data.get('suggestions', [])
+                            if not st.session_state.session_data:
+                                st.session_state.session_data = {}
+                            if 'results' not in st.session_state.session_data:
+                                st.session_state.session_data['results'] = {}
+                            
+                            st.session_state.session_data['results']['names'] = {
+                                'suggestions': suggestions,
+                                'selected_name': None,
+                                'regeneration_count': 0,
+                                'max_regenerations': 3
+                            }
+                            
+                            st.success("✅ 상호명 생성 완료!")
+                            time.sleep(1)
+                            st.session_state.current_step = 2
+                            st.rerun()
+                            return
+                        
+                        elif body_status_code == 202:
+                            # 진행 중
+                            logger.debug(f"Still processing... (attempt {attempt + 1}/{max_attempts})")
+                            continue
+                        
+                        elif body_status_code == 500:
+                            # 실패
+                            error_msg = f"상호명 생성 실패: {status_data.get('error', 'Unknown error')}"
+                            logger.error(error_msg)
+                            st.error(error_msg)
+                            return
+                        
+                        else:
+                            logger.warning(f"Unexpected status: {body_status_code}")
+                            continue
+                    
+                    except requests.Timeout:
+                        logger.warning(f"Status check timeout (attempt {attempt + 1})")
+                        continue
+                    
+                    except Exception as e:
+                        logger.error(f"Status check error: {str(e)}")
+                        if attempt >= max_attempts - 1:
+                            raise
+                        continue
+                
+                # 타임아웃
+                error_msg = "⏱️ 요청 시간 초과: 180초를 초과했습니다."
+                logger.error(error_msg)
+                st.error(error_msg)
+                st.info("💡 Lambda 함수가 계속 실행 중일 수 있습니다. 잠시 후 페이지를 새로고침하세요.")
+                st.info("💡 CloudWatch 로그를 확인하여 Lambda 실행 상태를 확인할 수 있습니다.")
+                
+            except requests.exceptions.RequestException as e:
+                error_msg = f"네트워크 오류: {str(e)}"
+                logger.error(error_msg)
+                st.error(error_msg)
+            except Exception as e:
+                error_msg = f"예상치 못한 오류: {str(e)}"
+                logger.error(error_msg)
+                logger.exception("Full traceback:")
+                st.error(error_msg)
 
 def display_business_names():
     """Display business name suggestions with selection interface"""
@@ -515,9 +733,9 @@ def display_business_names():
                         <h4 style="margin-top: 0;">{suggestion.get("name", "")}</h4>
                         <p style="font-size: 12px; color: #666;">{suggestion.get("description", "")}</p>
                         <div style="margin-top: 10px;">
-                            <div>발음: {suggestion.get("pronunciation_score", 0):.1f}/100</div>
-                            <div>검색: {suggestion.get("search_score", 0):.1f}/100</div>
-                            <div><strong>종합: {suggestion.get("overall_score", 0):.1f}/100</strong></div>
+                            <div>발음: {suggestion.get("pronunciationScore", 0):.1f}/100</div>
+                            <div>검색: {suggestion.get("searchScore", 0):.1f}/100</div>
+                            <div><strong>종합: {suggestion.get("overallScore", 0):.1f}/100</strong></div>
                         </div>
                         {"<div style='color: green; font-weight: bold; margin-top: 10px;'>✓ 선택됨</div>" if is_selected else ""}
                     </div>
@@ -547,20 +765,36 @@ def display_business_names():
 def display_signboard_gallery():
     """Display signboard image gallery with selection interface"""
     results = st.session_state.session_data.get("results", {}) if st.session_state.session_data else {}
-    signboard_data = results.get("signboards")
+    signboard_data = results.get("signboard")
     
     if signboard_data:
-        images = signboard_data.get("images", [])
+        # API returns 'signboards' array
+        images = signboard_data.get("signboards", [])
+        
+        # Fallback: check for 'images' key
+        if not images:
+            images = signboard_data.get("images", [])
+        
+        # Fallback: check for single image format
+        if not images and signboard_data.get("imageUrl"):
+            images = [{
+                "url": signboard_data.get("imageUrl"),
+                "s3Key": signboard_data.get("s3Key"),
+                "provider": signboard_data.get("provider", "bedrock"),
+                "style": signboard_data.get("style", "modern"),
+                "generatedAt": signboard_data.get("timestamp", "")
+            }]
+        
         selected_url = signboard_data.get("selected_image_url")
         
         st.markdown("### 🪧 간판 디자인")
         
         if images:
             # Display image gallery
-            cols = st.columns(len(images))
+            cols = st.columns(min(len(images), 3))  # Max 3 columns
             
             for i, image in enumerate(images):
-                with cols[i]:
+                with cols[i % 3]:
                     # Image card
                     is_selected = selected_url == image.get("url")
                     border_color = "#4CAF50" if is_selected else "#ddd"
@@ -568,107 +802,270 @@ def display_signboard_gallery():
                     st.markdown(f"""
                     <div style="border: 2px solid {border_color}; border-radius: 10px; padding: 10px; margin: 5px;">
                         <div style="text-align: center;">
-                            <strong>{image.get("provider", "").upper()}</strong>
+                            <strong>{image.get("provider", "AI").upper()}</strong>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # Display image (placeholder for now)
-                    if image.get("url"):
+                    # Display image from S3 URL
+                    image_url = image.get("url")
+                    if image_url:
                         try:
-                            # In production, this would load the actual image from S3
                             st.image(
-                                "https://via.placeholder.com/300x200?text=" + image.get("provider", "Image"),
-                                caption=f"{image.get('style', '')} 스타일",
-                                use_column_width=True
+                                image_url,
+                                caption=f"{image.get('style', 'Modern')} 스타일",
+                                width='stretch'
                             )
-                        except:
+                        except Exception as e:
+                            logger.error(f"Image load error: {str(e)}")
                             st.error("이미지 로드 실패")
+                            st.code(image_url)
                     
                     # Image details
                     st.write(f"**스타일:** {image.get('style', 'N/A')}")
-                    st.write(f"**생성시간:** {image.get('generated_at', 'N/A')[:16]}")
                     
-                    if image.get("is_fallback"):
-                        st.warning("⚠️ 폴백 이미지")
+                    # Check both 'generatedAt' and 'generated_at'
+                    generated_at = image.get('generatedAt') or image.get('generated_at')
+                    if generated_at:
+                        st.write(f"**생성시간:** {generated_at[:16]}")
+                    
+                    # Check both 'isFallback' and 'is_fallback'
+                    is_fallback = image.get("isFallback") or image.get("is_fallback")
+                    if is_fallback:
+                        st.warning("⚠️ 폴백 이미지 (AI 생성 실패 시 대체)")
                     
                     # Selection button
                     if not is_selected:
-                        if st.button(f"선택", key=f"select_signboard_{i}"):
+                        if st.button(f"이 디자인 선택", key=f"select_signboard_{i}"):
                             select_signboard_image(image.get("url"))
                     else:
                         st.success("✓ 선택됨")
+            
+
+        else:
+            st.warning("간판 이미지가 없습니다.")
+            if st.button("간판 생성 다시 시도"):
+                st.session_state.current_step = 2
+                st.rerun()
+    else:
+        st.info("간판 디자인을 생성하려면 상호명을 먼저 선택하세요.")
+        if st.button("상호명 선택으로 돌아가기"):
+            st.session_state.current_step = 2
+            st.rerun()
+
+def manual_refresh_interior_status():
+    """Manually refresh interior generation status"""
+    try:
+        # Rate limiting check
+        current_time = time.time()
+        last_refresh = st.session_state.get('last_interior_refresh_time', 0)
+        
+        if current_time - last_refresh < 2:
+            st.warning("⏱️ 너무 빠른 요청입니다. 2초 후에 다시 시도하세요.")
+            return
+        
+        # Update last refresh time
+        st.session_state.last_interior_refresh_time = current_time
+        
+        with st.spinner("🔄 상태를 확인하는 중..."):
+            # Query DynamoDB directly via API
+            status_data = get_session_status(st.session_state.session_id)
+            
+            if not status_data:
+                st.error("❌ 세션 데이터를 가져올 수 없습니다.")
+                return
+            
+            # Parse interior data (with backward compatibility)
+            recommendations = []
+            generated_images = 0
+            
+            # Try new format: 'interiors' field
+            if 'interiors' in status_data:
+                interior_data = status_data['interiors']
+                if isinstance(interior_data, list):
+                    recommendations = interior_data
+                    generated_images = sum(1 for rec in recommendations if rec.get('imageUrl'))
+                elif isinstance(interior_data, dict):
+                    recommendations = interior_data.get('recommendations', [])
+                    generated_images = interior_data.get('generatedImages', 0)
+            
+            # Fallback: old format 'interior_recommendations'
+            elif 'interior_recommendations' in status_data:
+                try:
+                    interior_str = status_data['interior_recommendations']
+                    if isinstance(interior_str, str):
+                        interior_parsed = json.loads(interior_str)
+                        recommendations = interior_parsed.get('recommendations', [])
+                        generated_images = sum(1 for rec in recommendations if rec.get('imageUrl'))
+                    else:
+                        recommendations = interior_str.get('recommendations', [])
+                        generated_images = sum(1 for rec in recommendations if rec.get('imageUrl'))
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON parse error: {str(e)}")
+                    st.error("❌ 데이터 형식 오류가 발생했습니다.")
+                    return
+            
+            total_recommendations = len(recommendations)
+            interior_status = status_data.get('interiorGenerationStatus', 'unknown')
+            
+            # Update session state
+            if recommendations:
+                if not st.session_state.session_data:
+                    st.session_state.session_data = {}
+                if 'results' not in st.session_state.session_data:
+                    st.session_state.session_data['results'] = {}
+                st.session_state.session_data['results']['interiors'] = {
+                    'recommendations': recommendations,
+                    'generatedImages': generated_images,
+                    'totalRecommendations': total_recommendations
+                }
+            
+            # Show result
+            if interior_status == "completed" or generated_images == total_recommendations:
+                st.success(f"✅ 인테리어 생성 완료! ({generated_images}/{total_recommendations} 이미지)")
+                st.session_state.current_step = 4
+                st.session_state.interior_timeout = False
+                time.sleep(1)
+                st.rerun()
+            elif generated_images > 0:
+                st.info(f"🎨 진행 중: {generated_images}/{total_recommendations} 이미지 생성됨")
+            else:
+                st.warning(f"⏳ 아직 생성 중입니다... (상태: {interior_status})")
+                
+    except Exception as e:
+        logger.error(f"Manual refresh error: {str(e)}")
+        st.error(f"❌ 새로고침 오류: {str(e)}")
 
 def display_interior_options():
     """Display interior design options with selection interface"""
     results = st.session_state.session_data.get("results", {}) if st.session_state.session_data else {}
     interior_data = results.get("interiors")
     
+    # Show manual refresh button if timeout occurred or in progress
+    # Check both session_data root level and results level for interiorGenerationStatus
+    interior_status = None
+    if st.session_state.session_data:
+        interior_status = st.session_state.session_data.get('interiorGenerationStatus')
+        if not interior_status and results:
+            interior_status = results.get('interiorGenerationStatus')
+    
+    show_refresh = st.session_state.get('interior_timeout', False) or interior_status == "in_progress"
+    
+    if show_refresh and not interior_data:
+        st.markdown("### 🏠 인테리어 추천")
+        st.info("🎨 인테리어 이미지를 생성하고 있습니다...")
+        
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("🔄 상태 새로고침", key="refresh_interior_status", use_container_width=True):
+                manual_refresh_interior_status()
+        
+        st.markdown("---")
+        return
+    
     if interior_data:
-        images = interior_data.get("images", [])
-        selected_url = interior_data.get("selected_image_url")
-        budget_range = interior_data.get("budget_range")
-        color_palette = interior_data.get("color_palette", [])
+        recommendations = interior_data.get("recommendations", [])
+        selected_style = interior_data.get("selected_style")
         
         st.markdown("### 🏠 인테리어 추천")
         
-        # Budget and color palette info
-        if budget_range or color_palette:
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                if budget_range:
-                    st.info(f"**예상 예산:** {budget_range}")
-            
-            with col2:
-                if color_palette:
-                    st.markdown("**색상 팔레트:**")
-                    palette_html = ""
-                    for color in color_palette[:5]:  # Show max 5 colors
-                        palette_html += f'<div style="display: inline-block; width: 30px; height: 30px; background-color: {color}; border: 1px solid #ccc; margin: 2px;"></div>'
-                    st.markdown(palette_html, unsafe_allow_html=True)
-        
-        if images:
-            # Display interior options
-            cols = st.columns(len(images))
-            
-            for i, image in enumerate(images):
-                with cols[i]:
-                    # Interior card
-                    is_selected = selected_url == image.get("url")
-                    border_color = "#4CAF50" if is_selected else "#ddd"
-                    
+        if recommendations:
+            # Display interior recommendations
+            for i, rec in enumerate(recommendations):
+                style = rec.get("style", "N/A")
+                is_selected = selected_style == style
+                border_color = "#4CAF50" if is_selected else "#ddd"
+                
+                # Expandable card for each recommendation
+                with st.expander(f"{'✓ ' if is_selected else ''}옵션 {i+1}: {style.upper()} 스타일", expanded=(i == 0)):
                     st.markdown(f"""
-                    <div style="border: 2px solid {border_color}; border-radius: 10px; padding: 10px; margin: 5px;">
-                        <div style="text-align: center;">
-                            <strong>옵션 {i+1}</strong>
-                        </div>
-                    </div>
+                    <div style="border: 2px solid {border_color}; border-radius: 10px; padding: 15px; margin: 10px 0;">
                     """, unsafe_allow_html=True)
                     
-                    # Display image (placeholder for now)
-                    if image.get("url"):
-                        try:
-                            st.image(
-                                "https://via.placeholder.com/300x200?text=Interior+" + str(i+1),
-                                caption=f"{image.get('style', '')} 인테리어",
-                                use_column_width=True
-                            )
-                        except:
-                            st.error("이미지 로드 실패")
+                    # Interior image (if available)
+                    image_url = rec.get("imageUrl")
+                    provider = rec.get("provider")
                     
-                    # Interior details
-                    st.write(f"**스타일:** {image.get('style', 'N/A')}")
-                    metadata = image.get("metadata", {})
-                    if metadata.get("budget_estimate"):
-                        st.write(f"**예산:** {metadata['budget_estimate']}")
+                    if image_url:
+                        try:
+                            # Provider badge
+                            provider_label = ""
+                            if provider == "bedrock-sdxl":
+                                provider_label = "🎨 Amazon Bedrock SDXL"
+                            elif provider == "openai-dalle3":
+                                provider_label = "🤖 OpenAI DALL-E 3"
+                            else:
+                                provider_label = "🎨 AI Generated"
+                            
+                            st.image(image_url, caption=f"{style.upper()} 스타일 인테리어", use_container_width=True)
+                            st.caption(f"생성: {provider_label}")
+                        except Exception as e:
+                            st.warning(f"이미지 로드 실패: {str(e)}")
+                    else:
+                        st.info("🎨 인테리어 이미지 생성 중...")
+                    
+                    # Description
+                    st.markdown(f"**설명:**")
+                    st.write(rec.get("description", ""))
+                    
+                    # Suitability score
+                    score = rec.get("suitabilityScore", 0)
+                    st.progress(score / 100.0)
+                    st.caption(f"적합도: {score}/100")
+                    
+                    # Details in columns
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        # Color scheme
+                        st.markdown("**색상 팔레트:**")
+                        colors = rec.get("colorScheme", [])
+                        for color in colors:
+                            st.markdown(f"- {color}")
+                        
+                        # Materials
+                        st.markdown("**소재:**")
+                        materials = rec.get("materials", [])
+                        for material in materials:
+                            st.markdown(f"- {material}")
+                    
+                    with col2:
+                        # Furniture
+                        st.markdown("**가구:**")
+                        furniture = rec.get("furniture", [])
+                        for item in furniture:
+                            st.markdown(f"- {item}")
+                        
+                        # Cost
+                        st.markdown(f"**예상 비용:** {rec.get('estimatedCost', 'N/A')}")
+                    
+                    # Pros and Cons
+                    col3, col4 = st.columns(2)
+                    
+                    with col3:
+                        st.markdown("**장점:**")
+                        pros = rec.get("pros", [])
+                        for pro in pros:
+                            st.markdown(f"✅ {pro}")
+                    
+                    with col4:
+                        st.markdown("**단점:**")
+                        cons = rec.get("cons", [])
+                        for con in cons:
+                            st.markdown(f"⚠️ {con}")
+                    
+                    st.markdown("</div>", unsafe_allow_html=True)
                     
                     # Selection button
                     if not is_selected:
-                        if st.button(f"선택", key=f"select_interior_{i}"):
-                            select_interior_option(image.get("url"))
+                        if st.button(f"이 스타일 선택", key=f"select_interior_{i}"):
+                            select_interior_option(style)
                     else:
-                        st.success("✓ 선택됨")
+                        st.success("✓ 선택된 스타일")
+        else:
+            st.info("인테리어 추천 데이터가 없습니다.")
+    else:
+        st.info("인테리어 추천을 생성하려면 간판 디자인을 먼저 선택하세요.")
 
 def display_report_download():
     """Display PDF report download interface"""
@@ -712,23 +1109,156 @@ def display_report_download():
                 st.info("이메일 전송 기능은 추후 구현 예정입니다.")
 
 def select_business_name(name: str):
-    """Select a business name"""
+    """Select a business name and trigger signboard generation"""
     try:
-        response = requests.post(
-            f"{API_BASE_URL}/names/select",
-            json={"session_id": st.session_state.session_id, "selected_name": name},
-            timeout=10
-        )
+        logger.info(f"Selecting business name: {name}")
         
-        if response.status_code == 200:
-            st.success(f"'{name}' 상호명이 선택되었습니다!")
-            poll_session_status()
-            st.rerun()
-        else:
-            st.error("상호명 선택에 실패했습니다.")
+        # Update session state with selected name
+        if not st.session_state.session_data:
+            st.session_state.session_data = {}
+        if 'results' not in st.session_state.session_data:
+            st.session_state.session_data['results'] = {}
+        if 'names' not in st.session_state.session_data['results']:
+            st.session_state.session_data['results']['names'] = {}
+        
+        st.session_state.session_data['results']['names']['selected_name'] = name
+        
+        st.success(f"✅ '{name}' 상호명이 선택되었습니다!")
+        
+        # 비동기 폴링 방식으로 간판 생성 (상호명 생성과 동일한 패턴)
+        try:
+            logger.info(f"Starting async signboard generation for session: {st.session_state.session_id}")
+            logger.info(f"API URL: {API_BASE_URL}/signboards/generate")
             
-    except requests.exceptions.RequestException as e:
-        st.error(f"API 호출 오류: {str(e)}")
+            # 1. 비동기 요청 시작 (재시도 포함)
+            with st.spinner("🚀 간판 생성 요청 중..."):
+                start_success = False
+                for start_attempt in range(3):  # 최대 3회 재시도
+                    try:
+                        logger.info(f"Async signboard request attempt {start_attempt + 1}/3")
+                        start_response = requests.post(
+                            f"{API_BASE_URL}/signboards/generate",
+                            headers={'x-async-mode': 'true'},
+                            json={
+                                "sessionId": st.session_state.session_id,
+                                "selectedName": name,
+                                "businessInfo": st.session_state.business_info
+                            },
+                            timeout=10  # 짧은 타임아웃 (비동기 시작만)
+                        )
+                        
+                        if start_response.status_code == 202:
+                            logger.info("Signboard generation started successfully")
+                            start_success = True
+                            st.success("✅ 간판 생성이 시작되었습니다!")
+                            break
+                        else:
+                            error_msg = f"간판 생성 시작 실패: {start_response.status_code}"
+                            logger.error(error_msg)
+                            logger.error(f"Response: {start_response.text}")
+                            if start_attempt >= 2:  # 마지막 시도
+                                st.error(error_msg)
+                                try:
+                                    st.json(start_response.json())
+                                except:
+                                    st.text(start_response.text)
+                                return
+                            time.sleep(1)
+                    
+                    except requests.Timeout:
+                        logger.warning(f"Signboard start request timeout (attempt {start_attempt + 1}/3)")
+                        if start_attempt >= 2:
+                            st.error("⏱️ 요청 시작 타임아웃: Lambda 함수가 응답하지 않습니다.")
+                            st.info("💡 잠시 후 다시 시도하거나, CloudWatch 로그를 확인하세요.")
+                            return
+                        time.sleep(1)
+                    
+                    except Exception as e:
+                        logger.error(f"Signboard start request error: {str(e)}")
+                        if start_attempt >= 2:
+                            raise
+                        time.sleep(1)
+            
+            if not start_success:
+                st.error("간판 생성을 시작할 수 없습니다.")
+                return
+            
+            # 2. 폴링으로 결과 대기 - 진행률 표시
+            st.info(f"💡 AI가 '{name}' 상호명으로 3가지 스타일의 간판을 생성하고 있습니다...")
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            max_attempts = 30  # 30 * 3초 = 90초 (이미지 생성 시간 고려)
+            for attempt in range(max_attempts):
+                time.sleep(3)  # 폴링 주기: 3초
+                
+                try:
+                    # 세션 데이터에서 간판 이미지 확인
+                    session_response = requests.get(
+                        f"{API_BASE_URL}/sessions/{st.session_state.session_id}",
+                        timeout=10
+                    )
+                    
+                    progress = min((attempt + 1) / max_attempts, 0.95)
+                    progress_bar.progress(progress)
+                    elapsed = (attempt + 1) * 3
+                    status_text.text(f"🔄 간판 생성 중... ({elapsed}초 경과 / 최대 90초)")
+                    
+                    if session_response.status_code == 200:
+                        session_data = session_response.json()
+                        # Try both field names (camelCase and snake_case)
+                        signboard_images = session_data.get('signboardImages') or session_data.get('signboard_images')
+                        
+                        if signboard_images:
+                            # JSON 문자열인 경우 파싱
+                            if isinstance(signboard_images, str):
+                                signboard_images = json.loads(signboard_images)
+                            
+                            images = signboard_images.get('images', [])
+                            
+                            if images and len(images) > 0:
+                                # 완료!
+                                progress_bar.progress(1.0)
+                                status_text.text("✅ 완료!")
+                                logger.info(f"Signboard generation completed: {len(images)} images")
+                                
+                                # 세션 데이터 업데이트
+                                if not st.session_state.session_data:
+                                    st.session_state.session_data = {}
+                                if 'results' not in st.session_state.session_data:
+                                    st.session_state.session_data['results'] = {}
+                                
+                                st.session_state.session_data['results']['signboard'] = {
+                                    'signboards': images
+                                }
+                                
+                                st.success(f"✅ 간판 디자인 생성 완료! ({len(images)}개)")
+                                time.sleep(1)
+                                st.session_state.current_step = 3
+                                st.rerun()
+                                return
+                
+                except Exception as poll_error:
+                    logger.warning(f"Poll attempt {attempt + 1} failed: {poll_error}")
+                    continue
+            
+            # 타임아웃
+            progress_bar.progress(1.0)
+            status_text.text("⏱️ 타임아웃")
+            st.error("⏱️ 간판 생성 타임아웃: 90초를 초과했습니다.")
+            st.info("💡 Lambda 함수가 계속 실행 중일 수 있습니다. 잠시 후 페이지를 새로고침하세요.")
+            
+        except Exception as e:
+            error_msg = f"간판 생성 오류: {str(e)}"
+            logger.error(error_msg)
+            logger.exception("Full traceback:")
+            st.error(error_msg)
+            
+    except Exception as e:
+        error_msg = f"상호명 선택 오류: {str(e)}"
+        logger.error(error_msg)
+        logger.exception("Full traceback:")
+        st.error(error_msg)
 
 def regenerate_business_names():
     """Regenerate business name suggestions"""
@@ -751,42 +1281,254 @@ def regenerate_business_names():
         st.error(f"API 호출 오류: {str(e)}")
 
 def select_signboard_image(image_url: str):
-    """Select a signboard image"""
+    """Select a signboard image and start interior generation"""
     try:
+        # Step 1: Select signboard
         response = requests.post(
             f"{API_BASE_URL}/signboards/select",
-            json={"session_id": st.session_state.session_id, "selected_image_url": image_url},
+            json={"sessionId": st.session_state.session_id, "selectedImageUrl": image_url},
             timeout=10
         )
         
         if response.status_code == 200:
-            st.success("간판 디자인이 선택되었습니다!")
-            poll_session_status()
-            st.rerun()
+            st.success("✅ 간판 디자인이 선택되었습니다!")
+            
+            # Update session state
+            if not st.session_state.session_data:
+                st.session_state.session_data = {}
+            if 'results' not in st.session_state.session_data:
+                st.session_state.session_data['results'] = {}
+            if 'signboards' not in st.session_state.session_data['results']:
+                st.session_state.session_data['results']['signboards'] = {}
+            st.session_state.session_data['results']['signboards']['selected_image_url'] = image_url
+            
+            # Step 2: Automatically start interior generation
+            start_interior_generation()
+            
         else:
-            st.error("간판 선택에 실패했습니다.")
+            st.error("❌ 간판 선택에 실패했습니다.")
             
     except requests.exceptions.RequestException as e:
-        st.error(f"API 호출 오류: {str(e)}")
+        st.error(f"❌ API 호출 오류: {str(e)}")
 
-def select_interior_option(image_url: str):
-    """Select an interior option"""
+def start_interior_generation():
+    """Start interior generation with async polling"""
     try:
-        response = requests.post(
-            f"{API_BASE_URL}/interiors/select",
-            json={"session_id": st.session_state.session_id, "selected_image_url": image_url},
+        st.info("🎨 인테리어 추천 생성을 시작합니다...")
+        
+        # Start async interior generation
+        interior_response = requests.post(
+            f"{API_BASE_URL}/interiors/generate",
+            headers={'x-async-mode': 'true'},  # Async mode
+            json={
+                "sessionId": st.session_state.session_id,
+                "businessInfo": st.session_state.business_info
+            },
             timeout=10
         )
         
-        if response.status_code == 200:
-            st.success("인테리어 옵션이 선택되었습니다!")
-            poll_session_status()
-            st.rerun()
-        else:
-            st.error("인테리어 선택에 실패했습니다.")
+        if interior_response.status_code == 202:
+            st.success("✅ 인테리어 생성이 시작되었습니다!")
             
-    except requests.exceptions.RequestException as e:
-        st.error(f"API 호출 오류: {str(e)}")
+            # Poll for completion
+            st.info("💡 AI가 인테리어 추천을 생성하고 있습니다...")
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            max_attempts = 45  # 45 * 2초 = 90초 (이미지 생성 시간 고려)
+            for attempt in range(max_attempts):
+                time.sleep(2)
+                
+                # Calculate elapsed time
+                elapsed = (attempt + 1) * 2
+                
+                # Get session status
+                status_data = get_session_status(st.session_state.session_id)
+                
+                if status_data:
+                    # Check if interior data exists (with backward compatibility)
+                    results = status_data.get('results', {})
+                    interior_data = None
+                    recommendations = []
+                    generated_images = 0
+                    
+                    # Try new format first: 'interiors' field in results (Map type)
+                    interior_data = results.get('interiors')
+                    if interior_data:
+                        if isinstance(interior_data, list):
+                            recommendations = interior_data
+                            # Count images with valid URLs
+                            generated_images = sum(1 for rec in recommendations if rec.get('imageUrl'))
+                        elif isinstance(interior_data, dict):
+                            recommendations = interior_data.get('recommendations', [])
+                            generated_images = interior_data.get('generatedImages', 0)
+                            # Also count from recommendations if generatedImages is 0
+                            if generated_images == 0 and recommendations:
+                                generated_images = sum(1 for rec in recommendations if rec.get('imageUrl'))
+                    
+                    # Fallback: Try old format 'interior_recommendations' in root (JSON string)
+                    elif 'interior_recommendations' in status_data:
+                        try:
+                            interior_str = status_data['interior_recommendations']
+                            if isinstance(interior_str, str):
+                                interior_parsed = json.loads(interior_str)
+                                recommendations = interior_parsed.get('recommendations', [])
+                                # Count images with valid URLs
+                                generated_images = sum(1 for rec in recommendations if rec.get('imageUrl'))
+                                logger.info(f"Parsed legacy JSON string format: {len(recommendations)} recommendations")
+                            else:
+                                recommendations = interior_str.get('recommendations', [])
+                                generated_images = sum(1 for rec in recommendations if rec.get('imageUrl'))
+                        except json.JSONDecodeError as e:
+                            logger.error(f"Failed to parse interior_recommendations JSON: {str(e)}")
+                            logger.error(f"Raw data: {status_data.get('interior_recommendations', '')[:200]}")
+                    
+                    # Check interiorGenerationStatus field (can be in root or results)
+                    interior_status = status_data.get('interiorGenerationStatus')
+                    if not interior_status:
+                        interior_status = results.get('interiorGenerationStatus')
+                    
+                    total_recommendations = len(recommendations)
+                    
+                    # Debug logging
+                    logger.info(f"Polling attempt {attempt + 1}: {generated_images}/{total_recommendations} images generated, status={interior_status}")
+                    
+                    # Check if all images are generated
+                    if interior_status == "completed" or (total_recommendations > 0 and generated_images == total_recommendations):
+                        # All images generated - complete!
+                        progress_bar.progress(1.0)
+                        status_text.text("✅ 완료!")
+                        logger.info(f"Interior generation complete! {generated_images} images generated")
+                        
+                        # Update session state
+                        if not st.session_state.session_data:
+                            st.session_state.session_data = {}
+                        if 'results' not in st.session_state.session_data:
+                            st.session_state.session_data['results'] = {}
+                        st.session_state.session_data['results']['interiors'] = {
+                            'recommendations': recommendations,
+                            'generatedImages': generated_images,
+                            'totalRecommendations': total_recommendations
+                        }
+                        
+                        st.success(f"✅ 인테리어 추천 완료! ({generated_images}개 이미지 생성)")
+                        st.session_state.current_step = 4
+                        time.sleep(1)
+                        st.rerun()
+                        return
+                    elif total_recommendations > 0:
+                        # Partial progress - show image generation status
+                        status_text.text(f"🎨 인테리어 이미지 생성 중... ({generated_images}/{total_recommendations} 완료, {elapsed}초 경과)")
+                
+                # Update progress
+                progress = min((attempt + 1) / max_attempts, 0.95)
+                progress_bar.progress(progress)
+                
+                # Default status message
+                if not status_data or not interior_data:
+                    status_text.text(f"🔄 인테리어 생성 중... ({elapsed}초 경과 / 최대 90초)")
+            
+            # Timeout - show manual refresh button
+            st.warning("⏱️ 인테리어 이미지 생성이 예상보다 오래 걸리고 있습니다.")
+            st.info("💡 아래 '상태 새로고침' 버튼을 눌러 현재 상태를 확인하세요.")
+            
+            # Store timeout state and show refresh button immediately
+            st.session_state.interior_timeout = True
+            
+            # Show manual refresh button right here
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                if st.button("🔄 상태 새로고침", key="refresh_interior_timeout", use_container_width=True):
+                    # Query status immediately
+                    status_data = get_session_status(st.session_state.session_id)
+                    if status_data:
+                        results = status_data.get('results', {})
+                        interior_data = results.get('interiors')
+                        if interior_data:
+                            recommendations = interior_data.get('recommendations', [])
+                            generated_images = interior_data.get('generatedImages', 0)
+                            if generated_images > 0:
+                                st.success(f"✅ 인테리어 생성 완료! ({generated_images}개 이미지)")
+                                st.session_state.current_step = 4
+                                st.session_state.interior_timeout = False
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                st.info(f"🎨 아직 생성 중입니다... ({generated_images}/{len(recommendations)} 완료)")
+                        else:
+                            st.warning("⏳ 아직 데이터가 없습니다. 잠시 후 다시 시도하세요.")
+                    else:
+                        st.error("❌ 세션 데이터를 가져올 수 없습니다.")
+            
+        else:
+            st.warning(f"⚠️ 인테리어 생성 시작 실패: {interior_response.status_code}")
+            
+    except Exception as e:
+        st.error(f"❌ 인테리어 생성 오류: {str(e)}")
+
+def select_interior_option(style: str):
+    """Select an interior option and trigger report generation"""
+    try:
+        logger.info(f"Selecting interior style: {style}")
+        
+        # Update session state with selected interior
+        if not st.session_state.session_data:
+            st.session_state.session_data = {}
+        if 'results' not in st.session_state.session_data:
+            st.session_state.session_data['results'] = {}
+        if 'interiors' not in st.session_state.session_data['results']:
+            st.session_state.session_data['results']['interiors'] = {}
+        
+        st.session_state.session_data['results']['interiors']['selected_style'] = style
+        
+        st.success("✅ 인테리어 옵션이 선택되었습니다!")
+        
+        # Automatically trigger report generation
+        with st.spinner("📄 AI가 분석, 상호명, 간판, 인테리어를 종합하여 최종 브랜딩 보고서를 생성하고 있습니다... (최대 60초 소요)"):
+            try:
+                report_response = requests.post(
+                    f"{API_BASE_URL}/reports/generate",
+                    json={
+                        "sessionId": st.session_state.session_id,
+                        "businessInfo": st.session_state.business_info
+                    },
+                    timeout=120  # Extended timeout for Bedrock processing
+                )
+                
+                logger.info(f"Report API response: {report_response.status_code}")
+                
+                if report_response.status_code == 200:
+                    result = report_response.json()
+                    logger.info(f"Report result: {result}")
+                    
+                    # Store report data
+                    st.session_state.session_data['results']['report'] = result
+                    
+                    st.success("✅ 보고서 생성 완료!")
+                    st.balloons()  # Celebration!
+                    time.sleep(1)
+                    st.session_state.current_step = 5
+                    st.rerun()
+                else:
+                    error_msg = f"보고서 생성 실패: {report_response.status_code}"
+                    logger.error(error_msg)
+                    logger.error(f"Response: {report_response.text}")
+                    st.error(error_msg)
+                    
+            except requests.Timeout:
+                st.error("⏱️ 보고서 생성 타임아웃: 60초를 초과했습니다.")
+                st.info("💡 Lambda 함수가 계속 실행 중일 수 있습니다. 잠시 후 페이지를 새로고침하세요.")
+            except Exception as e:
+                error_msg = f"보고서 생성 오류: {str(e)}"
+                logger.error(error_msg)
+                logger.exception("Full traceback:")
+                st.error(error_msg)
+            
+    except Exception as e:
+        error_msg = f"인테리어 선택 오류: {str(e)}"
+        logger.error(error_msg)
+        logger.exception("Full traceback:")
+        st.error(error_msg)
 
 def download_report():
     """Download the generated report"""
@@ -832,6 +1574,15 @@ def main():
     # Initialize session state
     init_session_state()
     
+    # Load session data if session exists but data is not loaded
+    if st.session_state.session_id and not st.session_state.session_data:
+        logger.info(f"Loading session data for {st.session_state.session_id}")
+        status_data = get_session_status(st.session_state.session_id)
+        if status_data:
+            st.session_state.session_data = status_data
+            st.session_state.current_step = status_data.get("currentStep", 1)
+            logger.info(f"Session data loaded: currentStep={st.session_state.current_step}")
+    
     # Header
     st.title("🎨 AI 브랜딩 챗봇")
     st.markdown("**5단계 자동 워크플로로 완전한 브랜딩 패키지를 생성하세요**")
@@ -841,6 +1592,7 @@ def main():
         st.markdown("### 세션 정보")
         if st.session_state.session_id:
             st.success(f"세션 ID: {st.session_state.session_id[:8]}...")
+            st.write(f"현재 단계: {st.session_state.current_step}/5")
             
             # Auto-refresh toggle
             auto_refresh = st.checkbox("자동 새로고침", value=st.session_state.polling_active)
@@ -851,8 +1603,49 @@ def main():
                 poll_session_status()
                 st.rerun()
             
+            # Force next step button (for debugging)
+            st.markdown("---")
+            st.markdown("### 🔧 디버그 도구")
+            
+            if st.button("🔄 강제로 다음 단계 실행"):
+                current_step = st.session_state.current_step
+                session_id = st.session_state.session_id
+                business_info = st.session_state.business_info
+                
+                st.write(f"현재 단계: {current_step}")
+                
+                if current_step == 1:
+                    # Force analysis
+                    with st.spinner("분석 강제 실행 중..."):
+                        try:
+                            response = requests.post(
+                                f"{API_BASE_URL}/analysis",
+                                json={"sessionId": session_id, "businessInfo": business_info},
+                                timeout=90  # Increased for Bedrock processing
+                            )
+                            st.write(f"응답 상태: {response.status_code}")
+                            st.json(response.json())
+                        except Exception as e:
+                            st.error(f"오류: {str(e)}")
+                
+                elif current_step == 2:
+                    # Force name generation
+                    with st.spinner("상호명 강제 생성 중..."):
+                        try:
+                            response = requests.post(
+                                f"{API_BASE_URL}/names/suggest",
+                                json={"sessionId": session_id, "businessInfo": business_info},
+                                timeout=90  # Increased for Bedrock reasoning
+                            )
+                            st.write(f"응답 상태: {response.status_code}")
+                            st.json(response.json())
+                        except Exception as e:
+                            st.error(f"오류: {str(e)}")
+            
             # Reset session button
-            if st.button("새 세션 시작"):
+            st.markdown("---")
+            if st.button("🆕 새 세션 시작", type="primary"):
+                logger.info("Resetting session")
                 for key in list(st.session_state.keys()):
                     del st.session_state[key]
                 st.rerun()
@@ -907,6 +1700,34 @@ def main():
     
     # Main content area
     if st.session_state.session_id:
+        # Debug banner at top
+        with st.expander("🔍 디버그 정보", expanded=True):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("세션 ID", st.session_state.session_id[:12] + "...")
+                st.metric("현재 단계", f"{st.session_state.current_step}/5")
+            with col2:
+                st.metric("폴링 상태", "활성" if st.session_state.polling_active else "비활성")
+                has_analysis = bool(st.session_state.session_data and st.session_state.session_data.get("results", {}).get("analysis"))
+                st.metric("분석 결과", "있음" if has_analysis else "없음")
+            with col3:
+                if st.button("📊 세션 상태 조회", key="check_status"):
+                    with st.spinner("세션 상태 조회 중..."):
+                        try:
+                            status_response = requests.get(
+                                f"{API_BASE_URL}/status/{st.session_state.session_id}",
+                                timeout=10
+                            )
+                            if status_response.status_code == 200:
+                                status_data = status_response.json()
+                                st.json(status_data)
+                                # Update session data
+                                st.session_state.session_data = status_data
+                            else:
+                                st.error(f"상태 조회 실패: {status_response.status_code}")
+                        except Exception as e:
+                            st.error(f"오류: {str(e)}")
+        
         # Display progress bar
         display_progress_bar()
         
@@ -929,7 +1750,8 @@ def main():
         if st.session_state.current_step == 1:
             display_analysis_results()
             if not st.session_state.session_data or not st.session_state.session_data.get("results", {}).get("analysis"):
-                st.info("🔄 비즈니스 분석이 진행 중입니다...")
+                st.warning("⚠️ 비즈니스 분석 결과가 없습니다!")
+                st.info("💡 사이드바의 '강제로 다음 단계 실행' 버튼을 눌러 분석을 시작하세요.")
         elif st.session_state.current_step == 2:
             display_analysis_results()  # Keep showing analysis
             st.markdown("---")

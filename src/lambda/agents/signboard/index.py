@@ -9,121 +9,25 @@ import os
 import time
 import base64
 import uuid
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, TYPE_CHECKING
 from datetime import datetime
 import asyncio
 import aiohttp
 
-# Add shared modules to path
-sys.path.append('/opt/python')
+if TYPE_CHECKING:
+    from shared.ai_providers import AIProvider
 
-try:
-    from shared.base_agent import BaseAgent
-    from shared.models import AgentType, ImageResult, SignboardImages, BusinessInfo
-    from shared.utils import create_response
-    from shared.env_loader import get_openai_api_key, is_local_environment
-    from shared.s3_client import get_s3_client
-    from shared.ai_providers import AIProviderFactory, AIProvider
-except ImportError:
-    # For testing purposes, create mock implementations
-    from datetime import datetime
-    from typing import Dict, Any, List
-    from enum import Enum
-    import time
-    
-    class AgentType(Enum):
-        SIGNBOARD = "signboard"
-    
-    class ImageResult:
-        def __init__(self, url: str, provider: str, style: str, prompt: str, 
-                     metadata: Dict[str, Any] = None, is_fallback: bool = False):
-            self.url = url
-            self.provider = provider
-            self.style = style
-            self.prompt = prompt
-            self.metadata = metadata or {}
-            self.generated_at = datetime.utcnow().isoformat()
-            self.is_fallback = is_fallback
-        
-        def validate(self) -> bool:
-            return bool(self.url and self.provider and self.style and self.prompt)
-    
-    class SignboardImages:
-        def __init__(self, images: List[ImageResult] = None, selected_image_url: str = None):
-            self.images = images or []
-            self.selected_image_url = selected_image_url
-        
-        def validate(self) -> bool:
-            return len(self.images) <= 3 and all(img.validate() for img in self.images)
-    
-    class BusinessInfo:
-        def __init__(self, industry: str, region: str, size: str, **kwargs):
-            self.industry = industry
-            self.region = region
-            self.size = size
-    
-    class BaseAgent:
-        def __init__(self, agent_type):
-            self.agent_type = agent_type
-            self.agent_name = agent_type.value
-            self.logger = self._create_mock_logger()
-            self.aws_clients = self._create_mock_aws_clients()
-            self.config = {'s3_bucket': 'test-bucket'}
-        
-        def _create_mock_logger(self):
-            import logging
-            logger = logging.getLogger(self.agent_name)
-            logger.setLevel(logging.INFO)
-            if not logger.handlers:
-                handler = logging.StreamHandler()
-                formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-                handler.setFormatter(formatter)
-                logger.addHandler(handler)
-            return logger
-        
-        def _create_mock_aws_clients(self):
-            class MockS3:
-                def put_object(self, **kwargs):
-                    return {'ETag': 'mock-etag'}
-                def generate_presigned_url(self, operation, Params, ExpiresIn):
-                    return f"https://mock-s3-url/{Params['Key']}"
-            
-            return {'s3': MockS3()}
-        
-        def start_execution(self, session_id: str, tool: str):
-            self.current_session_id = session_id
-            self.current_tool = tool
-            self.execution_start_time = time.time()
-        
-        def end_execution(self, status: str = "success", error_message: str = None, result: Any = None):
-            if hasattr(self, 'execution_start_time'):
-                latency_ms = int((time.time() - self.execution_start_time) * 1000)
-                return latency_ms
-            return 0
-        
-        def get_session_data(self, session_id: str):
-            return None
-        
-        def update_session_data(self, session_id: str, updates: Dict[str, Any]):
-            return True
-        
-        def create_lambda_response(self, status_code: int, body: Any, headers=None):
-            return {
-                'statusCode': status_code,
-                'headers': headers or {'Content-Type': 'application/json'},
-                'body': json.dumps(body, ensure_ascii=False)
-            }
-        
-        def handle_error(self, error: Exception, context: str = ""):
-            return {
-                'error': True,
-                'message': str(error),
-                'agent': self.agent_name,
-                'timestamp': datetime.utcnow().isoformat()
-            }
-        
-        def lambda_handler(self, event: Dict[str, Any], context: Any):
-            return self.execute(event, context)
+# Add shared modules to path - Lambda Layer structure
+sys.path.insert(0, '/opt/python')
+
+from shared.base_agent import BaseAgent
+from shared.models import AgentType, ImageResult, SignboardImages, BusinessInfo
+from shared.utils import create_response
+from shared.env_loader import get_openai_api_key, is_local_environment
+from shared.s3_client import get_s3_client
+from shared.ai_providers import AIProviderFactory, AIProvider
+
+# Mock implementations removed - using actual imports from Lambda Layer
 
 
 class OpenAIClient:
@@ -385,7 +289,7 @@ class SignboardAgent(BaseAgent):
         # 폴백 이미지 설정
         self.fallback_images = self._initialize_fallback_images()
     
-    def _initialize_ai_providers(self) -> Dict[str, AIProvider]:
+    def _initialize_ai_providers(self) -> Dict[str, 'AIProvider']:
         """
         AI Provider 초기화
         
@@ -401,42 +305,76 @@ class SignboardAgent(BaseAgent):
         dev_profile = os.getenv('DEV_PROFILE', 'false').lower() == 'true'
         environment = os.getenv('ENVIRONMENT', 'prod')
         
+        self.logger.info(
+            f"Initializing AI providers: environment={environment}, "
+            f"enable_fallback={enable_fallback}, dev_profile={dev_profile}"
+        )
+        
+        # Log AWS credentials status (without exposing actual credentials)
+        try:
+            import boto3
+            sts = boto3.client('sts')
+            identity = sts.get_caller_identity()
+            self.logger.info(f"AWS credentials available: Account={identity.get('Account')}")
+        except Exception as cred_error:
+            self.logger.warning(f"AWS credentials check failed: {cred_error}")
+        
         # Bedrock SDXL is always initialized (Primary for hackathon)
+        self.logger.info("Attempting to initialize Bedrock SDXL provider (PRIMARY)...")
         try:
             # Use Bedrock SDXL Provider (AWS Bedrock)
-            sdxl_provider = AIProviderFactory.create_provider("sdxl")
+            sdxl_provider = AIProviderFactory.create_provider("sdxl", logger=self.logger)
             providers["bedrock_sdxl"] = sdxl_provider
-            self.logger.info("Bedrock SDXL provider initialized successfully (PRIMARY)")
+            self.logger.info("✓ Bedrock SDXL provider initialized successfully (PRIMARY)")
         except Exception as e:
-            self.logger.error(f"Failed to initialize Bedrock SDXL provider: {e}")
+            error_type = type(e).__name__
+            error_msg = str(e)
+            self.logger.error(f"✗ Failed to initialize Bedrock SDXL provider: {error_type}: {error_msg}")
+            # Note: AgentLogger doesn't support exc_info parameter
+            import traceback
+            self.logger.error(f"Stack trace: {traceback.format_exc()}")
+            
             # Bedrock SDXL failure is critical for hackathon submission
             if not enable_fallback and not dev_profile and environment != 'local':
-                raise Exception(f"Bedrock SDXL initialization failed (required for hackathon): {e}")
+                critical_error = f"Bedrock SDXL initialization failed (required for hackathon): {error_msg}"
+                self.logger.error(f"CRITICAL: {critical_error}")
+                raise Exception(critical_error)
+            else:
+                self.logger.warning(f"Bedrock SDXL failed but fallback is enabled, continuing...")
         
-        # Fallback providers (only if enabled)
-        if enable_fallback or dev_profile or environment == 'local':
-            try:
-                # DALL-E Provider (Fallback)
-                dalle_provider = AIProviderFactory.create_provider("dalle")
-                providers["dalle"] = dalle_provider
-                self.logger.info("DALL-E provider initialized successfully (FALLBACK)")
-            except Exception as e:
-                self.logger.warning(f"Failed to initialize DALL-E provider: {e}")
-            
-            try:
-                # Gemini Provider (Fallback)
-                gemini_provider = AIProviderFactory.create_provider("gemini")
-                providers["gemini"] = gemini_provider
-                self.logger.info("Gemini provider initialized successfully (FALLBACK)")
-            except Exception as e:
-                self.logger.warning(f"Failed to initialize Gemini provider: {e}")
+        # Additional providers for diversity (DALL-E, Gemini)
+        # Always initialize for multi-provider comparison, regardless of fallback setting
+        self.logger.info("Initializing additional providers (DALL-E, Gemini) for multi-provider comparison...")
+        
+        # DALL-E Provider
+        self.logger.info("Attempting to initialize DALL-E provider...")
+        try:
+            dalle_provider = AIProviderFactory.create_provider("dalle", logger=self.logger)
+            providers["dalle"] = dalle_provider
+            self.logger.info("✓ DALL-E provider initialized successfully")
+        except Exception as e:
+            error_type = type(e).__name__
+            self.logger.warning(f"✗ Failed to initialize DALL-E provider: {error_type}: {str(e)}")
+        
+        # Gemini Provider
+        self.logger.info("Attempting to initialize Gemini provider...")
+        try:
+            gemini_provider = AIProviderFactory.create_provider("gemini", logger=self.logger)
+            providers["gemini"] = gemini_provider
+            self.logger.info("✓ Gemini provider initialized successfully")
+        except Exception as e:
+            error_type = type(e).__name__
+            self.logger.warning(f"✗ Failed to initialize Gemini provider: {error_type}: {str(e)}")
+        
+        # Summary
+        if len(providers) == 0:
+            self.logger.error("CRITICAL: No AI providers initialized! Image generation will fail.")
         else:
-            self.logger.info("Fallback providers disabled (ENABLE_FALLBACK=false)")
+            self.logger.info(
+                f"✓ Successfully initialized {len(providers)} AI provider(s): {list(providers.keys())}"
+            )
+            self.logger.info(f"Provider priority: {list(providers.keys())}")
         
-        self.logger.info(
-            f"Initialized {len(providers)} AI providers: {list(providers.keys())} "
-            f"(fallback_enabled={enable_fallback or dev_profile or environment == 'local'})"
-        )
         return providers
     
     def _initialize_fallback_images(self) -> Dict[str, str]:
@@ -450,9 +388,99 @@ class SignboardAgent(BaseAgent):
             "vibrant": f"{base_url}/vibrant-signboard.png"
         }
     
+    def _validate_providers(self) -> Dict[str, bool]:
+        """
+        Validate all AI providers on initialization.
+        
+        Returns:
+            Dict mapping provider names to availability status
+        """
+        provider_status = {}
+        
+        for provider_name, provider in self.ai_providers.items():
+            try:
+                # Check if provider is properly initialized
+                if provider is None:
+                    provider_status[provider_name] = False
+                    self.logger.warning(f"Provider {provider_name} is None")
+                else:
+                    provider_status[provider_name] = True
+                    self.logger.info(f"Provider {provider_name} is available")
+            except Exception as e:
+                provider_status[provider_name] = False
+                self.logger.error(f"Provider {provider_name} validation failed: {str(e)}")
+        
+        return provider_status
+    
+    def _log_generation_attempt(
+        self,
+        provider_name: str,
+        style: str,
+        session_id: str,
+        prompt: str
+    ) -> None:
+        """Log image generation attempt with context"""
+        self.logger.info(
+            f"Image generation attempt: "
+            f"session_id={session_id}, "
+            f"provider={provider_name}, "
+            f"style={style}, "
+            f"prompt_length={len(prompt)}"
+        )
+    
+    def _log_generation_result(
+        self,
+        provider_name: str,
+        style: str,
+        success: bool,
+        error: Optional[str] = None,
+        latency_ms: Optional[int] = None
+    ) -> None:
+        """Log image generation result"""
+        if success:
+            self.logger.info(
+                f"Image generation success: "
+                f"provider={provider_name}, "
+                f"style={style}, "
+                f"latency_ms={latency_ms}"
+            )
+        else:
+            self.logger.error(
+                f"Image generation failed: "
+                f"provider={provider_name}, "
+                f"style={style}, "
+                f"error={error}"
+            )
+    
+    def _should_use_fallback(self) -> bool:
+        """Determine if fallback providers should be used"""
+        environment = os.getenv('ENVIRONMENT', 'prod')
+        enable_fallback = os.getenv('ENABLE_FALLBACK', 'true').lower() == 'true'
+        dev_profile = os.getenv('DEV_PROFILE', 'false').lower() == 'true'
+        
+        # Fallback enabled in local/dev or when explicitly enabled
+        should_fallback = (
+            environment in ['local', 'dev'] or
+            enable_fallback or
+            dev_profile
+        )
+        
+        self.logger.info(
+            f"Fallback decision: should_use={should_fallback}, "
+            f"environment={environment}, "
+            f"enable_fallback={enable_fallback}, "
+            f"dev_profile={dev_profile}"
+        )
+        
+        return should_fallback
+    
     def execute(self, event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         """Signboard Agent 실행 로직"""
         try:
+            # 비동기 모드 확인
+            headers = event.get('headers', {})
+            is_async = headers.get('x-async-mode') == 'true'
+            
             # 요청 파싱
             if isinstance(event.get('body'), str):
                 body = json.loads(event['body'])
@@ -462,55 +490,133 @@ class SignboardAgent(BaseAgent):
             session_id = body.get('sessionId')
             selected_name = body.get('selectedName')
             business_info_data = body.get('businessInfo', {})
-            action = body.get('action', 'generate')
             
-            if not all([session_id, selected_name]):
-                return self.create_lambda_response(400, {
-                    "error": "sessionId and selectedName are required"
+            # Action 감지: body 또는 path에서 추출
+            action = body.get('action')
+            
+            # Action이 body에 없으면 path에서 추론
+            if not action:
+                path = event.get('path', '') or event.get('rawPath', '')
+                self.logger.info(f"Inferring action from path: {path}")
+                
+                if '/select' in path:
+                    action = 'select'
+                    self.logger.info("Action inferred: select")
+                elif '/generate' in path:
+                    action = 'generate'
+                    self.logger.info("Action inferred: generate")
+                else:
+                    action = 'generate'  # Default action
+                    self.logger.info("Action defaulted to: generate")
+            else:
+                self.logger.info(f"Action from body: {action}")
+            
+            # Validate required fields based on action
+            if action == 'select':
+                # For select action, only sessionId and selectedImageUrl are required
+                if not session_id:
+                    return self.create_lambda_response(400, {
+                        "error": "sessionId is required"
+                    })
+                selected_image_url = body.get('selectedImageUrl')
+                if not selected_image_url:
+                    return self.create_lambda_response(400, {
+                        "error": "selectedImageUrl is required"
+                    })
+            else:
+                # For other actions, sessionId and selectedName are required
+                if not all([session_id, selected_name]):
+                    return self.create_lambda_response(400, {
+                        "error": "sessionId and selectedName are required"
+                    })
+            
+            # 비동기 모드: 즉시 202 반환하고 별도 Lambda 호출로 백그라운드 실행
+            if is_async:
+                self.logger.info(f"Async mode enabled for session: {session_id}")
+                
+                # Lambda를 비동기로 재호출 (InvocationType='Event')
+                try:
+                    import boto3
+                    lambda_client = boto3.client('lambda')
+                    
+                    # 동기 모드로 재호출 (x-async-mode 헤더 제거)
+                    sync_event = event.copy()
+                    if 'headers' in sync_event:
+                        sync_headers = sync_event['headers'].copy()
+                        sync_headers.pop('x-async-mode', None)
+                        sync_event['headers'] = sync_headers
+                    
+                    # 현재 Lambda 함수 이름 가져오기
+                    function_name = os.getenv('AWS_LAMBDA_FUNCTION_NAME')
+                    
+                    self.logger.info(f"Invoking Lambda asynchronously: {function_name}")
+                    
+                    # 비동기 호출 (Event 타입)
+                    lambda_client.invoke(
+                        FunctionName=function_name,
+                        InvocationType='Event',  # 비동기 호출
+                        Payload=json.dumps(sync_event)
+                    )
+                    
+                    self.logger.info(f"Async Lambda invocation successful for session: {session_id}")
+                    
+                except Exception as invoke_error:
+                    self.logger.error(f"Failed to invoke Lambda asynchronously: {str(invoke_error)}")
+                    # 실패해도 202 반환 (폴링으로 확인 가능)
+                
+                # 즉시 202 반환
+                return self.create_lambda_response(202, {
+                    "message": "Signboard generation started",
+                    "sessionId": session_id,
+                    "status": "processing"
                 })
             
+            # 동기 모드: 기존 로직
             # 실행 시작
-            self.start_execution(session_id, "signboard.generate")
+            self.start_execution(session_id, f"signboard.{action}")
             
-            # 비즈니스 정보 파싱
-            if isinstance(business_info_data, str):
-                business_info_data = json.loads(business_info_data)
-            
-            business_info = BusinessInfo(**business_info_data)
-            
-            # 간판 이미지 생성
-            if action == 'generate':
-                result = self._generate_signboard_images(session_id, selected_name, business_info)
-            elif action == 'generate_single':
-                # 단일 Provider로 이미지 생성 (Step Functions용)
-                provider = body.get('provider')
-                style = body.get('style')
-                
-                # 비동기 실행
-                try:
-                    loop = asyncio.get_running_loop()
-                    import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(
-                            asyncio.run,
-                            self._generate_single_provider_image(session_id, selected_name, business_info, provider, style)
-                        )
-                        result = future.result(timeout=35)  # 35초 타임아웃
-                except RuntimeError:
-                    result = asyncio.run(
-                        self._generate_single_provider_image(session_id, selected_name, business_info, provider, style)
-                    )
-            elif action == 'merge_results':
-                # 병렬 생성 결과 병합 (Step Functions용)
-                dalle_result = body.get('dalleResult')
-                sdxl_result = body.get('sdxlResult')
-                gemini_result = body.get('geminiResult')
-                result = self._merge_parallel_results(session_id, dalle_result, sdxl_result, gemini_result)
-            elif action == 'select':
+            # 간판 이미지 생성 또는 선택 처리
+            if action == 'select':
+                # 선택 action은 business_info 불필요
                 selected_image_url = body.get('selectedImageUrl')
                 result = self._handle_image_selection(session_id, selected_image_url)
             else:
-                raise ValueError(f"Unknown action: {action}")
+                # 다른 action들은 business_info 필요
+                # 비즈니스 정보 파싱
+                if isinstance(business_info_data, str):
+                    business_info_data = json.loads(business_info_data)
+                
+                business_info = BusinessInfo(**business_info_data)
+                
+                if action == 'generate':
+                    result = self._generate_signboard_images(session_id, selected_name, business_info)
+                elif action == 'generate_single':
+                    # 단일 Provider로 이미지 생성 (Step Functions용)
+                    provider = body.get('provider')
+                    style = body.get('style')
+                    
+                    # 비동기 실행
+                    try:
+                        loop = asyncio.get_running_loop()
+                        import concurrent.futures
+                        with concurrent.futures.ThreadPoolExecutor() as executor:
+                            future = executor.submit(
+                                asyncio.run,
+                                self._generate_single_provider_image(session_id, selected_name, business_info, provider, style)
+                            )
+                            result = future.result(timeout=35)  # 35초 타임아웃
+                    except RuntimeError:
+                        result = asyncio.run(
+                            self._generate_single_provider_image(session_id, selected_name, business_info, provider, style)
+                        )
+                elif action == 'merge_results':
+                    # 병렬 생성 결과 병합 (Step Functions용)
+                    dalle_result = body.get('dalleResult')
+                    sdxl_result = body.get('sdxlResult')
+                    gemini_result = body.get('geminiResult')
+                    result = self._merge_parallel_results(session_id, dalle_result, sdxl_result, gemini_result)
+                else:
+                    raise ValueError(f"Unknown action: {action}")
             
             # 실행 완료
             self.end_execution("success", result=result)
@@ -601,14 +707,78 @@ class SignboardAgent(BaseAgent):
                 "message": "AI 이미지 생성에 실패하여 기본 템플릿을 제공합니다."
             }
     
+    def _assign_providers_to_styles(self, styles: List[str]) -> List[tuple]:
+        """
+        Assign providers to styles with strict 1:1 mapping
+        
+        Strategy:
+        - Style 0 (modern) → DALL-E
+        - Style 1 (classic) → SDXL
+        - Style 2 (vibrant) → SDXL
+        
+        Note: Using DALL-E for one style and SDXL for two styles
+        
+        Returns: List of (provider_name, style) tuples
+        """
+        # Preferred provider order for each style
+        preferred_providers = {
+            0: "dalle",          # modern → DALL-E
+            1: "bedrock_sdxl",   # classic → SDXL
+            2: "bedrock_sdxl"    # vibrant → SDXL
+        }
+        
+        # Check availability
+        available_providers = []
+        for provider_name in ["dalle", "bedrock_sdxl"]:
+            if provider_name in self.ai_providers:
+                available_providers.append(provider_name)
+                self.logger.info(f"✓ Provider {provider_name} is available")
+            else:
+                self.logger.warning(f"✗ Provider {provider_name} not available")
+        
+        if not available_providers:
+            self.logger.error("No AI providers available!")
+            return []
+        
+        # Log provider availability summary
+        self.logger.info(f"Available providers: {available_providers}")
+        
+        # Assign providers to styles
+        assignments = []
+        for i, style in enumerate(styles[:3]):  # Max 3 styles
+            # Get preferred provider for this index
+            preferred_provider = preferred_providers.get(i, "bedrock_sdxl")
+            
+            if preferred_provider in self.ai_providers:
+                # Use the preferred provider
+                provider_name = preferred_provider
+                self.logger.info(f"✓ Using preferred provider {provider_name} for {style} (index {i})")
+            elif available_providers:
+                # Fallback: use available provider (prefer SDXL over DALLE for fallback)
+                if "bedrock_sdxl" in available_providers:
+                    provider_name = "bedrock_sdxl"
+                else:
+                    provider_name = available_providers[0]
+                self.logger.warning(f"⚠ Using fallback provider {provider_name} for {style} (index {i}) - preferred provider not available")
+            else:
+                # No providers available
+                self.logger.error(f"No provider available for style {style}")
+                continue
+            
+            assignments.append((provider_name, style))
+            self.logger.info(f"✓ Final assignment: {provider_name} → {style} style")
+        
+        return assignments
+    
     async def _generate_images_async(self, session_id: str, selected_name: str, 
                                    business_info: BusinessInfo, styles: List[str]) -> List[ImageResult]:
         """
         다중 AI 모델을 사용한 비동기 이미지 생성
         
-        Strategy (Hackathon compliant):
-        - Bedrock SDXL as primary provider for all 3 styles
-        - DALL-E and Gemini as fallback providers (if enabled)
+        Strategy (Updated):
+        - DALL-E for style 0 (modern)
+        - Gemini for style 1 (classic)
+        - SDXL for style 2 (vibrant)
         - Parallel generation for performance (≤30 seconds)
         """
         
@@ -618,30 +788,25 @@ class SignboardAgent(BaseAgent):
             self.logger.warning("No AI providers available, using fallback images")
             return self._create_fallback_images(session_id, selected_name, business_info)
         
-        # Provider 우선순위 정렬 (Bedrock SDXL 우선)
-        prioritized_providers = []
-        if "bedrock_sdxl" in available_providers:
-            prioritized_providers.append("bedrock_sdxl")
+        # Provider-to-style 할당 (새로운 로직)
+        provider_style_assignments = self._assign_providers_to_styles(styles)
         
-        # 나머지 fallback providers 추가
-        for provider_name in available_providers:
-            if provider_name not in prioritized_providers:
-                prioritized_providers.append(provider_name)
+        if not provider_style_assignments:
+            self.logger.error("Failed to assign providers to styles, using fallback")
+            return self._create_fallback_images(session_id, selected_name, business_info)
         
-        # Provider와 스타일 조합으로 태스크 생성
+        # Log assignments
+        self.logger.info(f"Provider assignments: {provider_style_assignments}")
+        
+        # Provider와 스타일 조합으로 태스크 생성 (새로운 로직)
         tasks = []
         provider_style_combinations = []
         
-        # 각 스타일에 대해 우선순위 Provider 사용
-        for i, style in enumerate(styles[:3]):  # 최대 3개 스타일
-            # Bedrock SDXL을 우선 사용, 없으면 다른 Provider 사용
-            if i < len(prioritized_providers):
-                provider_name = prioritized_providers[i]
-            else:
-                # Provider가 부족한 경우 Bedrock SDXL 재사용
-                provider_name = prioritized_providers[0] if prioritized_providers else available_providers[0]
-            
+        # 할당된 (provider, style) 조합으로 태스크 생성
+        for provider_name, style in provider_style_assignments:
             provider = self.ai_providers[provider_name]
+            
+            self.logger.info(f"Creating task: {provider_name} → {style} style")
             
             task = self._generate_single_image_with_provider(
                 provider, session_id, selected_name, business_info, style
@@ -649,11 +814,11 @@ class SignboardAgent(BaseAgent):
             tasks.append(task)
             provider_style_combinations.append((provider_name, style))
         
-        # 모든 이미지를 병렬로 생성 (최대 30초 타임아웃)
+        # 모든 이미지를 병렬로 생성 (최대 55초 타임아웃 - Lambda 60초 제한 고려)
         try:
-            results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=30.0)
+            results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=55.0)
         except asyncio.TimeoutError:
-            self.logger.warning("Image generation timed out after 30 seconds")
+            self.logger.warning("Image generation timed out after 55 seconds")
             results = [None] * len(tasks)
         
         # 성공한 결과 처리
@@ -676,7 +841,7 @@ class SignboardAgent(BaseAgent):
         
         return images
     
-    async def _generate_single_image_with_provider(self, provider: AIProvider, session_id: str, 
+    async def _generate_single_image_with_provider(self, provider: 'AIProvider', session_id: str, 
                                                  selected_name: str, business_info: BusinessInfo, 
                                                  style: str) -> ImageResult:
         """
@@ -690,23 +855,36 @@ class SignboardAgent(BaseAgent):
             # 프롬프트 생성
             prompt = self._create_image_prompt(selected_name, business_info, style)
             
+            # Log generation attempt using new method
+            self._log_generation_attempt(
+                provider_name=provider.provider_name,
+                style=style,
+                session_id=session_id,
+                prompt=prompt
+            )
+            
             # Provider별 특화 파라미터 설정
             provider_params = self._get_provider_params(provider.provider_name, style)
+            self.logger.info(f"Provider params: {provider_params}")
             
             # Log Bedrock usage (Requirement 5.3)
-            is_bedrock = provider.provider_name == "bedrock_sdxl"
+            is_bedrock = provider.provider_name == "bedrock_sdxl" or provider.provider_name == "sdxl"
             if is_bedrock:
                 self.logger.info(
-                    f"Using Bedrock SDXL for image generation: "
+                    f"🎯 Using Bedrock SDXL for image generation: "
                     f"style={style}, size=1024x1024, session={session_id}"
                 )
+            else:
+                self.logger.info(f"Using fallback provider: {provider.provider_name}")
             
             # AI Provider를 통한 이미지 생성
+            self.logger.info(f"Calling {provider.provider_name}.generate_image()...")
             image_result = await provider.generate_image(
                 prompt=prompt,
                 style=style,
                 **provider_params
             )
+            self.logger.info(f"✓ {provider.provider_name}.generate_image() returned successfully")
             
             # 이미지 다운로드 및 S3 업로드 (URL이 data: 형식이 아닌 경우)
             if image_result.url.startswith('http'):
@@ -721,10 +899,19 @@ class SignboardAgent(BaseAgent):
                 )
                 image_result.url = s3_url
             
-            # 메타데이터 업데이트
+            # 메타데이터 업데이트 (번역 정보 포함)
             latency_ms = int((time.time() - start_time) * 1000)
+            english_name = self._translate_to_english(selected_name)
+            
+            # 번역 방법 결정
+            translation_method = "dictionary" if english_name != selected_name else "none"
+            if selected_name.isascii():
+                translation_method = "already_english"
+            
             image_result.metadata.update({
                 "business_name": selected_name,
+                "english_name": english_name,  # NEW
+                "translation_method": translation_method,  # NEW
                 "industry": business_info.industry,
                 "provider": provider.provider_name,
                 "is_bedrock": is_bedrock,
@@ -732,20 +919,32 @@ class SignboardAgent(BaseAgent):
                 "session_id": session_id
             })
             
-            # Structured logging for monitoring (Requirement 5.3)
-            self.logger.info(
-                f"Image generation completed: provider={provider.provider_name}, "
-                f"style={style}, latency_ms={latency_ms}, is_bedrock={is_bedrock}"
+            # Log generation result using new method
+            self._log_generation_result(
+                provider_name=provider.provider_name,
+                style=style,
+                success=True,
+                latency_ms=latency_ms
             )
             
             return image_result
                 
         except Exception as e:
             latency_ms = int((time.time() - start_time) * 1000)
-            self.logger.error(
-                f"Failed to generate {style} image with {provider.provider_name}: {str(e)} "
-                f"(latency_ms={latency_ms})"
+            error_type = type(e).__name__
+            error_msg = str(e)
+            
+            # Log generation result using new method
+            self._log_generation_result(
+                provider_name=provider.provider_name,
+                style=style,
+                success=False,
+                error=f"{error_type}: {error_msg}"
             )
+            
+            # Note: AgentLogger doesn't support exc_info parameter
+            import traceback
+            self.logger.error(f"Stack trace: {traceback.format_exc()}")
             raise e
     
     def _get_provider_params(self, provider_name: str, style: str) -> Dict[str, Any]:
@@ -790,51 +989,85 @@ class SignboardAgent(BaseAgent):
             return {}
     
     def _create_image_prompt(self, business_name: str, business_info: BusinessInfo, style: str) -> str:
-        """이미지 생성 프롬프트 생성"""
+        """
+        이미지 생성 프롬프트 생성 (영어 텍스트 강조)
+        
+        Enhanced to emphasize English text display in generated images
+        """
         industry = business_info.industry.lower()
         region = business_info.region
         
-        # 기본 프롬프트 구조
-        base_prompt = f"A professional business signboard for '{business_name}'"
+        # 영어 이름으로 변환 (한글 이름은 사용하지 않음)
+        english_name = self._translate_to_english(business_name)
+        
+        # 번역 로깅
+        self.logger.info(f"Business name translation: '{business_name}' → '{english_name}'")
         
         # 업종별 특성 추가
         industry_info = self.industry_characteristics.get(industry, self.industry_characteristics["retail"])
-        industry_elements = ", ".join(industry_info["elements"][:2])  # 처음 2개 요소만
         mood = industry_info["mood"]
         
         # 스타일별 특성 추가
         style_info = self.signboard_styles[style]
-        style_keywords = ", ".join(style_info["keywords"][:3])  # 처음 3개 키워드만
-        style_colors = ", ".join(style_info["colors"][:2])  # 처음 2개 색상만
+        style_keywords = ", ".join(style_info["keywords"][:2])  # 처음 2개 키워드만
         
-        # 영어 번역 추가로 텍스트 표시 개선
-        english_name = self._translate_to_english(business_name)
-        
-        # 최종 프롬프트 조합 (텍스트 표시 강조)
+        # 최종 프롬프트 조합 (영어 텍스트 강조 - 이름을 여러 번 반복)
+        # 텍스트 표시를 최우선으로 강조
         prompt = (
-            f"Restaurant storefront with a large signboard that clearly shows the text '{english_name}' "
-            f"in bold, readable letters. {style_keywords} design style, "
-            f"incorporating {industry_elements}, {mood} atmosphere, "
-            f"using {style_colors} color scheme. "
-            f"The signboard must prominently display '{english_name}' as the main text. "
-            f"High quality typography, professional restaurant signage, "
-            f"storefront exterior view, realistic lighting, commercial signage, "
-            f"the business name '{english_name}' should be the focal point of the sign"
+            f"Professional storefront signboard design. "
+            f"Large bold text displaying '{english_name}' in English letters. "
+            f"The signboard prominently shows '{english_name}' as the main focal point. "
+            f"{style_keywords} style, {mood} atmosphere, business-appropriate design. "
+            f"Text: '{english_name}'"
         )
         
         # 프롬프트 로깅 (디버깅용)
-        self.logger.info(f"Generated prompt for {business_name}: {prompt[:200]}...")
+        original_length = len(prompt)
+        self.logger.info(f"Generated prompt: length={original_length} chars")
+        self.logger.info(f"Prompt preview: {prompt[:150]}...")
         
-        # 프롬프트 길이 제한 (DALL-E 3 제한: 4000자)
-        if len(prompt) > 1000:
-            prompt = prompt[:1000] + "..."
+        # 프롬프트 길이 제한
+        # Titan Image Generator v2: 512 characters max
+        # DALL-E 3: 4000 characters max
+        # Gemini: 1000 characters max
+        # Use the most restrictive limit for compatibility
+        MAX_PROMPT_LENGTH = 512
+        
+        if len(prompt) > MAX_PROMPT_LENGTH:
+            # Truncate intelligently - keep the most important parts
+            # Priority: business name (repeated), style, basic description
+            truncated_prompt = (
+                f"Signboard with '{english_name}' text in bold English letters. "
+                f"{style_keywords} style, professional design. "
+                f"Main text: '{english_name}'"
+            )
+            
+            # If still too long, do hard truncation
+            if len(truncated_prompt) > MAX_PROMPT_LENGTH:
+                # Keep at least the business name
+                truncated_prompt = f"Signboard: '{english_name}' in bold letters. {style_keywords} style."
+                if len(truncated_prompt) > MAX_PROMPT_LENGTH:
+                    truncated_prompt = truncated_prompt[:MAX_PROMPT_LENGTH-3] + "..."
+            
+            self.logger.warning(
+                f"Prompt truncated: {original_length} → {len(truncated_prompt)} chars"
+            )
+            prompt = truncated_prompt
+        
+        # Final validation
+        self.logger.info(f"Final prompt ({len(prompt)} chars): {prompt}")
         
         return prompt
     
     def _translate_to_english(self, korean_name: str) -> str:
-        """한국어 상호명을 영어로 간단 번역"""
-        # 간단한 번역 매핑 (실제로는 더 정교한 번역 서비스 사용 가능)
+        """
+        한국어 상호명을 영어로 번역
+        
+        Enhanced with expanded dictionary and better fallback logic
+        """
+        # 확장된 번역 매핑
         translations = {
+            # 기존 번역
             '좋은키친': 'Good Kitchen',
             '서울집': 'Seoul House',
             '명동하우스': 'Myeongdong House',
@@ -852,47 +1085,90 @@ class SignboardAgent(BaseAgent):
             '모던 테이블': 'Modern Table',
             '클래식향': 'Classic Scent',
             '좋은맛': 'Good Taste',
-            '24시테이블': '24H Table'
+            '24시테이블': '24H Table',
+            
+            # 새로운 번역 (음식점/카페 관련)
+            '카페': 'Cafe',
+            '레스토랑': 'Restaurant',
+            '베이커리': 'Bakery',
+            '치킨': 'Chicken',
+            '피자': 'Pizza',
+            '버거': 'Burger',
+            '스시': 'Sushi',
+            '바': 'Bar',
+            '펍': 'Pub',
+            '그릴': 'Grill',
+            '비스트로': 'Bistro',
+            '델리': 'Deli',
+            '브런치': 'Brunch',
+            '디저트': 'Dessert',
+            '와인': 'Wine',
+            '커피': 'Coffee',
+            '티': 'Tea',
+            
+            # 스타일/분위기
+            '모던': 'Modern',
+            '클래식': 'Classic',
+            '빈티지': 'Vintage',
+            '럭셔리': 'Luxury',
+            '프리미엄': 'Premium',
+            '심플': 'Simple',
+            '엘레강스': 'Elegance',
+            
+            # 형용사
+            '좋은': 'Good',
+            '예쁜': 'Pretty',
+            '맛있는': 'Delicious',
+            '신선한': 'Fresh',
+            '건강한': 'Healthy',
+            '특별한': 'Special',
+            '유니크': 'Unique',
+            '빠른': 'Quick',
+            
+            # 장소/공간
+            '키친': 'Kitchen',
+            '하우스': 'House',
+            '집': 'House',
+            '테이블': 'Table',
+            '가든': 'Garden',
+            '원': 'Garden',
+            '플레이스': 'Place',
+            '스페이스': 'Space',
+            '코너': 'Corner',
+            '룸': 'Room',
+            '홀': 'Hall'
         }
         
-        # 매핑에 있으면 사용, 없으면 간단한 변환
+        # 정확한 매칭 확인
         if korean_name in translations:
-            return translations[korean_name]
+            english_name = translations[korean_name]
+            self.logger.info(f"Translation (exact match): {korean_name} → {english_name}")
+            return english_name
         
-        # 기본 변환 로직
-        if '키친' in korean_name:
-            base = korean_name.replace('키친', '').strip()
-            return f"{base} Kitchen"
-        elif '하우스' in korean_name or '집' in korean_name:
-            base = korean_name.replace('하우스', '').replace('집', '').strip()
-            return f"{base} House"
-        elif '테이블' in korean_name:
-            base = korean_name.replace('테이블', '').strip()
-            return f"{base} Table"
-        elif '가든' in korean_name:
-            base = korean_name.replace('가든', '').strip()
-            return f"{base} Garden"
-        elif '원' in korean_name:
-            base = korean_name.replace('원', '').strip()
-            return f"{base} Garden"
-        else:
-            # 간단한 음성 변환
-            simple_translations = {
-                '위너': 'Winner',
-                '다이아': 'Diamond', 
-                '빠른': 'Quick',
-                '좋은': 'Good',
-                '예쁜': 'Pretty',
-                '클래식': 'Classic',
-                '모던': 'Modern'
-            }
-            
-            for korean, english in simple_translations.items():
-                if korean in korean_name:
-                    return korean_name.replace(korean, english)
-            
-            # 그냥 로마자 표기
+        # 부분 매칭 (단어 단위)
+        result = korean_name
+        translation_applied = False
+        
+        for korean, english in translations.items():
+            if korean in result:
+                result = result.replace(korean, english)
+                translation_applied = True
+                self.logger.info(f"Translation (partial): {korean} → {english}")
+        
+        if translation_applied:
+            self.logger.info(f"Translation (final): {korean_name} → {result}")
+            return result
+        
+        # 폴백: 로마자 표기 (간단한 음역)
+        # 이미 영어인 경우 그대로 반환
+        if korean_name.isascii():
+            self.logger.info(f"Translation (already English): {korean_name}")
             return korean_name
+        
+        # 한글이 포함된 경우 간단한 로마자 변환
+        # 실제 프로덕션에서는 romanization 라이브러리 사용 권장
+        self.logger.warning(f"Translation (no match found): {korean_name} → using as-is")
+        return korean_name
     
     async def _download_and_upload_image(self, image_url: str, session_id: str, style: str) -> str:
         """이미지 다운로드 및 S3/MinIO 업로드"""
@@ -1060,10 +1336,25 @@ class SignboardAgent(BaseAgent):
     def _save_signboard_images(self, session_id: str, signboard_images: SignboardImages) -> None:
         """SignboardImages를 세션에 저장"""
         try:
+            from decimal import Decimal
+            
+            # Decimal을 float로 변환하는 helper (JSON serialization용)
+            def decimal_to_float(obj):
+                if isinstance(obj, Decimal):
+                    return float(obj)
+                elif isinstance(obj, dict):
+                    return {k: decimal_to_float(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [decimal_to_float(item) for item in obj]
+                return obj
+            
             signboard_data = {
                 "images": [self._image_result_to_dict(img) for img in signboard_images.images],
                 "selected_image_url": signboard_images.selected_image_url
             }
+            
+            # Decimal을 float로 변환 (JSON serialization을 위해)
+            signboard_data = decimal_to_float(signboard_data)
             
             updates = {
                 "signboard_images": json.dumps(signboard_data)
@@ -1079,7 +1370,7 @@ class SignboardAgent(BaseAgent):
     
     def _image_result_to_dict(self, image_result: ImageResult) -> Dict[str, Any]:
         """ImageResult를 딕셔너리로 변환"""
-        return {
+        result_dict = {
             "url": image_result.url,
             "provider": image_result.provider,
             "style": image_result.style,
@@ -1088,6 +1379,16 @@ class SignboardAgent(BaseAgent):
             "generatedAt": image_result.generated_at,
             "isFallback": image_result.is_fallback
         }
+        
+        # Add optional fields if present (use hasattr to avoid AttributeError)
+        if hasattr(image_result, 'error_message') and image_result.error_message:
+            result_dict["errorMessage"] = image_result.error_message
+        if hasattr(image_result, 'generation_time_ms') and image_result.generation_time_ms is not None:
+            result_dict["generationTimeMs"] = image_result.generation_time_ms
+        if hasattr(image_result, 'retry_count') and image_result.retry_count is not None:
+            result_dict["retryCount"] = image_result.retry_count
+        
+        return result_dict
 
 
     async def _generate_single_provider_image(self, session_id: str, selected_name: str, 

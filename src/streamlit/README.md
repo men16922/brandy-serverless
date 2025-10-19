@@ -44,8 +44,12 @@ pip install -r src/streamlit/requirements.txt
 
 ### 2. 환경 변수 설정
 ```bash
-# API 엔드포인트 설정 (기본값: http://localhost:3000)
-export API_BASE_URL="http://localhost:3000"
+# API 엔드포인트는 .env 파일에서 자동으로 로드됩니다
+# .env 파일에 API_BASE_URL이 설정되어 있는지 확인하세요
+cat .env | grep API_BASE_URL
+
+# 필요시 수동으로 설정 (AWS API Gateway 엔드포인트)
+export API_BASE_URL="https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev"
 
 # Streamlit 포트 설정 (기본값: 8501)
 export STREAMLIT_SERVER_PORT=8501
@@ -176,15 +180,21 @@ st.session_state.agent_status    # 에이전트별 실행 상태
 
 ## 환경별 설정
 
-### 로컬 개발
+### 로컬 개발 (AWS API Gateway 사용)
 ```bash
-API_BASE_URL=http://localhost:3000
+API_BASE_URL=https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev
+STREAMLIT_SERVER_PORT=8501
+```
+
+### AWS Dev 환경 (현재 설정)
+```bash
+API_BASE_URL=https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev
 STREAMLIT_SERVER_PORT=8501
 ```
 
 ### AWS 배포 (App Runner)
 ```bash
-API_BASE_URL=https://your-api-gateway-url.amazonaws.com
+API_BASE_URL=https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev
 STREAMLIT_SERVER_PORT=8080
 ```
 
@@ -194,10 +204,11 @@ STREAMLIT_SERVER_PORT=8080
 
 1. **API 연결 실패**
    ```bash
-   # SAM Local API 상태 확인
-   curl http://localhost:3000/health
+   # AWS API Gateway 상태 확인
+   curl https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev/
    
-   # SAM Local 재시작
+   # AWS 자격 증명 확인
+   aws sts get-caller-identity
    sam local start-api --port 3000
    ```
 

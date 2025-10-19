@@ -1,156 +1,155 @@
-# Integration Testing Strategy
+# Integration Testing Strategy - AWS-Only Architecture
 
-## 테스트 철학
+## Testing Philosophy
 
-**NO MOCKS 정책**: Mock 객체나 JSON 파일 사용 금지. 실제 Docker Compose 환경에서 실제 데이터베이스를 사용한 end-to-end 통합 테스트만 수행합니다.
+**AWS DEV ENVIRONMENT**: All integration tests use AWS dev environment directly. No mocks, no Docker Compose, no local services.
 
-### 절대 금지 사항
-- ❌ Mock 객체 사용 (`unittest.mock`, `pytest-mock` 등)
-- ❌ JSON 파일로 테스트 데이터 저장
-- ❌ 가짜 데이터베이스나 인메모리 DB 사용
-- ❌ 단위 테스트 작성 (복잡성만 증가)
+### Why AWS Dev Environment Testing?
 
-### 왜 통합 테스트만 사용하는가?
+1. **Real Environment**: Tests run against actual AWS services (DynamoDB, S3, Lambda)
+2. **Consistency**: Dev environment matches production architecture
+3. **Agent Collaboration**: Test real agent communication via AWS services
+4. **Data Flow**: Verify actual data flow through AWS DynamoDB → S3 → Bedrock
+5. **Error Recovery**: Test real error scenarios with AWS service failures
+6. **Simplicity**: No Docker Compose complexity or local service management
 
-1. **실제 환경 검증**: 단위 테스트로는 확인할 수 없는 서비스 간 실제 연동 검증
-2. **Agent 협업 확인**: Supervisor Agent와 각 전문 Agent 간의 실제 통신 및 조정 검증  
-3. **데이터 플로우 검증**: DynamoDB → S3 → Chroma 간 실제 데이터 흐름 확인
-4. **오류 복구 검증**: 실제 서비스 장애 시나리오에서의 폴백 메커니즘 동작 확인
-5. **복잡성 감소**: 단위 테스트 작성/유지보수 오버헤드 제거
+### Prohibited Practices
+- ❌ Mock objects (`unittest.mock`, `pytest-mock`)
+- ❌ JSON file test data
+- ❌ In-memory databases
+- ❌ Docker Compose local services
+- ❌ Unit tests (use integration tests instead)
 
-## Docker Compose 기반 테스트 환경
+## AWS Dev Environment Setup
 
-### 서비스 구성
-```yaml
-# docker-compose.local.yml
-services:
-  dynamodb-local:      # 포트 8000 - 세션 데이터 저장
-  dynamodb-admin:      # 포트 8002 - DynamoDB UI 관리
-  minio:              # 포트 9000/9001 - S3 호환 파일 저장
-  chroma:             # 포트 8001 - 벡터 데이터베이스
+### Prerequisites
+```bash
+# 1. Configure AWS credentials
+aws configure
+
+# 2. Deploy to AWS dev environment
+./safe_deploy.sh
+
+# 3. Verify deployment
+aws cloudformation describe-stacks --stack-name ai-branding-chatbot-dev
 ```
 
-### 테스트 환경 접근 URL
-- **DynamoDB Admin UI**: http://localhost:8002 (테이블 및 데이터 시각화)
-- **MinIO Console**: http://localhost:9001 (파일 업로드/다운로드 관리)
-- **Chroma API**: http://localhost:8001 (벡터 검색 테스트)
+### AWS Resources Used for Testing
+- **DynamoDB**: ai-branding-chatbot-sessions
+- **S3**: ai-branding-chatbot-assets-908601828278
+- **Lambda**: 7 agent functions
+- **API Gateway**: https://xxx.execute-api.us-east-1.amazonaws.com/dev
 
-## 핵심 테스트 컴포넌트
+## Core Test Components
 
-### 1. DockerComposeManager
+### 1. AWSEnvironmentChecker
 ```python
-class DockerComposeManager:
-    """Docker Compose 서비스 라이프사이클 관리"""
+class AWSEnvironmentChecker:
+    """AWS environment availability checker"""
     
-    def start_services(self) -> bool:
-        """docker-compose.local.yml 서비스 시작"""
+    def is_aws_configured(self) -> bool:
+        """Check if AWS credentials are configured"""
         
-    def wait_for_health(self, timeout: int = 60) -> bool:
-        """모든 서비스 헬스체크 대기"""
-        
-    def stop_services(self) -> None:
-        """서비스 정리 및 데이터 클린업"""
-        
-    def is_docker_available(self) -> bool:
-        """Docker 실행 상태 확인"""
+    def check_services(self) -> bool:
+        """Check if required AWS services are accessible"""
 ```
 
 ### 2. TestEnvironment
 ```python
 class TestEnvironment:
-    """실제 서비스를 사용한 테스트 환경 구성"""
+    """AWS test environment setup and management"""
     
-    def setup_dynamodb_tables(self) -> None:
-        """DynamoDB Local에 실제 WorkflowSessions 테이블 생성"""
+    def verify_dynamodb_table(self) -> None:
+        """Verify DynamoDB table exists in AWS"""
         
-    def setup_s3_buckets(self) -> None:
-        """MinIO에 실제 버킷 및 폴더 구조 생성"""
-        
-    def setup_chroma_collections(self) -> None:
-        """Chroma에 테스트용 벡터 컬렉션 생성"""
+    def verify_s3_bucket(self) -> None:
+        """Verify S3 bucket exists in AWS"""
         
     def cleanup_test_data(self) -> None:
-        """테스트 데이터 완전 정리"""
+        """Optional cleanup (AWS resources persist)"""
 ```
 
 ### 3. WorkflowIntegrationTester
 ```python
 class WorkflowIntegrationTester:
-    """전체 워크플로 통합 테스트"""
+    """Full workflow integration testing with AWS"""
     
     def test_full_5step_workflow(self) -> None:
         """분석→상호명→간판→인테리어→PDF 전체 프로세스"""
         
     def test_session_persistence(self) -> None:
-        """세션 데이터 DynamoDB 저장/복원"""
+        """Session data persistence in AWS DynamoDB"""
         
     def test_file_operations(self) -> None:
-        """MinIO 파일 업로드/다운로드"""
+        """File upload/download with AWS S3"""
         
     def test_agent_coordination(self) -> None:
-        """Agent 간 통신 및 Supervisor 모니터링"""
+        """Agent communication and Supervisor monitoring"""
 ```
 
-## 테스트 시나리오
+## Test Scenarios
 
-### 1. 전체 워크플로 테스트
-- 실제 BusinessInfo로 세션 생성
-- DynamoDB Admin UI에서 세션 상태 확인
-- 각 단계별 Agent 실행 및 결과 검증
-- MinIO Console에서 생성된 파일들 확인
-- PDF 생성 및 다운로드 링크 검증
+### 1. Full Workflow Test
+- Create session with real BusinessInfo
+- Verify session state in AWS DynamoDB Console
+- Execute each workflow step via Lambda
+- Verify generated files in AWS S3 Console
+- Validate PDF generation and download links
 
-### 2. Agent 통신 테스트
-- Supervisor Agent의 워크플로 모니터링
-- Agent 간 메시지 전달 확인
-- 구조화된 로그 (agent, tool, latency_ms) 검증
-- 실패 시 재시도/폴백 메커니즘 테스트
+### 2. Agent Communication Test
+- Supervisor Agent workflow monitoring
+- Agent-to-agent message passing via AWS services
+- Structured logging (agent, tool, latency_ms) verification
+- Retry/fallback mechanism testing on failures
 
-### 3. 데이터 지속성 테스트
-- 세션 TTL 동작 확인 (DynamoDB Admin UI에서 시각적 확인)
-- 파일 메타데이터 일관성 검증
-- 중간 단계 실패 시 데이터 복구
-- 동시 세션 처리 시 데이터 격리
+### 3. Data Persistence Test
+- Session TTL behavior in DynamoDB
+- File metadata consistency in S3
+- Data recovery on mid-workflow failures
+- Data isolation for concurrent sessions
 
-### 4. 오류 처리 테스트
-- AI Provider 실패 시 폴백 이미지 사용
-- 네트워크 타임아웃 시나리오
-- 서비스 일시 중단 시 복구 메커니즘
-- 잘못된 입력 데이터 처리
+### 4. Error Handling Test
+- AI Provider failure with fallback images
+- Network timeout scenarios
+- Service interruption recovery
+- Invalid input data handling
 
-## pytest 구현 전략
+## pytest Implementation Strategy
 
-### Fixture 기반 환경 관리
+### Fixture-Based Environment Management
 ```python
 @pytest.fixture(scope="session")
-def docker_services():
-    """세션 전체에서 Docker 서비스 관리"""
-    manager = DockerComposeManager()
-    if not manager.is_docker_available():
-        pytest.skip("Docker not available - 통합 테스트 건너뜀")
+def aws_environment():
+    """Session-scoped AWS environment checker"""
+    checker = AWSEnvironmentChecker()
+    if not checker.is_aws_configured():
+        pytest.skip("AWS credentials not configured")
     
-    manager.start_services()
-    manager.wait_for_health()
-    yield manager
-    manager.stop_services()
+    if not checker.check_services():
+        pytest.skip("AWS services not accessible")
+    
+    yield checker
 
 @pytest.fixture
-def test_environment(docker_services):
-    """각 테스트별 환경 초기화"""
+def test_environment(aws_environment):
+    """Per-test environment initialization"""
     env = TestEnvironment()
-    env.setup_all()
+    if not env.verify_dynamodb_table():
+        pytest.skip("DynamoDB table not found. Deploy first: ./safe_deploy.sh")
+    if not env.verify_s3_bucket():
+        pytest.skip("S3 bucket not found. Deploy first: ./safe_deploy.sh")
     yield env
     env.cleanup_test_data()
 ```
 
-### 테스트 실행 플로우
-1. **Pre-Test**: Docker 가용성 확인, 포트 충돌 체크
-2. **Setup**: Docker Compose 시작, 서비스 헬스체크
-3. **Test**: 실제 API 호출로 워크플로 실행
-4. **Verify**: 데이터베이스/스토리지 상태 검증 (UI 도구 활용)
-5. **Cleanup**: 테스트 데이터 정리, Docker 서비스 중지
+### Test Execution Flow
+1. **Pre-Test**: Check AWS credentials and service availability
+2. **Setup**: Verify AWS resources (DynamoDB table, S3 bucket)
+3. **Test**: Execute workflow via AWS API Gateway
+4. **Verify**: Check data in AWS Console (DynamoDB, S3, CloudWatch)
+5. **Cleanup**: Optional cleanup (AWS resources persist)
 
-## DynamoDB 스키마 및 데이터 검증
+## AWS Resource Verification
 
 ### WorkflowSessions 테이블 스키마
 ```python

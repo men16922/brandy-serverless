@@ -416,14 +416,11 @@ Keep the summary under 200 words.
                 
                 memory_entry_converted = convert_floats(memory_entry)
                 
-                # Get DynamoDB client
-                if os.getenv('ENVIRONMENT') == 'local':
-                    dynamodb = boto3.resource('dynamodb', endpoint_url='http://localhost:8000')
-                else:
-                    dynamodb = boto3.resource('dynamodb')
+                # Get DynamoDB client (AWS-only)
+                dynamodb = boto3.resource('dynamodb')
                 
                 sessions_table = dynamodb.Table(
-                    os.getenv('SESSIONS_TABLE', 'branding-chatbot-sessions-local')
+                    os.getenv('SESSIONS_TABLE', 'ai-branding-chatbot-sessions')
                 )
                 
                 # Update session with AgentCore memory
@@ -502,14 +499,11 @@ Keep the summary under 200 words.
             try:
                 import boto3
                 
-                # Get DynamoDB client
-                if os.getenv('ENVIRONMENT') == 'local':
-                    dynamodb = boto3.resource('dynamodb', endpoint_url='http://localhost:8000')
-                else:
-                    dynamodb = boto3.resource('dynamodb')
+                # Get DynamoDB client (AWS-only)
+                dynamodb = boto3.resource('dynamodb')
                 
                 sessions_table = dynamodb.Table(
-                    os.getenv('SESSIONS_TABLE', 'branding-chatbot-sessions-local')
+                    os.getenv('SESSIONS_TABLE', 'ai-branding-chatbot-sessions')
                 )
                 
                 # Get session item

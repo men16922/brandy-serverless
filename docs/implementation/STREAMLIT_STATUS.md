@@ -38,7 +38,7 @@ pip install -r src/streamlit/requirements.txt
 
 ### 3. 브라우저 접속
 - **웹 앱**: http://localhost:8501
-- **API 테스트**: http://localhost:3000
+- **API 엔드포인트**: AWS API Gateway (configured in .env)
 
 ## 🧪 테스트 결과
 

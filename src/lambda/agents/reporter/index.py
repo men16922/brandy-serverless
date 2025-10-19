@@ -89,9 +89,27 @@ class ReporterAgent(BaseAgent):
         # 금지 단어 목록 (중복 회피용)
         self.forbidden_words = set()
         
+        # Fallback names (업종별 기본 상호명)
+        self.fallback_names = {
+            "restaurant": ["미담", "맛있는집", "행복한식탁"],
+            "retail": ["좋은가게", "행복한쇼핑", "믿음상점"],
+            "service": ["친절한서비스", "믿음가게", "행복한공간"],
+            "healthcare": ["건강한삶", "케어플러스", "웰빙클리닉"],
+            "education": ["배움터", "지식나눔", "성장아카데미"],
+            "technology": ["테크솔루션", "이노베이션랩", "스마트시스템"],
+            "manufacturing": ["품질공장", "정밀제작소", "프리미엄메이커"],
+            "construction": ["튼튼건설", "안전시공", "믿음빌드"],
+            "finance": ["신뢰금융", "안정투자", "성장캐피탈"],
+            "other": ["좋은회사", "믿음파트너스", "행복한그룹"]
+        }
+        
     def execute(self, event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         """Reporter Agent 실행 로직"""
         try:
+            # 비동기 모드 확인
+            headers = event.get('headers', {})
+            async_mode = headers.get('x-async-mode', 'false').lower() == 'true'
+            
             # 요청 파싱
             if isinstance(event.get('body'), str):
                 body = json.loads(event['body'])
@@ -104,32 +122,34 @@ class ReporterAgent(BaseAgent):
             if not session_id:
                 return self.create_lambda_response(400, {"error": "sessionId is required"})
             
+            # 비동기 모드 처리
+            if async_mode and action == 'suggest':
+                return self._handle_async_request(session_id, body, context)
+            
             # 실행 시작
             tool_name = "name.select" if action == 'select' else "name.generate"
             self.start_execution(session_id, tool_name)
             
-            # 세션 데이터 조회
-            session_data = self.get_session_data(session_id)
-            if not session_data:
-                self.end_execution("error", "Session not found")
-                return self.create_lambda_response(404, {"error": "Session not found"})
+            # 요청 body에서 직접 데이터 가져오기 (DynamoDB 조회 불필요)
+            business_info = body.get('businessInfo')
+            analysis_result = body.get('analysisResult')
             
-            # 세션 만료 확인
-            if self._is_session_expired(session_data):
-                self.end_execution("error", "Session expired")
-                return self.create_lambda_response(410, {"error": "Session expired"})
-            
-            # 비즈니스 정보 확인
-            business_info = session_data.get('business_info')
-            if isinstance(business_info, str):
-                business_info = json.loads(business_info)
+            self.logger.info(f"Business info from body: {business_info is not None}")
+            self.logger.info(f"Analysis result from body: {analysis_result is not None}")
             
             if not business_info:
+                self.logger.error(f"Business info not found in request body. Available keys: {list(body.keys())}")
                 self.end_execution("error", "Business info not found")
                 return self.create_lambda_response(400, {"error": "Business info required"})
             
-            # 기존 상호명 데이터 조회
-            existing_names = session_data.get('business_names', {})
+            # 기존 상호명 데이터 조회 (body 또는 DynamoDB)
+            existing_names = body.get('business_names', {})
+            if not existing_names:
+                # body에 없으면 DynamoDB에서 조회 (재생성 케이스)
+                session_data = self.get_session_data(session_id)
+                if session_data:
+                    existing_names = session_data.get('business_names', {})
+            
             if isinstance(existing_names, str):
                 existing_names = json.loads(existing_names)
             
@@ -270,6 +290,35 @@ class ReporterAgent(BaseAgent):
             "message": f"새로운 상호명을 생성했습니다. (재생성 {business_names.regeneration_count}/{business_names.max_regenerations}회)"
         }
     
+    def get_fallback_names(self, industry: str) -> List[Dict[str, Any]]:
+        """
+        Get fallback names when Bedrock is unavailable or throttled.
+        
+        Returns baseline names with default scores for the given industry.
+        
+        Args:
+            industry: Business industry
+        
+        Returns:
+            List of name dictionaries with default scores (as float for JSON serialization)
+        """
+        names = self.fallback_names.get(industry, self.fallback_names["other"])
+        
+        return [
+            {
+                "name": name,
+                "description": f"{industry} 업종에 적합한 기본 상호명입니다.",
+                "pronunciation_score": 75.0,
+                "memorability_score": 70.0,
+                "relevance_score": 80.0,
+                "search_score": 70.0,
+                "overall_score": 73.75,
+                "reasoning": "Fallback name due to API throttling or unavailability",
+                "is_fallback": True
+            }
+            for name in names
+        ]
+    
     def _generate_name_suggestions(self, business_info: Dict[str, Any], 
                                  business_names: BusinessNames) -> List[NameSuggestion]:
         """상호명 제안 생성 (Bedrock 우선, 기존 로직 fallback)"""
@@ -293,10 +342,20 @@ class ReporterAgent(BaseAgent):
     
     def _generate_names_with_bedrock(self, business_info: Dict[str, Any], 
                                     business_names: BusinessNames) -> List[NameSuggestion]:
-        """Bedrock Claude를 사용한 상호명 생성 및 평가"""
+        """
+        Bedrock Claude를 사용한 상호명 생성 및 평가
+        
+        60초 이상 걸리면 fallback names 사용
+        """
+        import time
+        from decimal import Decimal
+        
         industry = business_info.get('industry', '').lower()
         region = business_info.get('region', '').lower()
         size = business_info.get('size', '').lower()
+        
+        start_time = time.time()
+        max_bedrock_time = 60.0  # 60초 제한
         
         # 기존 제안들을 제외 목록으로 전달
         existing_names = [s.name for s in business_names.suggestions]
@@ -344,94 +403,186 @@ Please generate 3 unique, creative business names that fit this context perfectl
             }
         )
         
-        # Claude 호출
-        response = self.bedrock_client.invoke_claude(
-            prompt=prompt,
-            system_prompt=system_prompt,
-            max_tokens=1024,
-            temperature=0.8  # 창의성을 위해 높은 temperature
-        )
-        
-        # JSON 응답 파싱
-        response_text = response['text']
-        suggestions_data = self._extract_json_from_response(response_text)
-        
-        if not suggestions_data or 'suggestions' not in suggestions_data:
-            raise BedrockException("Invalid response format from Claude")
-        
-        # NameSuggestion 객체 생성 및 평가
-        suggestions = []
-        for item in suggestions_data['suggestions'][:3]:  # 최대 3개
-            name = item.get('name', '')
-            description = item.get('description', '')
+        try:
+            # Claude 호출
+            response = self.bedrock_client.invoke_claude(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                max_tokens=1024,
+                temperature=0.8  # 창의성을 위해 높은 temperature
+            )
             
-            # 중복 확인
-            if self._is_duplicate_name(name, suggestions):
-                continue
+            # 시간 체크 - 60초 초과 시 fallback 사용
+            elapsed_time = time.time() - start_time
+            if elapsed_time > max_bedrock_time:
+                self.logger.warning(
+                    f"Bedrock name generation exceeded {max_bedrock_time}s ({elapsed_time:.2f}s), using fallback",
+                    extra={
+                        "agent": "reporter",
+                        "tool": "name.generate",
+                        "elapsed_time": elapsed_time,
+                        "max_time": max_bedrock_time,
+                        "fallback_used": True
+                    }
+                )
+                # Fallback names 사용
+                fallback_data = self.get_fallback_names(industry)
+                return [
+                    NameSuggestion(
+                        name=item['name'],
+                        description=item['description'],
+                        pronunciation_score=float(item['pronunciation_score']),
+                        search_score=float(item['search_score']),
+                        overall_score=float(item['overall_score'])
+                    )
+                    for item in fallback_data
+                ]
             
-            # Reasoning Engine으로 상호명 평가 (Requirement 3.3)
+            # JSON 응답 파싱
+            response_text = response['text']
+            suggestions_data = self._extract_json_from_response(response_text)
+            
+            if not suggestions_data or 'suggestions' not in suggestions_data:
+                raise BedrockException("Invalid response format from Claude")
+            
+            # NameSuggestion 객체 생성 및 평가
+            suggestions = []
+            names_to_evaluate = []
+            name_descriptions = {}
+            
+            # 먼저 모든 이름 수집 (중복 제거)
+            for item in suggestions_data['suggestions'][:3]:  # 최대 3개
+                name = item.get('name', '')
+                description = item.get('description', '')
+                
+                # 중복 확인
+                if not self._is_duplicate_name(name, []):
+                    names_to_evaluate.append(name)
+                    name_descriptions[name] = description
+            
+            # Rate limiting: 이름 생성과 평가 사이에 2초 대기 (throttling 방지)
+            self.logger.info("Adding rate limit delay before batch evaluation")
+            self.bedrock_client.add_rate_limit_delay(2.0)
+            
+            # Batch evaluation으로 모든 이름을 한 번에 평가 (4 API calls → 2 API calls)
             try:
-                evaluation = self.reasoning_engine.evaluate_business_name(
-                    name=name,
+                self.logger.info(f"Batch evaluating {len(names_to_evaluate)} names")
+                
+                # analysis_result 가져오기 (있으면)
+                analysis_result = {}
+                if hasattr(self, 'session_data') and self.session_data:
+                    analysis_result = self.session_data.get('results', {}).get('analysis', {})
+                
+                evaluations = self.bedrock_client.batch_evaluate_names(
+                    names=names_to_evaluate,
                     business_info=business_info,
-                    temperature=0.3
+                    analysis_result=analysis_result
                 )
                 
                 # 평가 결과를 NameSuggestion으로 변환
-                suggestion = NameSuggestion(
-                    name=name,
-                    description=description,
-                    pronunciation_score=evaluation['pronunciation_score'],
-                    search_score=evaluation['brand_fit_score'],  # brand_fit을 search_score로 매핑
-                    overall_score=evaluation['overall_score']
-                )
-                
-                suggestions.append(suggestion)
-                
-                self.logger.info(
-                    f"Name evaluated: '{name}' scored {evaluation['overall_score']:.1f}/100",
-                    extra={
-                        "agent": "reporter",
-                        "tool": "name.evaluate",
-                        "name": name,
-                        "score": evaluation['overall_score'],
-                        "confidence": evaluation['confidence'],
-                        "reasoning": evaluation['reasoning'][:200]  # 처음 200자만
-                    }
-                )
-                
+                for evaluation in evaluations:
+                    name = evaluation.get('name', '')
+                    description = name_descriptions.get(name, '')
+                    
+                    # 점수를 float로 가져오기 (나중에 Decimal로 변환)
+                    pronunciation_score = float(evaluation.get('pronunciation_score', 75.0))
+                    search_score = float(evaluation.get('search_score', 75.0))
+                    overall_score = float(evaluation.get('overall_score', 75.0))
+                    
+                    suggestion = NameSuggestion(
+                        name=name,
+                        description=description,
+                        pronunciation_score=pronunciation_score,
+                        search_score=search_score,
+                        overall_score=overall_score
+                    )
+                    
+                    suggestions.append(suggestion)
+                    
+                    self.logger.info(
+                        f"Name evaluated: '{name}' scored {overall_score:.1f}/100",
+                        extra={
+                            "agent": "reporter",
+                            "tool": "name.batch_evaluate",
+                            "business_name": name,
+                            "score": overall_score,
+                            "reasoning": evaluation.get('reasoning', '')[:200]
+                        }
+                    )
+                    
             except Exception as e:
-                self.logger.warning(f"Name evaluation failed for '{name}': {str(e)}")
+                self.logger.warning(f"Batch evaluation failed: {str(e)}, using fallback scores")
                 # Fallback: 기본 점수 사용
-                suggestion = NameSuggestion(
-                    name=name,
-                    description=description,
-                    pronunciation_score=75.0,
-                    search_score=75.0,
-                    overall_score=75.0
+                for name in names_to_evaluate:
+                    description = name_descriptions.get(name, '')
+                    suggestion = NameSuggestion(
+                        name=name,
+                        description=description,
+                        pronunciation_score=75.0,
+                        search_score=75.0,
+                        overall_score=75.0
+                    )
+                    suggestions.append(suggestion)
+            
+            # 최소 3개 보장 (부족하면 기존 알고리즘으로 보충)
+            if len(suggestions) < self.target_suggestions:
+                self.logger.warning(
+                    f"Bedrock generated only {len(suggestions)} names, "
+                    f"supplementing with traditional algorithm"
                 )
-                suggestions.append(suggestion)
-        
-        # 최소 3개 보장 (부족하면 기존 알고리즘으로 보충)
-        if len(suggestions) < self.target_suggestions:
-            self.logger.warning(
-                f"Bedrock generated only {len(suggestions)} names, "
-                f"supplementing with traditional algorithm"
+                traditional_suggestions = self._generate_names_with_traditional_algorithm(
+                    business_info, business_names
+                )
+                # 중복 제거하면서 추가
+                for trad_sugg in traditional_suggestions:
+                    if len(suggestions) >= self.target_suggestions:
+                        break
+                    if not self._is_duplicate_name(trad_sugg.name, suggestions):
+                        suggestions.append(trad_sugg)
+            
+            # 점수 정규화 및 순위 매기기
+            suggestions = self._normalize_and_rank_suggestions(suggestions, industry, region, size)
+            
+            # 총 실행 시간 로깅
+            total_time = time.time() - start_time
+            self.logger.info(
+                f"Bedrock name generation completed in {total_time:.2f}s",
+                extra={
+                    "agent": "reporter",
+                    "tool": "name.generate",
+                    "total_time": total_time,
+                    "suggestions_count": len(suggestions)
+                }
             )
-            traditional_suggestions = self._generate_names_with_traditional_algorithm(
-                business_info, business_names
+            
+            return suggestions[:self.target_suggestions]
+            
+        except Exception as e:
+            # Bedrock 전체 실패 시 fallback names 사용
+            elapsed_time = time.time() - start_time
+            self.logger.error(
+                f"Bedrock name generation failed after {elapsed_time:.2f}s: {str(e)}",
+                extra={
+                    "agent": "reporter",
+                    "tool": "name.generate",
+                    "error": str(e),
+                    "elapsed_time": elapsed_time,
+                    "fallback_used": True
+                }
             )
-            # 중복 제거하면서 추가
-            for trad_sugg in traditional_suggestions:
-                if len(suggestions) >= self.target_suggestions:
-                    break
-                if not self._is_duplicate_name(trad_sugg.name, suggestions):
-                    suggestions.append(trad_sugg)
-        
-        # 점수 정규화 및 순위 매기기
-        suggestions = self._normalize_and_rank_suggestions(suggestions, industry, region, size)
-        
-        return suggestions[:self.target_suggestions]
+            
+            # Fallback names 반환
+            fallback_data = self.get_fallback_names(industry)
+            return [
+                NameSuggestion(
+                    name=item['name'],
+                    description=item['description'],
+                    pronunciation_score=float(item['pronunciation_score']),
+                    search_score=float(item['search_score']),
+                    overall_score=float(item['overall_score'])
+                )
+                for item in fallback_data
+            ]
     
     def _generate_names_with_traditional_algorithm(self, business_info: Dict[str, Any], 
                                                   business_names: BusinessNames) -> List[NameSuggestion]:
@@ -1457,14 +1608,23 @@ Please generate 3 unique, creative business names that fit this context perfectl
         return descriptions.get(industry, descriptions["other"])
     
     def _suggestion_to_dict(self, suggestion: NameSuggestion) -> Dict[str, Any]:
-        """NameSuggestion을 딕셔너리로 변환"""
-        return {
+        """
+        NameSuggestion을 딕셔너리로 변환 (DynamoDB 호환)
+        
+        Float 값을 Decimal로 변환하여 DynamoDB 저장 시 오류 방지
+        """
+        from decimal import Decimal
+        
+        # Float를 Decimal로 변환
+        result = {
             "name": suggestion.name,
             "description": suggestion.description,
-            "pronunciationScore": suggestion.pronunciation_score,
-            "searchScore": suggestion.search_score,
-            "overallScore": suggestion.overall_score
+            "pronunciationScore": self.convert_floats_to_decimal(suggestion.pronunciation_score),
+            "searchScore": self.convert_floats_to_decimal(suggestion.search_score),
+            "overallScore": self.convert_floats_to_decimal(suggestion.overall_score)
         }
+        
+        return result
     
     def _handle_selection(self, session_id: str, selected_name: str, 
                         business_names: BusinessNames) -> Dict[str, Any]:
@@ -1490,6 +1650,104 @@ Please generate 3 unique, creative business names that fit this context perfectl
             "nextStep": "signboard",
             "canProceed": True
         }
+    
+    def _handle_async_request(self, session_id: str, body: Dict[str, Any], context: Any) -> Dict[str, Any]:
+        """비동기 요청 처리 - 즉시 202 반환하고 백그라운드에서 실행"""
+        try:
+            self.logger.info(f"Starting async name generation for session: {session_id}")
+            
+            # 상태를 'processing'으로 설정
+            self.update_session_data(session_id, {
+                'nameGenerationStatus': 'processing',
+                'nameGenerationStartedAt': datetime.utcnow().isoformat()
+            })
+            
+            # 즉시 202 Accepted 반환
+            response = self.create_lambda_response(202, {
+                "sessionId": session_id,
+                "status": "processing",
+                "message": "Name generation started. Poll /names/status/{sessionId} for results.",
+                "pollUrl": f"/names/status/{session_id}",
+                "estimatedTime": "60-90 seconds"
+            })
+            
+            # 백그라운드에서 실행 (Lambda는 계속 실행)
+            # context.get_remaining_time_in_millis()로 남은 시간 확인
+            try:
+                business_info = body.get('businessInfo')
+                analysis_result = body.get('analysisResult')
+                
+                # 기존 상호명 데이터 조회
+                existing_names = body.get('business_names', {})
+                if not existing_names:
+                    session_data = self.get_session_data(session_id)
+                    if session_data:
+                        existing_names = session_data.get('business_names', {})
+                
+                if isinstance(existing_names, str):
+                    existing_names = json.loads(existing_names)
+                
+                # NameSuggestion 객체들로 변환
+                suggestions = []
+                for s in existing_names.get('suggestions', []):
+                    if isinstance(s, dict):
+                        suggestions.append(NameSuggestion(
+                            name=s.get('name', ''),
+                            description=s.get('description', ''),
+                            pronunciation_score=s.get('pronunciationScore', 0.0),
+                            search_score=s.get('searchScore', 0.0),
+                            overall_score=s.get('overallScore', 0.0)
+                        ))
+                    else:
+                        suggestions.append(s)
+                
+                business_names = BusinessNames(
+                    suggestions=suggestions,
+                    selected_name=existing_names.get('selected_name'),
+                    regeneration_count=existing_names.get('regeneration_count', 0),
+                    max_regenerations=self.max_regenerations
+                )
+                
+                # 상호명 생성 실행
+                result = self._handle_suggestion(session_id, business_info, business_names)
+                
+                # 완료 상태 저장 (Float를 Decimal로 변환)
+                converted_result = self.convert_floats_to_decimal(result)
+                
+                self.update_session_data(session_id, {
+                    'nameGenerationStatus': 'completed',
+                    'business_names': converted_result,
+                    'nameGenerationCompletedAt': datetime.utcnow().isoformat()
+                })
+                
+                self.logger.info(
+                    f"Name generation result converted to Decimal for DynamoDB",
+                    extra={
+                        "agent": "reporter",
+                        "session_id": session_id,
+                        "suggestions_count": len(result.get('suggestions', []))
+                    }
+                )
+                
+                self.logger.info(f"Async name generation completed for session: {session_id}")
+                
+            except Exception as e:
+                # 오류 상태 저장
+                error_message = str(e)
+                self.logger.error(f"Async name generation failed: {error_message}")
+                
+                self.update_session_data(session_id, {
+                    'nameGenerationStatus': 'failed',
+                    'nameGenerationError': error_message,
+                    'nameGenerationFailedAt': datetime.utcnow().isoformat()
+                })
+            
+            return response
+            
+        except Exception as e:
+            error_message = f"Failed to start async generation: {str(e)}"
+            self.logger.error(error_message)
+            return self.create_lambda_response(500, {"error": error_message})
     
     def _is_session_expired(self, session_data: Dict[str, Any]) -> bool:
         """세션 만료 확인"""
@@ -1618,6 +1876,18 @@ Please generate 3 unique, creative business names that fit this context perfectl
                            advance_step: bool = False) -> None:
         """BusinessNames를 세션에 저장"""
         try:
+            from decimal import Decimal
+            
+            # Decimal을 float로 변환하는 helper
+            def decimal_to_float(obj):
+                if isinstance(obj, Decimal):
+                    return float(obj)
+                elif isinstance(obj, dict):
+                    return {k: decimal_to_float(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [decimal_to_float(item) for item in obj]
+                return obj
+            
             # BusinessNames를 딕셔너리로 변환
             business_names_dict = {
                 "suggestions": [self._suggestion_to_dict(s) for s in business_names.suggestions],
@@ -1625,6 +1895,9 @@ Please generate 3 unique, creative business names that fit this context perfectl
                 "regeneration_count": business_names.regeneration_count,
                 "max_regenerations": business_names.max_regenerations
             }
+            
+            # Decimal을 float로 변환 (JSON serialization을 위해)
+            business_names_dict = decimal_to_float(business_names_dict)
             
             # 세션 업데이트
             updates = {
