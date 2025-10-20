@@ -27,7 +27,7 @@ class SessionManager:
         
         # Configure DynamoDB client
         dynamodb_config = {
-            'region_name': os.getenv('AWS_REGION', 'us-east-1')
+            'region_name': os.getenv('AWS_REGION', 'us-west-2')
         }
         
         if endpoint_url or os.getenv('DYNAMODB_ENDPOINT'):

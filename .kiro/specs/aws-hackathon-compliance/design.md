@@ -69,7 +69,7 @@
 class BedrockClient:
     """Amazon Bedrock 통합 클라이언트"""
     
-    def __init__(self, region: str = "us-east-1"):
+    def __init__(self, region: str = "us-west-2"):
         self.bedrock_runtime = boto3.client('bedrock-runtime', region_name=region)
         self.bedrock_agent_runtime = boto3.client('bedrock-agent-runtime', region_name=region)
     
@@ -469,7 +469,7 @@ class ReasoningStep:
 @dataclass
 class BedrockConfig:
     """Bedrock 서비스 설정"""
-    region: str = "us-east-1"
+    region: str = "us-west-2"
     claude_model_id: str = "us.anthropic.claude-sonnet-4-20250514-v1:0"
     sdxl_model_id: str = "stability.stable-diffusion-xl-v1"
     agent_id: Optional[str] = None
@@ -908,12 +908,12 @@ BedrockAccessPolicy:
 
 | Capability | Default Model | Alt Models (if unavailable) | Default Region | Notes |
 |------------|---------------|----------------------------|----------------|-------|
-| Reasoning/Text | us.anthropic.claude-sonnet-4-20250514-v1:0 | us.anthropic.claude-3-5-sonnet-20241022-v2:0 | us-east-1 | Claude 4 Sonnet for reasoning |
-| Image Generation | stability.stable-diffusion-xl-v1 | amazon.titan-image-generator-v2 (optional) | us-east-1 | Cap: 1024x1024 for demo |
-| KB Retrieve | bedrock KB (Retrieve/RetrieveAndGenerate) | — | us-east-1 | Needs KB + data source setup |
-| Agent Orchestration | Bedrock Agents (AgentCore) | Step Functions fallback | us-east-1 | Use agent alias in prod |
+| Reasoning/Text | us.anthropic.claude-sonnet-4-20250514-v1:0 | us.anthropic.claude-3-5-sonnet-20241022-v2:0 | us-west-2 | Claude 4 Sonnet for reasoning |
+| Image Generation | stability.stable-diffusion-xl-v1 | amazon.titan-image-generator-v2 (optional) | us-west-2 | Cap: 1024x1024 for demo |
+| KB Retrieve | bedrock KB (Retrieve/RetrieveAndGenerate) | — | us-west-2 | Needs KB + data source setup |
+| Agent Orchestration | Bedrock Agents (AgentCore) | Step Functions fallback | us-west-2 | Use agent alias in prod |
 
-**Important**: Run `aws bedrock list-foundation-models --region us-east-1` before deployment to verify model availability.
+**Important**: Run `aws bedrock list-foundation-models --region us-west-2` before deployment to verify model availability.
 
 ## Enhanced IAM Policy
 
@@ -1124,8 +1124,8 @@ echo "Verifying Bedrock setup..."
 aws sts get-caller-identity || exit 1
 
 # 2. List available foundation models
-echo "Available Bedrock models in us-east-1:"
-aws bedrock list-foundation-models --region us-east-1 \
+echo "Available Bedrock models in us-west-2:"
+aws bedrock list-foundation-models --region us-west-2 \
   --query 'modelSummaries[?contains(modelId, `claude`) || contains(modelId, `stable-diffusion`)].modelId' \
   --output table
 
@@ -1134,7 +1134,7 @@ echo "Checking IAM permissions..."
 aws iam simulate-principal-policy \
   --policy-source-arn $(aws sts get-caller-identity --query Arn --output text) \
   --action-names bedrock:InvokeModel bedrock-agent-runtime:InvokeAgent \
-  --resource-arns "arn:aws:bedrock:us-east-1::foundation-model/*"
+  --resource-arns "arn:aws:bedrock:us-west-2::foundation-model/*"
 
 # 4. Verify environment variables
 echo "Checking environment configuration..."
@@ -1262,7 +1262,7 @@ CostDashboard:
 
 ### Region Documentation (Requirement 6.6)
 
-**Default Region**: us-east-1
+**Default Region**: us-west-2
 **Reason**: Bedrock 모델 가용성 최대
 **Alternative Regions**: us-west-2, eu-west-1 (모델 가용성 확인 필요)
 

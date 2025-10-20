@@ -10,7 +10,7 @@ This project uses **AWS-only architecture**:
 - ✅ **Streamlit UI**: localhost:8501
 
 ### AWS 서비스 (클라우드)
-- ✅ **API Gateway**: https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev
+- ✅ **API Gateway**: https://vd9s16odtc.execute-api.us-west-2.amazonaws.com/dev
 - ✅ **Lambda Functions**: 7개 Agent 함수
 - ✅ **DynamoDB**: ai-branding-chatbot-sessions
 - ✅ **S3**: ai-branding-chatbot-assets-908601828278
@@ -62,9 +62,9 @@ aws configure
 # .env file (already configured)
 AWS_ACCESS_KEY_ID=your-access-key
 AWS_SECRET_ACCESS_KEY=your-secret-key
-AWS_REGION=us-east-1
+AWS_REGION=us-west-2
 ENVIRONMENT=dev
-API_BASE_URL=https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev
+API_BASE_URL=https://vd9s16odtc.execute-api.us-west-2.amazonaws.com/dev
 ```
 
 ## Development Tools
@@ -123,13 +123,13 @@ aws logs tail /aws/lambda/ai-branding-chatbot --follow
 aws dynamodb get-item \
   --table-name ai-branding-chatbot-sessions \
   --key '{"sessionId":{"S":"YOUR_SESSION_ID"}}' \
-  --region us-east-1
+  --region us-west-2
 
 # Scan recent sessions
 aws dynamodb scan \
   --table-name ai-branding-chatbot-sessions \
   --max-items 5 \
-  --region us-east-1
+  --region us-west-2
 ```
 
 ### S3 Files
@@ -157,7 +157,7 @@ aws s3 cp s3://ai-branding-chatbot-assets-908601828278/path/to/file ./
 2. **API Gateway Connection Error**
    ```bash
    # Test API endpoint
-   curl https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev/
+   curl https://vd9s16odtc.execute-api.us-west-2.amazonaws.com/dev/
    
    # Check CloudFormation outputs
    aws cloudformation describe-stacks \

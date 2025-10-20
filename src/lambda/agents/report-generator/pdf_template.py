@@ -339,10 +339,38 @@ class BrandingReportTemplate:
         
         elements.append(self._create_safe_paragraph(f"Generated signboard designs: {len(images)}", self.normal_style))
         
+        # 선택된 간판 이미지 크게 표시
         if selected_signboard:
+            elements.append(Spacer(1, 0.5*cm))
+            elements.append(self._create_safe_paragraph("🪧 Selected Signboard Design", self.heading_style))
             elements.append(Spacer(1, 0.3*cm))
-            selected_name = selected_signboard.split('/')[-1]
-            elements.append(self._create_safe_paragraph(f"Selected: {selected_name[:30]}", self.normal_style))
+            
+            # 선택된 이미지 찾기
+            selected_img = None
+            for img in images:
+                if img.get('key') == selected_signboard or img.get('url') == selected_signboard:
+                    selected_img = img
+                    break
+            
+            if selected_img:
+                selected_name = selected_signboard.split('/')[-1]
+                elements.append(self._create_safe_paragraph(f"File: {selected_name}", self.normal_style))
+                
+                # 이미지 URL이 있으면 표시
+                img_url = selected_img.get('presigned_url') or selected_img.get('url')
+                if img_url:
+                    elements.append(self._create_safe_paragraph(f"Image URL: {img_url[:50]}...", self.small_style))
+                
+                # 이미지 플레이스홀더 (실제 이미지는 URL로 접근 가능)
+                placeholder = self._create_image_placeholder(
+                    10*cm, 6*cm, 
+                    f"Selected Signboard\n{selected_img.get('style', 'Modern')}"
+                )
+                if placeholder:
+                    elements.append(Spacer(1, 0.3*cm))
+                    elements.append(placeholder)
+            
+            elements.append(Spacer(1, 0.5*cm))
         
         if images:
             elements.append(Spacer(1, 0.3*cm))
@@ -401,9 +429,38 @@ class BrandingReportTemplate:
         
         elements.append(Paragraph(f"생성된 인테리어 디자인: {len(images)}개", self.normal_style))
         
+        # 선택된 인테리어 이미지 크게 표시
         if selected_interior:
+            elements.append(Spacer(1, 0.5*cm))
+            elements.append(Paragraph("🏠 선택된 인테리어 디자인", self.heading_style))
             elements.append(Spacer(1, 0.3*cm))
-            elements.append(Paragraph(f"선택된 인테리어: {selected_interior.split('/')[-1]}", self.normal_style))
+            
+            # 선택된 이미지 찾기
+            selected_img = None
+            for img in images:
+                if img.get('key') == selected_interior or img.get('url') == selected_interior:
+                    selected_img = img
+                    break
+            
+            if selected_img:
+                selected_name = selected_interior.split('/')[-1]
+                elements.append(Paragraph(f"파일: {selected_name}", self.normal_style))
+                
+                # 이미지 URL이 있으면 표시
+                img_url = selected_img.get('presigned_url') or selected_img.get('url')
+                if img_url:
+                    elements.append(Paragraph(f"이미지 URL: {img_url[:50]}...", self.small_style))
+                
+                # 이미지 플레이스홀더 (실제 이미지는 URL로 접근 가능)
+                placeholder = self._create_image_placeholder(
+                    10*cm, 6*cm, 
+                    f"선택된 인테리어\n{selected_img.get('style', '모던')}"
+                )
+                if placeholder:
+                    elements.append(Spacer(1, 0.3*cm))
+                    elements.append(placeholder)
+            
+            elements.append(Spacer(1, 0.5*cm))
         
         if images:
             elements.append(Spacer(1, 0.3*cm))
@@ -536,17 +593,39 @@ class BrandingReportTemplate:
     
     def _extract_business_info(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """비즈니스 정보 추출"""
-        session = data.get("session", {})
-        business_info = session.get("business_info", {})
+        # 최상위 레벨에서 먼저 확인
+        business_info = data.get("business_info")
         
-        if isinstance(business_info, str):
+        # 없으면 session에서 확인
+        if not business_info:
+            session = data.get("session", {})
+            # businessInfo 또는 business_info 둘 다 확인
+            business_info = session.get("businessInfo") or session.get("business_info", {})
+        
+        # DynamoDB Map 형식 처리
+        if isinstance(business_info, dict) and 'M' in business_info:
+            # DynamoDB Map 형식: {'M': {'industry': {'S': 'restaurant'}, ...}}
+            business_info = business_info['M']
+            # 각 필드의 값 추출
+            extracted = {}
+            for key, value in business_info.items():
+                if isinstance(value, dict):
+                    if 'S' in value:
+                        extracted[key] = value['S']
+                    elif 'N' in value:
+                        extracted[key] = value['N']
+                    elif 'BOOL' in value:
+                        extracted[key] = value['BOOL']
+                    elif 'NULL' in value:
+                        extracted[key] = None
+                    else:
+                        extracted[key] = value
+                else:
+                    extracted[key] = value
+            business_info = extracted
+        elif isinstance(business_info, str):
             try:
                 business_info = json.loads(business_info)
-            except:
-                business_info = {}
-        elif hasattr(business_info, 'get') and 'S' in business_info:
-            try:
-                business_info = json.loads(business_info.get('S', '{}'))
             except:
                 business_info = {}
         

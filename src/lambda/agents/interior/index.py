@@ -514,9 +514,46 @@ class InteriorAgent(BaseAgent):
             
             # 동기 모드: 기존 로직
             # 실행 시작
-            self.start_execution(session_id, "interior.recommend")
+            self.start_execution(session_id, f"interior.{action}")
             
-            # 시작 상태 저장
+            # 액션별 처리
+            if action == 'select':
+                # 인테리어 스타일 선택 (BusinessInfo 불필요)
+                selected_style = body.get('selectedStyle')
+                if not selected_style:
+                    self.end_execution("error", "selectedStyle is required")
+                    return self.create_lambda_response(400, {
+                        "error": "selectedStyle is required for select action"
+                    })
+                
+                # 세션에 선택된 인테리어 저장
+                try:
+                    self.update_session_data(session_id, {
+                        "selected_interior": selected_style,
+                        "currentStep": 5  # 인테리어 선택 완료, 다음은 보고서 생성
+                    })
+                    
+                    result = {
+                        "message": "Interior style selected",
+                        "sessionId": session_id,
+                        "selectedStyle": selected_style,
+                        "success": True
+                    }
+                    
+                    self.end_execution("success", result=result)
+                    return self.create_lambda_response(200, result)
+                    
+                except Exception as e:
+                    error_msg = f"Failed to save selected interior: {str(e)}"
+                    self.logger.error(error_msg)
+                    self.end_execution("error", error_msg)
+                    return self.create_lambda_response(500, {
+                        "error": error_msg,
+                        "success": False
+                    })
+            
+            # 이하 recommend 액션만 실행됨
+            # 시작 상태 저장 (recommend 액션만)
             try:
                 from datetime import datetime
                 self.update_session_data(session_id, {
@@ -526,7 +563,7 @@ class InteriorAgent(BaseAgent):
             except Exception as status_error:
                 self.logger.warning(f"Failed to set initial status: {str(status_error)}")
             
-            # 비즈니스 정보 파싱
+            # 비즈니스 정보 파싱 (recommend 액션만)
             if isinstance(business_info_data, str):
                 business_info_data = json.loads(business_info_data)
             
@@ -762,7 +799,7 @@ Please recommend 3 interior design styles that best match this business, providi
                         import boto3
                         import base64
                         
-                        bedrock_runtime = boto3.client('bedrock-runtime', region_name='us-east-1')
+                        bedrock_runtime = boto3.client('bedrock-runtime', region_name='us-west-2')
                         
                         # Titan Image Generator v2 요청
                         request_body = {

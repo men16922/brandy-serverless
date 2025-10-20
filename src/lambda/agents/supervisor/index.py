@@ -44,7 +44,8 @@ class SupervisorAgent:
         self.environment = os.getenv('ENVIRONMENT', 'dev')
         
         # AWS DynamoDB 연결 (로컬 엔드포인트 제거)
-        self.dynamodb = boto3.resource('dynamodb')
+        region = os.getenv('AWS_REGION', 'us-west-2')
+        self.dynamodb = boto3.resource('dynamodb', region_name=region)
         
         # 테이블 이름
         table_name = os.getenv('SESSIONS_TABLE', 'ai-branding-chatbot-sessions')
@@ -465,7 +466,7 @@ class SupervisorAgent:
                     # Construct State Machine ARN dynamically
                     project_name = os.getenv('PROJECT_NAME', 'ai-branding-chatbot')
                     env = os.getenv('ENVIRONMENT', 'dev')
-                    region = os.getenv('AWS_REGION', 'us-east-1')
+                    region = os.getenv('AWS_REGION', 'us-west-2')
                     account_id = boto3.client('sts').get_caller_identity()['Account']
                     
                     state_machine_arn = f'arn:aws:states:{region}:{account_id}:stateMachine:{project_name}-workflow-{env}'
@@ -776,8 +777,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'updatedAt': session_data.get('updatedAt'),
                 'results': {
                     'analysis': session_data.get('analysisResult'),
-                    'names': session_data.get('namesResult'),
-                    'signboards': session_data.get('signboardsResult'),
+                    'names': session_data.get('business_names') or session_data.get('namesResult'),  # Check business_names first
+                    'signboards': session_data.get('signboard_images') or session_data.get('signboardsResult'),  # Check signboard_images first
                     'interiors': interior_data or session_data.get('interiorsResult'),  # Use parsed interior_recommendations
                     'report': session_data.get('reportResult')
                 }

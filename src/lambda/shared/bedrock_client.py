@@ -49,10 +49,10 @@ class BedrockClient:
         Initialize Bedrock client.
         
         Args:
-            region: AWS region (default: from env or us-east-1)
+            region: AWS region (default: from env or us-west-2)
             logger: Logger instance (default: creates new logger)
         """
-        self.region = region or os.getenv('BEDROCK_REGION', 'us-east-1')
+        self.region = region or os.getenv('BEDROCK_REGION', 'us-west-2')
         self.logger = logger or self._create_logger()
         
         # Initialize Bedrock clients
@@ -932,7 +932,7 @@ def create_bedrock_client(
     Create and return a configured Bedrock client.
     
     Args:
-        region: AWS region (default: from env or us-east-1)
+        region: AWS region (default: from env or us-west-2)
         logger: Logger instance (default: creates new logger)
     
     Returns:

@@ -18,7 +18,7 @@ echo "📦 Checking Streamlit dependencies..."
 pip install -q streamlit requests pillow plotly boto3
 
 # AWS Dev API Gateway 엔드포인트 설정
-export API_BASE_URL="https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev"
+export API_BASE_URL="https://67y0voa4yd.execute-api.us-west-2.amazonaws.com/dev"
 
 # Docker 서비스 상태 확인 (로컬 리소스용)
 echo "🐳 Checking Docker services..."

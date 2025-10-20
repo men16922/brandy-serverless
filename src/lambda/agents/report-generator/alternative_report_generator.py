@@ -403,97 +403,153 @@ class AlternativeReportGenerator:
         """
     
     def _generate_signboard_section_html(self, signboard_images: List[Dict], selected_signboard: str) -> str:
-        """간판 디자인 섹션 HTML 생성"""
+        """간판 디자인 섹션 HTML 생성 - 선택된 이미지만 표시"""
         if not signboard_images:
             return ""
         
-        images_html = ""
-        for i, img in enumerate(signboard_images):
+        # 선택된 이미지 찾기
+        selected_image = None
+        for img in signboard_images:
             filename = img.get('key', '').split('/')[-1]
-            size_mb = img.get('size', 0) / (1024 * 1024)
-            style = self._extract_style_from_filename(filename)
-            
-            selected_class = "selected" if filename == selected_signboard else ""
-            status_badge = '<span class="status-badge status-selected">✓ 선택됨</span>' if filename == selected_signboard else '<span class="status-badge status-generated">생성됨</span>'
-            
-            # 실제 이미지 URL 가져오기
-            image_url = img.get('url', '')
-            presigned_url = img.get('presigned_url', '')
-            
-            # 이미지 표시 로직
-            if presigned_url:
-                image_html = f'<img src="{presigned_url}" alt="간판 이미지 - {style}" class="actual-image" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">'
-                fallback_html = f'<div class="image-placeholder" style="display:none;">🖼️ 간판 이미지<br>{style}</div>'
-            elif image_url:
-                image_html = f'<img src="{image_url}" alt="간판 이미지 - {style}" class="actual-image" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">'
-                fallback_html = f'<div class="image-placeholder" style="display:none;">🖼️ 간판 이미지<br>{style}</div>'
-            else:
-                image_html = f'<div class="image-placeholder">🖼️ 간판 이미지<br>{style}</div>'
-                fallback_html = ''
-            
-            images_html += f"""
-            <div class="image-card {selected_class}">
-                {image_html}
-                {fallback_html}
-                <div><strong>{filename}</strong>{status_badge}</div>
-                <div>크기: {size_mb:.1f}MB</div>
-                <div>스타일: {style}</div>
-            </div>
-            """
+            if filename == selected_signboard:
+                selected_image = img
+                break
+        
+        # 선택된 이미지가 없으면 첫 번째 이미지 사용
+        if not selected_image and signboard_images:
+            selected_image = signboard_images[0]
+        
+        if not selected_image:
+            return ""
+        
+        # 선택된 이미지 정보
+        filename = selected_image.get('key', '').split('/')[-1]
+        size_mb = selected_image.get('size', 0) / (1024 * 1024)
+        style = self._extract_style_from_filename(filename)
+        
+        # 실제 이미지 URL 가져오기
+        image_url = selected_image.get('url', '')
+        presigned_url = selected_image.get('presigned_url', '')
+        
+        # 이미지 표시 로직
+        if presigned_url:
+            image_html = f'<img src="{presigned_url}" alt="선택된 간판 디자인 - {style}" class="actual-image" style="max-width: 100%; height: auto; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">'
+            fallback_html = f'<div class="image-placeholder" style="display:none;">🖼️ 간판 이미지<br>{style}</div>'
+        elif image_url:
+            image_html = f'<img src="{image_url}" alt="선택된 간판 디자인 - {style}" class="actual-image" style="max-width: 100%; height: auto; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">'
+            fallback_html = f'<div class="image-placeholder" style="display:none;">🖼️ 간판 이미지<br>{style}</div>'
+        else:
+            image_html = f'<div class="image-placeholder">🖼️ 간판 이미지<br>{style}</div>'
+            fallback_html = ''
         
         return f"""
-        <h2>🪧 간판 디자인</h2>
-        <p>총 {len(signboard_images)}개의 간판 디자인이 생성되었습니다.</p>
-        <div class="images-grid">
-            {images_html}
+        <h2>🪧 선택된 간판 디자인</h2>
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0;">
+            <div style="text-align: center; margin-bottom: 15px;">
+                {image_html}
+                {fallback_html}
+            </div>
+            <div style="text-align: center;">
+                <p style="margin: 10px 0;"><strong>파일명:</strong> {filename}</p>
+                <p style="margin: 10px 0;"><strong>크기:</strong> {size_mb:.1f}MB</p>
+                <p style="margin: 10px 0;"><strong>스타일:</strong> {style}</p>
+                <span class="status-badge status-selected" style="display: inline-block; margin-top: 10px;">✓ 최종 선택</span>
+            </div>
         </div>
+        <p style="color: #6c757d; font-size: 14px; text-align: center;">총 {len(signboard_images)}개의 디자인 중에서 선택되었습니다.</p>
         """
     
     def _generate_interior_section_html(self, interior_images: List[Dict], selected_interior: str) -> str:
-        """인테리어 디자인 섹션 HTML 생성"""
-        if not interior_images:
+        """인테리어 디자인 섹션 HTML 생성 - 선택된 이미지만 표시"""
+        # 이미지가 없어도 선택된 스타일 정보는 표시
+        if not interior_images and not selected_interior:
             return ""
         
-        images_html = ""
-        for i, img in enumerate(interior_images):
-            filename = img.get('key', '').split('/')[-1]
-            size_mb = img.get('size', 0) / (1024 * 1024)
-            style = self._extract_style_from_filename(filename)
+        # 선택된 이미지 찾기 (스타일 이름 또는 파일명으로 매칭)
+        selected_image = None
+        if interior_images:
+            for img in interior_images:
+                # 파일명에서 스타일 추출
+                filename = img.get('key', '').split('/')[-1]
+                style = self._extract_style_from_filename(filename)
+                
+                # 스타일 이름으로 매칭 (예: "cozy")
+                if selected_interior and (style.lower() == selected_interior.lower() or filename == selected_interior):
+                    selected_image = img
+                    break
             
-            selected_class = "selected" if filename == selected_interior else ""
-            status_badge = '<span class="status-badge status-selected">✓ 선택됨</span>' if filename == selected_interior else '<span class="status-badge status-generated">생성됨</span>'
-            
-            # 실제 이미지 URL 가져오기
-            image_url = img.get('url', '')
-            presigned_url = img.get('presigned_url', '')
-            
-            # 이미지 표시 로직
-            if presigned_url:
-                image_html = f'<img src="{presigned_url}" alt="인테리어 이미지 - {style}" class="actual-image" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">'
-                fallback_html = f'<div class="image-placeholder" style="display:none;">🏠 인테리어 이미지<br>{style}</div>'
-            elif image_url:
-                image_html = f'<img src="{image_url}" alt="인테리어 이미지 - {style}" class="actual-image" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">'
-                fallback_html = f'<div class="image-placeholder" style="display:none;">🏠 인테리어 이미지<br>{style}</div>'
-            else:
-                image_html = f'<div class="image-placeholder">🏠 인테리어 이미지<br>{style}</div>'
-                fallback_html = ''
-            
-            images_html += f"""
-            <div class="image-card {selected_class}">
-                {image_html}
-                {fallback_html}
-                <div><strong>{filename}</strong>{status_badge}</div>
-                <div>크기: {size_mb:.1f}MB</div>
-                <div>스타일: {style}</div>
-            </div>
-            """
+            # 선택된 이미지가 없으면 첫 번째 이미지 사용
+            if not selected_image and interior_images:
+                selected_image = interior_images[0]
+        
+        # 이미지가 있으면 이미지 표시, 없으면 스타일 정보만 표시
+        if selected_image:
+            return self._generate_interior_with_image_html(selected_image, interior_images, selected_interior)
+        elif selected_interior:
+            return self._generate_interior_without_image_html(selected_interior)
+        else:
+            return ""
+    
+    def _generate_interior_without_image_html(self, selected_style: str) -> str:
+        """이미지 없이 선택된 인테리어 스타일 정보만 표시"""
+        style_display = selected_style.capitalize()
         
         return f"""
-        <h2>🏠 인테리어 디자인</h2>
-        <p>총 {len(interior_images)}개의 인테리어 디자인이 생성되었습니다.</p>
-        <div class="images-grid">
-            {images_html}
+        <h2>🏠 선택된 인테리어 디자인</h2>
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0;">
+            <div style="text-align: center; margin-bottom: 15px;">
+                <div class="image-placeholder" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 60px 20px; border-radius: 10px; font-size: 24px;">
+                    🏠 {style_display} 스타일
+                </div>
+            </div>
+            <div style="text-align: center;">
+                <p style="margin: 10px 0;"><strong>선택된 스타일:</strong> {style_display}</p>
+                <p style="margin: 10px 0; color: #6c757d;">이미지 생성이 완료되지 않았거나 이미지를 찾을 수 없습니다.</p>
+                <span class="status-badge status-selected" style="display: inline-block; margin-top: 10px;">✓ 최종 선택</span>
+            </div>
         </div>
+        """
+    
+    def _generate_interior_with_image_html(self, selected_image: Dict, all_images: List[Dict], selected_interior: str) -> str:
+        """이미지와 함께 인테리어 섹션 표시"""
+        if not selected_image:
+            return ""
+        
+        # 선택된 이미지 정보
+        filename = selected_image.get('key', '').split('/')[-1]
+        size_mb = selected_image.get('size', 0) / (1024 * 1024)
+        style = self._extract_style_from_filename(filename)
+        
+        # 실제 이미지 URL 가져오기
+        image_url = selected_image.get('url', '')
+        presigned_url = selected_image.get('presigned_url', '')
+        
+        # 이미지 표시 로직
+        if presigned_url:
+            image_html = f'<img src="{presigned_url}" alt="선택된 인테리어 디자인 - {style}" class="actual-image" style="max-width: 100%; height: auto; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">'
+            fallback_html = f'<div class="image-placeholder" style="display:none;">🏠 인테리어 이미지<br>{style}</div>'
+        elif image_url:
+            image_html = f'<img src="{image_url}" alt="선택된 인테리어 디자인 - {style}" class="actual-image" style="max-width: 100%; height: auto; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">'
+            fallback_html = f'<div class="image-placeholder" style="display:none;">🏠 인테리어 이미지<br>{style}</div>'
+        else:
+            image_html = f'<div class="image-placeholder">🏠 인테리어 이미지<br>{style}</div>'
+            fallback_html = ''
+        
+        return f"""
+        <h2>🏠 선택된 인테리어 디자인</h2>
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0;">
+            <div style="text-align: center; margin-bottom: 15px;">
+                {image_html}
+                {fallback_html}
+            </div>
+            <div style="text-align: center;">
+                <p style="margin: 10px 0;"><strong>파일명:</strong> {filename}</p>
+                <p style="margin: 10px 0;"><strong>크기:</strong> {size_mb:.1f}MB</p>
+                <p style="margin: 10px 0;"><strong>스타일:</strong> {style}</p>
+                <span class="status-badge status-selected" style="display: inline-block; margin-top: 10px;">✓ 최종 선택</span>
+            </div>
+        </div>
+        <p style="color: #6c757d; font-size: 14px; text-align: center;">총 {len(all_images)}개의 디자인 중에서 선택되었습니다.</p>
         """
     
     def _generate_color_palette_section_html(self, color_palette: Dict[str, Any]) -> str:

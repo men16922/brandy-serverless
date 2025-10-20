@@ -1,0 +1,2 @@
+# Supervisor Agent dependencies
+# All dependencies are provided by Lambda Layer

@@ -27,7 +27,7 @@ class BedrockConfig:
     model IDs, region settings, and feature flags.
     
     Attributes:
-        region: AWS region for Bedrock services (default: us-east-1)
+        region: AWS region for Bedrock services (default: us-west-2)
         claude_model_id: Model ID for Claude 4.0 Sonnet
         sdxl_model_id: Model ID for Stable Diffusion XL
         knowledge_base_id: Optional Knowledge Base ID for vector search
@@ -40,7 +40,7 @@ class BedrockConfig:
         temperature: Temperature for text generation (0.0-1.0)
     """
     
-    region: str = "us-east-1"
+    region: str = "us-west-2"
     # Using inference profile for Claude Sonnet 4
     claude_model_id: str = "us.anthropic.claude-sonnet-4-20250514-v1:0"
     sdxl_model_id: str = "stability.stable-diffusion-xl-v1"
@@ -59,7 +59,7 @@ class BedrockConfig:
         Create BedrockConfig from environment variables.
         
         Environment Variables:
-            BEDROCK_REGION: AWS region (default: us-east-1)
+            BEDROCK_REGION: AWS region (default: us-west-2)
             CLAUDE_MODEL_ID: Claude model ID
             SDXL_MODEL_ID: SDXL model ID
             BEDROCK_KB_ID: Knowledge Base ID (optional)
@@ -75,7 +75,7 @@ class BedrockConfig:
             BedrockConfig instance with values from environment
         """
         return cls(
-            region=os.getenv('BEDROCK_REGION', 'us-east-1'),
+            region=os.getenv('BEDROCK_REGION', 'us-west-2'),
             # Using inference profile for Claude Sonnet 4
             claude_model_id=os.getenv(
                 'CLAUDE_MODEL_ID',

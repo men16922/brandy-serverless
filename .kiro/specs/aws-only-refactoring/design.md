@@ -42,7 +42,7 @@ This design document outlines the refactoring of the AI Branding Chatbot from a 
 │                              ▼                                   │
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │         API Gateway (HTTP API)                            │  │
-│  │         https://xxx.execute-api.us-east-1.amazonaws.com  │  │
+│  │         https://xxx.execute-api.us-west-2.amazonaws.com  │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │                              │                                   │
 │                              ▼                                   │
@@ -104,8 +104,8 @@ This design document outlines the refactoring of the AI Branding Chatbot from a 
 **Configuration**:
 ```python
 # .env file
-API_BASE_URL=https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev
-AWS_REGION=us-east-1
+API_BASE_URL=https://vd9s16odtc.execute-api.us-west-2.amazonaws.com/dev
+AWS_REGION=us-west-2
 ```
 
 **Key Changes**:
@@ -147,7 +147,7 @@ def __init__(self, agent_type: AgentType):
     
     # Always use 'dev' environment
     self.environment = 'dev'
-    self.region = os.getenv('AWS_REGION', 'us-east-1')
+    self.region = os.getenv('AWS_REGION', 'us-west-2')
     
     # Setup logging
     self.logger = setup_logging(self.agent_name)
@@ -207,7 +207,7 @@ def get_aws_clients():
 **Environment Variables** (`.env`):
 ```bash
 # AWS Configuration
-AWS_REGION=us-east-1
+AWS_REGION=us-west-2
 AWS_ACCESS_KEY_ID=xxx
 AWS_SECRET_ACCESS_KEY=xxx
 
@@ -215,7 +215,7 @@ AWS_SECRET_ACCESS_KEY=xxx
 ENVIRONMENT=dev
 
 # API Gateway
-API_BASE_URL=https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev
+API_BASE_URL=https://vd9s16odtc.execute-api.us-west-2.amazonaws.com/dev
 
 # DynamoDB
 SESSIONS_TABLE=ai-branding-chatbot-sessions
@@ -224,7 +224,7 @@ SESSIONS_TABLE=ai-branding-chatbot-sessions
 S3_BUCKET=ai-branding-chatbot-assets-908601828278
 
 # Bedrock
-BEDROCK_REGION=us-east-1
+BEDROCK_REGION=us-west-2
 CLAUDE_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
 ENABLE_FALLBACK=true
 DEV_PROFILE=true

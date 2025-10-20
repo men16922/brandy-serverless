@@ -49,7 +49,7 @@ pip install -r src/streamlit/requirements.txt
 cat .env | grep API_BASE_URL
 
 # 필요시 수동으로 설정 (AWS API Gateway 엔드포인트)
-export API_BASE_URL="https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev"
+export API_BASE_URL="https://vd9s16odtc.execute-api.us-west-2.amazonaws.com/dev"
 
 # Streamlit 포트 설정 (기본값: 8501)
 export STREAMLIT_SERVER_PORT=8501
@@ -182,19 +182,19 @@ st.session_state.agent_status    # 에이전트별 실행 상태
 
 ### 로컬 개발 (AWS API Gateway 사용)
 ```bash
-API_BASE_URL=https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev
+API_BASE_URL=https://vd9s16odtc.execute-api.us-west-2.amazonaws.com/dev
 STREAMLIT_SERVER_PORT=8501
 ```
 
 ### AWS Dev 환경 (현재 설정)
 ```bash
-API_BASE_URL=https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev
+API_BASE_URL=https://vd9s16odtc.execute-api.us-west-2.amazonaws.com/dev
 STREAMLIT_SERVER_PORT=8501
 ```
 
 ### AWS 배포 (App Runner)
 ```bash
-API_BASE_URL=https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev
+API_BASE_URL=https://vd9s16odtc.execute-api.us-west-2.amazonaws.com/dev
 STREAMLIT_SERVER_PORT=8080
 ```
 
@@ -205,7 +205,7 @@ STREAMLIT_SERVER_PORT=8080
 1. **API 연결 실패**
    ```bash
    # AWS API Gateway 상태 확인
-   curl https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev/
+   curl https://vd9s16odtc.execute-api.us-west-2.amazonaws.com/dev/
    
    # AWS 자격 증명 확인
    aws sts get-caller-identity

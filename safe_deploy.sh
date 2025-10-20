@@ -91,7 +91,7 @@ if [ "$SECRET_EXISTS" = "NOT_FOUND" ]; then
     echo "  aws secretsmanager create-secret \\"
     echo "    --name openai-api-key \\"
     echo "    --secret-string '{\"api_key\":\"sk-your-key-here\"}' \\"
-    echo "    --region us-east-1"
+    echo "    --region us-west-2"
     echo ""
     read -p "계속하시겠습니까? (y/N): " -n 1 -r
     echo

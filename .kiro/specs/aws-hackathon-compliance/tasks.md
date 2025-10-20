@@ -60,7 +60,7 @@
     - bedrock:Retrieve (Knowledge Base)
     - bedrock-agent-runtime:InvokeAgent (AgentCore)
   - 환경 변수 추가:
-    - BEDROCK_REGION (default: us-east-1)
+    - BEDROCK_REGION (default: us-west-2)
     - CLAUDE_MODEL_ID (us.anthropic.claude-sonnet-4-20250514-v1:0)
     - SDXL_MODEL_ID (stability.stable-diffusion-xl-v1)
     - BEDROCK_KB_ID (Knowledge Base ID)
@@ -71,7 +71,7 @@
 
 - [x] 3. Bedrock 검증 스크립트 작성
   - `scripts/verify-bedrock-setup.sh` 생성:
-    - `aws bedrock list-foundation-models --region us-east-1` 실행
+    - `aws bedrock list-foundation-models --region us-west-2` 실행
     - Claude, SDXL 모델 가용성 확인
     - IAM 권한 검증 (bedrock:InvokeModel)
     - Knowledge Base ID 존재 확인
@@ -446,7 +446,7 @@
   - 환경 변수 설정 확인:
     - ENABLE_FALLBACK=false (Bedrock Only)
     - USE_AGENTCORE=true
-    - BEDROCK_REGION=us-east-1
+    - BEDROCK_REGION=us-west-2
   - SAM 배포 실행:
     - `sam build`
     - `sam deploy --guided` (첫 배포)
@@ -475,7 +475,7 @@
     - Project Title: "AI Branding Chatbot - Bedrock AgentCore Implementation"
     - GitHub URL: https://github.com/{username}/ai-branding-chatbot
     - Demo Video URL: https://youtube.com/watch?v={video_id}
-    - Deployed URL: https://{api-id}.execute-api.us-east-1.amazonaws.com/dev
+    - Deployed URL: https://{api-id}.execute-api.us-west-2.amazonaws.com/dev
     - Architecture Diagram: docs/architecture.md
     - Project Description (영어, 500자)
     - Technologies Used: AWS Bedrock, AgentCore, Claude 4 Sonnet, SDXL, Lambda, DynamoDB, S3

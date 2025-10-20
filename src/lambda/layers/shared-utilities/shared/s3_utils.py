@@ -17,7 +17,7 @@ class S3Manager:
     
     def __init__(self, bucket_name: str = None, region: str = None):
         self.bucket_name = bucket_name or os.getenv('STORAGE_BUCKET_NAME')
-        self.region = region or os.getenv('AWS_REGION', 'us-east-1')
+        self.region = region or os.getenv('AWS_REGION', 'us-west-2')
         self.s3_client = boto3.client('s3', region_name=self.region)
         
         if not self.bucket_name:
@@ -345,7 +345,7 @@ def get_s3_manager() -> S3Manager:
     bucket_name = os.getenv('S3_BUCKET', 'ai-branding-chatbot-assets-908601828278')
     
     # Use AWS S3 client
-    s3_client = boto3.client('s3', region_name=os.getenv('AWS_REGION', 'us-east-1'))
+    s3_client = boto3.client('s3', region_name=os.getenv('AWS_REGION', 'us-west-2'))
     
     manager = S3Manager(bucket_name=bucket_name)
     manager.s3_client = s3_client

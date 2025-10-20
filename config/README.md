@@ -47,7 +47,7 @@ if issues:
 
 #### Required Variables
 
-- `BEDROCK_REGION`: AWS region for Bedrock services (default: `us-east-1`)
+- `BEDROCK_REGION`: AWS region for Bedrock services (default: `us-west-2`)
 - `CLAUDE_MODEL_ID`: Model ID for Claude 4 Sonnet (default: `us.anthropic.claude-sonnet-4-20250514-v1:0`)
 - `SDXL_MODEL_ID`: Model ID for Stable Diffusion XL (default: `stability.stable-diffusion-xl-v1`)
 
@@ -125,7 +125,7 @@ config = get_bedrock_config()
 ENVIRONMENT=local
 DEV_PROFILE=true
 ENABLE_FALLBACK=true
-BEDROCK_REGION=us-east-1
+BEDROCK_REGION=us-west-2
 CLAUDE_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
 SDXL_MODEL_ID=stability.stable-diffusion-xl-v1
 ```
@@ -137,7 +137,7 @@ SDXL_MODEL_ID=stability.stable-diffusion-xl-v1
 ENVIRONMENT=prod
 DEV_PROFILE=false
 ENABLE_FALLBACK=false
-BEDROCK_REGION=us-east-1
+BEDROCK_REGION=us-west-2
 CLAUDE_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
 SDXL_MODEL_ID=stability.stable-diffusion-xl-v1
 BEDROCK_KB_ID=your-knowledge-base-id
@@ -153,7 +153,7 @@ The `template.yaml` file defines these environment variables as parameters:
 Parameters:
   BedrockRegion:
     Type: String
-    Default: us-east-1
+    Default: us-west-2
   
   ClaudeModelId:
     Type: String

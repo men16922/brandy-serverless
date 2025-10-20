@@ -98,7 +98,7 @@ def get_aws_credentials() -> dict:
     return {
         'access_key_id': get_env_var('AWS_ACCESS_KEY_ID'),
         'secret_access_key': get_env_var('AWS_SECRET_ACCESS_KEY'),
-        'region': get_env_var('AWS_REGION', 'us-east-1')
+        'region': get_env_var('AWS_REGION', 'us-west-2')
     }
 
 # 모듈 로드 시 자동으로 .env 파일 로드

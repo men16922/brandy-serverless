@@ -167,7 +167,7 @@ class BaseAgent(ABC):
         
         # Always use 'dev' environment (AWS-only architecture)
         self.environment = 'dev'
-        self.region = os.getenv('AWS_REGION', 'us-east-1')
+        self.region = os.getenv('AWS_REGION', 'us-west-2')
         
         # Setup logging
         self.logger = setup_logging(self.agent_name)

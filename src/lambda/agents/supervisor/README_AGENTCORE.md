@@ -138,7 +138,7 @@ Use Reasoning LLM to determine next workflow step.
 
 ```bash
 # Required
-BEDROCK_REGION=us-east-1
+BEDROCK_REGION=us-west-2
 
 # Optional
 BEDROCK_AGENT_ID=your-agent-id
@@ -234,7 +234,7 @@ Check AWS credentials and region:
 
 ```bash
 aws configure list
-aws bedrock list-foundation-models --region us-east-1
+aws bedrock list-foundation-models --region us-west-2
 ```
 
 ### Memory Storage Issues

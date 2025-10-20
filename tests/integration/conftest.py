@@ -32,7 +32,7 @@ load_env_file()
 # Set default environment variables for tests (AWS dev environment)
 os.environ.setdefault('ENVIRONMENT', 'dev')
 os.environ.setdefault('SESSIONS_TABLE', 'ai-branding-chatbot-sessions')
-os.environ.setdefault('AWS_DEFAULT_REGION', 'us-east-1')
+os.environ.setdefault('AWS_DEFAULT_REGION', 'us-west-2')
 os.environ.setdefault('S3_BUCKET', 'ai-branding-chatbot-assets-908601828278')
 
 # Add project root to Python path
@@ -43,7 +43,7 @@ class AWSEnvironmentChecker:
     """AWS environment availability checker"""
     
     def __init__(self):
-        self.region = os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
+        self.region = os.getenv('AWS_DEFAULT_REGION', 'us-west-2')
     
     def is_aws_configured(self) -> bool:
         """Check if AWS credentials are configured"""
@@ -96,13 +96,13 @@ def aws_environment():
 @pytest.fixture
 def dynamodb_client():
     """Create AWS DynamoDB client"""
-    return boto3.client('dynamodb', region_name=os.getenv('AWS_DEFAULT_REGION', 'us-east-1'))
+    return boto3.client('dynamodb', region_name=os.getenv('AWS_DEFAULT_REGION', 'us-west-2'))
 
 
 @pytest.fixture
 def s3_client():
     """Create AWS S3 client"""
-    return boto3.client('s3', region_name=os.getenv('AWS_DEFAULT_REGION', 'us-east-1'))
+    return boto3.client('s3', region_name=os.getenv('AWS_DEFAULT_REGION', 'us-west-2'))
 
 
 @pytest.fixture
@@ -121,7 +121,7 @@ class TestEnvironment:
     """AWS test environment setup and management"""
     
     def __init__(self):
-        self.region = os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
+        self.region = os.getenv('AWS_DEFAULT_REGION', 'us-west-2')
         self.dynamodb = boto3.client('dynamodb', region_name=self.region)
         self.table_name = os.getenv('SESSIONS_TABLE', 'ai-branding-chatbot-sessions')
         self.bucket_name = os.getenv('S3_BUCKET', 'ai-branding-chatbot-assets-908601828278')

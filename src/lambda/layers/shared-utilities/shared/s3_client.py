@@ -34,7 +34,7 @@ class S3Client:
     
     def _create_client(self):
         """Create AWS S3 client"""
-        region = os.getenv('AWS_REGION', 'us-east-1')
+        region = os.getenv('AWS_REGION', 'us-west-2')
         
         # ALWAYS use IAM role in Lambda (ignore environment variables)
         # Environment variables may contain invalid/expired credentials
@@ -51,8 +51,8 @@ class S3Client:
             if error_code == '404':
                 # Create bucket if it doesn't exist
                 try:
-                    region = os.getenv('AWS_REGION', 'us-east-1')
-                    if region == 'us-east-1':
+                    region = os.getenv('AWS_REGION', 'us-west-2')
+                    if region == 'us-west-2':
                         self.client.create_bucket(Bucket=self.bucket_name)
                     else:
                         self.client.create_bucket(
@@ -176,7 +176,7 @@ class S3Client:
                 endpoint = os.getenv('S3_ENDPOINT', 'http://localhost:9000')
                 return f"{endpoint}/{self.bucket_name}/{key}"
             else:
-                region = os.getenv('AWS_REGION', 'us-east-1')
+                region = os.getenv('AWS_REGION', 'us-west-2')
                 return f"https://{self.bucket_name}.s3.{region}.amazonaws.com/{key}"
     
     def delete_object(self, key: str) -> bool:
@@ -258,7 +258,7 @@ class S3Client:
                 endpoint = os.getenv('S3_ENDPOINT', 'http://localhost:9000')
                 return f"{endpoint}/{self.bucket_name}/{key}"
             else:
-                region = os.getenv('AWS_REGION', 'us-east-1')
+                region = os.getenv('AWS_REGION', 'us-west-2')
                 return f"https://{self.bucket_name}.s3.{region}.amazonaws.com/{key}"
     
     def get_object_metadata(self, key: str) -> Dict[str, Any]:

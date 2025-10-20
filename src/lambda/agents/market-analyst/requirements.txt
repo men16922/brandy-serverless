@@ -1,0 +1,2 @@
+# Market Analyst Agent dependencies
+# All dependencies are provided by Lambda Layer

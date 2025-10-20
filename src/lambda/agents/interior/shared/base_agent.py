@@ -34,7 +34,7 @@ class BaseAgent(ABC):
         
         # 환경 변수 관리
         self.environment = os.getenv('ENVIRONMENT', 'local')
-        self.region = os.getenv('AWS_REGION', 'us-east-1')
+        self.region = os.getenv('AWS_REGION', 'us-west-2')
         
         # 로깅 설정
         self.logger = setup_logging(self.agent_name)

@@ -66,7 +66,7 @@ class DALLEProvider(AIProvider):
         if os.getenv('ENVIRONMENT') != 'local':
             try:
                 secret_name = os.getenv('OPENAI_SECRET_NAME', 'openai-api-key')
-                region = os.getenv('AWS_REGION', 'us-east-1')
+                region = os.getenv('AWS_REGION', 'us-west-2')
                 
                 session = boto3.session.Session()
                 client = session.client(service_name='secretsmanager', region_name=region)
@@ -211,7 +211,7 @@ class SDXLProvider(AIProvider):
     
     def __init__(self, region: str = None):
         super().__init__("sdxl")
-        self.region = region or os.getenv('AWS_REGION', 'us-east-1')
+        self.region = region or os.getenv('AWS_REGION', 'us-west-2')
         self.model_id = "stability.stable-diffusion-xl-v1"
         
         # Bedrock 클라이언트 초기화
@@ -378,7 +378,7 @@ class GeminiProvider(AIProvider):
         if os.getenv('ENVIRONMENT') != 'local':
             try:
                 secret_name = os.getenv('GEMINI_SECRET_NAME', 'gemini-api-key')
-                region = os.getenv('AWS_REGION', 'us-east-1')
+                region = os.getenv('AWS_REGION', 'us-west-2')
                 
                 session = boto3.session.Session()
                 client = session.client(service_name='secretsmanager', region_name=region)

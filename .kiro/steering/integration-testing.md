@@ -38,7 +38,7 @@ aws cloudformation describe-stacks --stack-name ai-branding-chatbot-dev
 - **DynamoDB**: ai-branding-chatbot-sessions
 - **S3**: ai-branding-chatbot-assets-908601828278
 - **Lambda**: 7 agent functions
-- **API Gateway**: https://xxx.execute-api.us-east-1.amazonaws.com/dev
+- **API Gateway**: https://xxx.execute-api.us-west-2.amazonaws.com/dev
 
 ## Core Test Components
 

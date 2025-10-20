@@ -39,7 +39,7 @@ class S3Client:
             endpoint_url = os.getenv('S3_ENDPOINT', 'http://localhost:9000')
             access_key = os.getenv('S3_ACCESS_KEY', 'minioadmin')
             secret_key = os.getenv('S3_SECRET_KEY', 'minioadmin')
-            region = os.getenv('S3_REGION', 'us-east-1')
+            region = os.getenv('S3_REGION', 'us-west-2')
             use_ssl = os.getenv('S3_USE_SSL', 'false').lower() == 'true'
             
             return boto3.client(
@@ -58,7 +58,7 @@ class S3Client:
             )
         else:
             # AWS S3 설정
-            region = os.getenv('AWS_REGION', 'us-east-1')
+            region = os.getenv('AWS_REGION', 'us-west-2')
             
             # AWS 자격증명이 환경변수에 있는 경우
             aws_access_key = os.getenv('AWS_ACCESS_KEY_ID')
@@ -90,8 +90,8 @@ class S3Client:
                         self.client.create_bucket(Bucket=self.bucket_name)
                     else:
                         # AWS S3는 리전 고려
-                        region = os.getenv('AWS_REGION', 'us-east-1')
-                        if region == 'us-east-1':
+                        region = os.getenv('AWS_REGION', 'us-west-2')
+                        if region == 'us-west-2':
                             self.client.create_bucket(Bucket=self.bucket_name)
                         else:
                             self.client.create_bucket(
@@ -211,7 +211,7 @@ class S3Client:
                 endpoint = os.getenv('S3_ENDPOINT', 'http://localhost:9000')
                 return f"{endpoint}/{self.bucket_name}/{key}"
             else:
-                region = os.getenv('AWS_REGION', 'us-east-1')
+                region = os.getenv('AWS_REGION', 'us-west-2')
                 return f"https://{self.bucket_name}.s3.{region}.amazonaws.com/{key}"
     
     def delete_object(self, key: str) -> bool:
@@ -293,7 +293,7 @@ class S3Client:
                 endpoint = os.getenv('S3_ENDPOINT', 'http://localhost:9000')
                 return f"{endpoint}/{self.bucket_name}/{key}"
             else:
-                region = os.getenv('AWS_REGION', 'us-east-1')
+                region = os.getenv('AWS_REGION', 'us-west-2')
                 return f"https://{self.bucket_name}.s3.{region}.amazonaws.com/{key}"
     
     def get_object_metadata(self, key: str) -> Dict[str, Any]:

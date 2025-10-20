@@ -74,7 +74,7 @@ class DALLEProvider(AIProvider):
         if os.getenv('ENVIRONMENT') != 'local':
             try:
                 secret_name = os.getenv('OPENAI_SECRET_NAME', 'openai-api-key')
-                region = os.getenv('AWS_REGION', 'us-east-1')
+                region = os.getenv('AWS_REGION', 'us-west-2')
                 
                 session = boto3.session.Session()
                 client = session.client(service_name='secretsmanager', region_name=region)
@@ -221,7 +221,7 @@ class SDXLProvider(AIProvider):
     
     def __init__(self, region: str = None, logger = None):
         super().__init__("sdxl")
-        self.region = region or os.getenv('AWS_REGION', 'us-east-1')
+        self.region = region or os.getenv('AWS_REGION', 'us-west-2')
         # Use Titan Image Generator (SDXL is deprecated)
         # Check both IMAGE_MODEL_ID and SDXL_MODEL_ID for backward compatibility
         self.model_id = os.getenv('IMAGE_MODEL_ID') or os.getenv('SDXL_MODEL_ID', 'amazon.titan-image-generator-v2:0')
@@ -469,7 +469,7 @@ class GeminiProvider(AIProvider):
         if os.getenv('ENVIRONMENT') != 'local':
             try:
                 secret_name = os.getenv('GEMINI_SECRET_NAME', 'gemini-api-key')
-                region = os.getenv('AWS_REGION', 'us-east-1')
+                region = os.getenv('AWS_REGION', 'us-west-2')
                 
                 session = boto3.session.Session()
                 client = session.client(service_name='secretsmanager', region_name=region)

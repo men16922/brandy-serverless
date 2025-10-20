@@ -243,7 +243,7 @@ The project successfully meets hackathon requirements when:
 ## Assumptions and Constraints
 
 ### Assumptions
-- AWS account has access to Bedrock services in us-east-1 region
+- AWS account has access to Bedrock services in us-west-2 region
 - Bedrock models (Claude 4 Sonnet, SDXL) are available in the deployment region
 - Users have basic understanding of AWS services and SAM deployment
 - Docker and Docker Compose are available for local development

@@ -73,7 +73,7 @@
 # .env 또는 환경 변수
 ENABLE_FALLBACK=false
 DEV_PROFILE=false
-BEDROCK_REGION=us-east-1
+BEDROCK_REGION=us-west-2
 ```
 
 ### 로컬 개발 모드

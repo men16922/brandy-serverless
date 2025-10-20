@@ -53,7 +53,7 @@ class AgentConfig:
         
         config = cls(
             environment=environment,
-            region=os.getenv('AWS_REGION', 'us-east-1'),
+            region=os.getenv('AWS_REGION', 'us-west-2'),
             timeout_seconds=int(os.getenv('AGENT_TIMEOUT_SECONDS', '30')),
             max_retries=int(os.getenv('AGENT_MAX_RETRIES', '3')),
             

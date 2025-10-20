@@ -60,7 +60,7 @@ aws configure
 aws secretsmanager create-secret \
     --name openai-api-key \
     --secret-string '{"api_key":"sk-your-key-here"}' \
-    --region us-east-1
+    --region us-west-2
 ```
 
 ### 3. Deploy to AWS
@@ -173,13 +173,13 @@ aws configure
 # 또는 환경 변수 설정
 export AWS_ACCESS_KEY_ID=your_key
 export AWS_SECRET_ACCESS_KEY=your_secret
-export AWS_DEFAULT_REGION=us-east-1
+export AWS_DEFAULT_REGION=us-west-2
 
 # 2. Bedrock 설정 검증
 ./scripts/verify-bedrock-setup.sh
 
 # 3. 환경 변수 설정 (.env 파일)
-BEDROCK_REGION=us-east-1
+BEDROCK_REGION=us-west-2
 CLAUDE_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
 SDXL_MODEL_ID=stability.stable-diffusion-xl-v1
 ENABLE_FALLBACK=true  # 로컬 개발 시 true, 제출 시 false
@@ -229,12 +229,12 @@ sam logs --stack-name ai-branding-chatbot-dev --tail  # Real-time logs
 
 ```bash
 # AWS Configuration
-AWS_REGION=us-east-1
+AWS_REGION=us-west-2
 AWS_ACCESS_KEY_ID=your-access-key
 AWS_SECRET_ACCESS_KEY=your-secret-key
 
 # API Gateway (from deployment)
-API_BASE_URL=https://your-api-id.execute-api.us-east-1.amazonaws.com/dev
+API_BASE_URL=https://your-api-id.execute-api.us-west-2.amazonaws.com/dev
 
 # DynamoDB
 SESSIONS_TABLE=ai-branding-chatbot-sessions
@@ -246,7 +246,7 @@ S3_BUCKET=ai-branding-chatbot-assets-908601828278
 OPENAI_API_KEY=sk-...
 
 # Bedrock Configuration
-BEDROCK_REGION=us-east-1
+BEDROCK_REGION=us-west-2
 CLAUDE_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
 SDXL_MODEL_ID=amazon.titan-image-generator-v2:0  # Titan Image Generator v2
 IMAGE_MODEL_ID=amazon.titan-image-generator-v2:0  # Alias for SDXL_MODEL_ID
@@ -269,7 +269,7 @@ ENVIRONMENT=dev        # Always 'dev' for development
 ENABLE_FALLBACK=false  # Bedrock Only!
 DEV_PROFILE=false
 ENVIRONMENT=prod
-BEDROCK_REGION=us-east-1
+BEDROCK_REGION=us-west-2
 # AWS 자격증명 필수
 ```
 
@@ -351,7 +351,7 @@ MIT License
 
 2. **Verify Bedrock Access**:
    ```bash
-   aws bedrock list-foundation-models --region us-east-1 \
+   aws bedrock list-foundation-models --region us-west-2 \
      --query 'modelSummaries[?contains(modelId, `titan-image-generator`)].modelId'
    ```
    
@@ -375,7 +375,7 @@ MIT License
    
    Check:
    - `SDXL_MODEL_ID`: `amazon.titan-image-generator-v2:0`
-   - `BEDROCK_REGION`: `us-east-1`
+   - `BEDROCK_REGION`: `us-west-2`
    - `ENABLE_FALLBACK`: `true` (dev) or `false` (prod)
 
 #### Problem: Timeout errors during image generation

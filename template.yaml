@@ -16,7 +16,7 @@ Parameters:
 
   BedrockRegion:
     Type: String
-    Default: us-east-1
+    Default: us-west-2
     Description: AWS region for Bedrock services
 
   ClaudeModelId:
@@ -53,14 +53,15 @@ Parameters:
 Globals:
   Function:
     Runtime: python3.9
-    Timeout: 120  # Increased for Bedrock API calls
-    MemorySize: 512
+    Timeout: 180  # Increased for Bedrock API calls
+    MemorySize: 1024
     Environment:
       Variables:
         ENVIRONMENT: !Ref Environment
         PROJECT_NAME: !Ref ProjectName
         SESSIONS_TABLE: !Ref WorkflowSessionsTable
         S3_BUCKET: !Ref BrandingAssetsBucket
+        S3_BUCKET_NAME: !Ref BrandingAssetsBucket
         LOG_LEVEL: INFO
         # Bedrock Configuration
         BEDROCK_REGION: !Ref BedrockRegion
@@ -407,6 +408,12 @@ Resources:
             ApiId: !Ref BrandingApi
             Path: /interiors/generate
             Method: post
+        InteriorsSelectApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BrandingApi
+            Path: /interiors/select
+            Method: post
 
   ReportGeneratorAgent:
     Type: AWS::Serverless::Function
@@ -545,7 +552,8 @@ Resources:
   BrandingAssetsBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "${ProjectName}-assets-${AWS::AccountId}"
+      # BucketName을 지정하지 않으면 CloudFormation이 고유한 이름을 자동 생성
+      # BucketName: !Sub "${ProjectName}-assets-${AWS::AccountId}-${AWS::Region}"
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true

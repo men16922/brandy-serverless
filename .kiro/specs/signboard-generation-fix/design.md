@@ -509,8 +509,8 @@ class TestAWSBedrockSDXL:
 ### Environment Variables
 
 **Required:**
-- `AWS_REGION` - AWS region for Bedrock (default: us-east-1)
-- `BEDROCK_REGION` - Bedrock-specific region (default: us-east-1)
+- `AWS_REGION` - AWS region for Bedrock (default: us-west-2)
+- `BEDROCK_REGION` - Bedrock-specific region (default: us-west-2)
 
 **Optional:**
 - `ENABLE_FALLBACK` - Enable fallback providers (default: true)
@@ -533,7 +533,7 @@ class TestAWSBedrockSDXL:
         "bedrock:InvokeModelWithResponseStream"
       ],
       "Resource": [
-        "arn:aws:bedrock:us-east-1::foundation-model/stability.stable-diffusion-xl-v1"
+        "arn:aws:bedrock:us-west-2::foundation-model/stability.stable-diffusion-xl-v1"
       ]
     },
     {

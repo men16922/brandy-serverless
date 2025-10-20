@@ -17,15 +17,24 @@ import aiohttp
 if TYPE_CHECKING:
     from shared.ai_providers import AIProvider
 
-# Add shared modules to path - Lambda Layer structure
-sys.path.insert(0, '/opt/python')
-
-from shared.base_agent import BaseAgent
-from shared.models import AgentType, ImageResult, SignboardImages, BusinessInfo
-from shared.utils import create_response
-from shared.env_loader import get_openai_api_key, is_local_environment
-from shared.s3_client import get_s3_client
-from shared.ai_providers import AIProviderFactory, AIProvider
+# Import shared modules from Lambda Layer
+try:
+    from shared.base_agent import BaseAgent
+    from shared.models import AgentType, ImageResult, SignboardImages, BusinessInfo
+    from shared.utils import create_response
+    from shared.env_loader import get_openai_api_key, is_local_environment
+    from shared.s3_client import get_s3_client
+    from shared.ai_providers import AIProviderFactory, AIProvider
+except ImportError:
+    # Fallback for local development
+    import sys
+    sys.path.insert(0, '/opt/python')
+    from shared.base_agent import BaseAgent
+    from shared.models import AgentType, ImageResult, SignboardImages, BusinessInfo
+    from shared.utils import create_response
+    from shared.env_loader import get_openai_api_key, is_local_environment
+    from shared.s3_client import get_s3_client
+    from shared.ai_providers import AIProviderFactory, AIProvider
 
 # Mock implementations removed - using actual imports from Lambda Layer
 
@@ -64,7 +73,7 @@ class OpenAIClient:
             from botocore.exceptions import ClientError
             
             secret_name = os.getenv('OPENAI_SECRET_NAME', 'openai-api-key')
-            region = os.getenv('AWS_REGION', 'us-east-1')
+            region = os.getenv('AWS_REGION', 'us-west-2')
             
             # Secrets Manager 클라이언트 생성
             if os.getenv('ENVIRONMENT') == 'local':

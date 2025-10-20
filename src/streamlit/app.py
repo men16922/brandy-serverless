@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration - AWS-only architecture
 # Streamlit runs locally, all backend services use AWS
-API_BASE_URL = os.getenv('API_BASE_URL', 'https://vd9s16odtc.execute-api.us-east-1.amazonaws.com/dev')
+API_BASE_URL = os.getenv('API_BASE_URL', 'https://67y0voa4yd.execute-api.us-west-2.amazonaws.com/dev')
 
 # Workflow steps configuration
 WORKFLOW_STEPS = [
@@ -1481,13 +1481,30 @@ def select_interior_option(style: str):
         
         st.session_state.session_data['results']['interiors']['selected_style'] = style
         
+        # Save selected interior to DynamoDB via API
+        try:
+            save_response = requests.post(
+                f"{API_BASE_URL}/interiors/select",
+                json={
+                    "sessionId": st.session_state.session_id,
+                    "selectedStyle": style
+                },
+                timeout=10
+            )
+            if save_response.status_code == 200:
+                logger.info(f"Selected interior saved to session: {style}")
+            else:
+                logger.warning(f"Failed to save selected interior: {save_response.status_code}")
+        except Exception as e:
+            logger.warning(f"Error saving selected interior: {str(e)}")
+        
         st.success("✅ 인테리어 옵션이 선택되었습니다!")
         
         # Automatically trigger report generation
         with st.spinner("📄 AI가 분석, 상호명, 간판, 인테리어를 종합하여 최종 브랜딩 보고서를 생성하고 있습니다... (최대 60초 소요)"):
             try:
                 report_response = requests.post(
-                    f"{API_BASE_URL}/reports/generate",
+                    f"{API_BASE_URL}/report/generate",  # Fixed: /report not /reports
                     json={
                         "sessionId": st.session_state.session_id,
                         "businessInfo": st.session_state.business_info
@@ -1541,11 +1558,14 @@ def download_report():
         
         if response.status_code == 200:
             data = response.json()
-            download_url = data.get("download_url")
+            # downloadUrl (camelCase) 또는 download_url (snake_case) 모두 지원
+            download_url = data.get("downloadUrl") or data.get("download_url")
+            file_name = data.get("fileName", "branding_report")
             
             if download_url:
-                st.markdown(f"[📥 보고서 다운로드 링크]({download_url})")
-                st.info("링크는 10분간 유효합니다.")
+                st.markdown(f"### 📥 보고서 다운로드")
+                st.markdown(f"[**{file_name} 다운로드**]({download_url})")
+                st.info("💡 링크는 10분간 유효합니다.")
             else:
                 st.error("다운로드 링크를 생성할 수 없습니다.")
         else:

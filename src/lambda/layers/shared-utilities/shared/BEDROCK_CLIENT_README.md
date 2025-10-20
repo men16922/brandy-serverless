@@ -29,7 +29,7 @@ pip install boto3
 from bedrock_client import create_bedrock_client
 
 # Create client
-client = create_bedrock_client(region='us-east-1')
+client = create_bedrock_client(region='us-west-2')
 
 # Generate text with Claude
 response = client.invoke_claude(
@@ -60,7 +60,7 @@ for result in kb_response['results']:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `BEDROCK_REGION` | `us-east-1` | AWS region for Bedrock services |
+| `BEDROCK_REGION` | `us-west-2` | AWS region for Bedrock services |
 | `CLAUDE_MODEL_ID` | `us.anthropic.claude-sonnet-4-20250514-v1:0` | Claude 4 Sonnet model ID |
 | `SDXL_MODEL_ID` | `stability.stable-diffusion-xl-v1` | SDXL model ID |
 | `BEDROCK_KB_ID` | None | Knowledge Base ID (required for KB queries) |
@@ -76,7 +76,7 @@ for result in kb_response['results']:
 Initialize Bedrock client.
 
 **Parameters:**
-- `region` (str, optional): AWS region. Defaults to `BEDROCK_REGION` env var or `us-east-1`
+- `region` (str, optional): AWS region. Defaults to `BEDROCK_REGION` env var or `us-west-2`
 - `logger` (logging.Logger, optional): Custom logger instance
 
 **Raises:**
@@ -312,7 +312,7 @@ All API calls are logged with structured JSON data:
   "latency_ms": 2341,
   "status": "success",
   "timestamp": "2025-10-07T12:00:00.000Z",
-  "region": "us-east-1",
+  "region": "us-west-2",
   "tokens_used": 156
 }
 ```
@@ -446,7 +446,7 @@ aws configure
 # Or set environment variables:
 export AWS_ACCESS_KEY_ID=your_key
 export AWS_SECRET_ACCESS_KEY=your_secret
-export AWS_DEFAULT_REGION=us-east-1
+export AWS_DEFAULT_REGION=us-west-2
 ```
 
 **3. "ThrottlingException: Rate exceeded"**
@@ -455,7 +455,7 @@ export AWS_DEFAULT_REGION=us-east-1
 - Request quota increase from AWS Support
 
 **4. "ValidationException: Invalid model ID"**
-- Verify model availability: `aws bedrock list-foundation-models --region us-east-1`
+- Verify model availability: `aws bedrock list-foundation-models --region us-west-2`
 - Check model ID spelling
 - Ensure model is available in your region
 

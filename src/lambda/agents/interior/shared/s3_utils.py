@@ -17,7 +17,7 @@ class S3Manager:
     
     def __init__(self, bucket_name: str = None, region: str = None):
         self.bucket_name = bucket_name or os.getenv('STORAGE_BUCKET_NAME')
-        self.region = region or os.getenv('AWS_REGION', 'us-east-1')
+        self.region = region or os.getenv('AWS_REGION', 'us-west-2')
         self.s3_client = boto3.client('s3', region_name=self.region)
         
         if not self.bucket_name:
@@ -355,7 +355,7 @@ def get_s3_manager() -> S3Manager:
             endpoint_url=endpoint_url,
             aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID', 'minioadmin'),
             aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY', 'minioadmin'),
-            region_name='us-east-1'
+            region_name='us-west-2'
         )
         
         manager = S3Manager(bucket_name=bucket_name)
