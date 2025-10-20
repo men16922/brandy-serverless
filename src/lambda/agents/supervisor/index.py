@@ -410,7 +410,7 @@ class SupervisorAgent:
     
     def execute_workflow(self, session_id: str, business_info: Dict[str, Any], current_step: int = 1) -> Dict[str, Any]:
         """
-        워크플로 실행 (AgentCore 또는 Step Functions) with autonomous error recovery.
+        워크플로 실행 (AgentCore 사용) with autonomous error recovery.
         
         Args:
             session_id: 세션 ID
@@ -425,11 +425,9 @@ class SupervisorAgent:
         
         while retry_count <= max_retries:
             try:
-                orchestration_mode = 'agentcore' if self.use_agentcore else 'stepfunctions'
-                
                 logger.info(
                     f"Executing workflow: session={session_id}, "
-                    f"step={current_step}, mode={orchestration_mode}, retry={retry_count}"
+                    f"step={current_step}, mode=agentcore, retry={retry_count}"
                 )
                 
                 if self.use_agentcore and self.agentcore_orchestrator:
@@ -455,67 +453,16 @@ class SupervisorAgent:
                     
                     return result
                 else:
-                    # Step Functions orchestration
-                    logger.info(
-                        f"Using Step Functions for session {session_id}"
-                    )
-                    
-                    # Start Step Functions execution
-                    sfn_client = boto3.client('stepfunctions')
-                    
-                    # Construct State Machine ARN dynamically
-                    project_name = os.getenv('PROJECT_NAME', 'ai-branding-chatbot')
-                    env = os.getenv('ENVIRONMENT', 'dev')
-                    region = os.getenv('AWS_REGION', 'us-west-2')
-                    account_id = boto3.client('sts').get_caller_identity()['Account']
-                    
-                    state_machine_arn = f'arn:aws:states:{region}:{account_id}:stateMachine:{project_name}-workflow-{env}'
-                    
-                    logger.info(f"Using State Machine ARN: {state_machine_arn}")
-                    
-                    try:
-                        # Prepare input for Step Functions
-                        sfn_input = {
-                            'sessionId': session_id,
-                            'businessInfo': business_info,
-                            'currentStep': current_step
-                        }
-                        
-                        # Start execution
-                        execution_response = sfn_client.start_execution(
-                            stateMachineArn=state_machine_arn,
-                            name=f'workflow-{session_id}-{int(datetime.utcnow().timestamp())}',
-                            input=json.dumps(sfn_input)
-                        )
-                        
-                        execution_arn = execution_response['executionArn']
-                        
-                        logger.info(f"Started Step Functions execution: {execution_arn}")
-                        
-                        # Update session with execution ARN
-                        self.update_session(session_id, {
-                            'executionArn': execution_arn,
-                            'status': 'in_progress'
-                        })
-                        
-                        result = {
-                            'status': 'in_progress',
-                            'session_id': session_id,
-                            'current_step': current_step,
-                            'execution_arn': execution_arn,
-                            'message': 'Workflow started via Step Functions',
-                            'orchestration_mode': 'stepfunctions'
-                        }
-                        
-                    except Exception as sfn_error:
-                        logger.error(f"Failed to start Step Functions: {str(sfn_error)}")
-                        result = {
-                            'status': 'error',
-                            'session_id': session_id,
-                            'current_step': current_step,
-                            'error': str(sfn_error),
-                            'orchestration_mode': 'stepfunctions'
-                        }
+                    # Fallback: Direct Lambda invocation
+                    logger.warning("AgentCore not available, using direct Lambda invocation")
+                    result = {
+                        'status': 'error',
+                        'session_id': session_id,
+                        'current_step': current_step,
+                        'error': 'AgentCore not configured',
+                        'message': 'Please enable AgentCore by setting USE_AGENTCORE=true'
+                    }
+                    return result
                     
                     # 구조화된 로깅
                     logger.info(

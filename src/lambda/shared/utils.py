@@ -90,7 +90,6 @@ def get_aws_clients():
     """Initialize AWS service clients (always uses AWS, no local endpoints)"""
     dynamodb = boto3.resource('dynamodb')
     s3 = boto3.client('s3')
-    stepfunctions = boto3.client('stepfunctions')
     sqs = boto3.client('sqs')
     sns = boto3.client('sns')
     lambda_client = boto3.client('lambda')
@@ -98,7 +97,6 @@ def get_aws_clients():
     return {
         'dynamodb': dynamodb,
         's3': s3,
-        'stepfunctions': stepfunctions,
         'sqs': sqs,
         'sns': sns,
         'lambda': lambda_client

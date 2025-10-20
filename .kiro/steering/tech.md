@@ -16,32 +16,34 @@
 
 ### AI & ML (Hackathon Compliant)
 - **Primary (Production)**: 
-  - Amazon Bedrock Claude 4 Sonnet (reasoning, text generation)
-  - Amazon Bedrock SDXL (image generation)
-  - Amazon Bedrock Knowledge Base (vector search)
-  - Bedrock AgentCore (agent orchestration)
-- **Fallback (Development)**: 
-  - OpenAI DALL-E (image generation fallback)
-  - Google Gemini (image generation fallback)
-  - Chroma vector DB (local development)
-- **Local**: Chroma for vector storage, mock Bedrock responses
+  - Amazon Bedrock Claude 4 Sonnet (`us.anthropic.claude-sonnet-4-20250514-v1:0`) - Text generation and reasoning
+  - Amazon Bedrock Titan Image Generator v2 (`amazon.titan-image-generator-v2:0`) - Image generation
+  - Reasoning Engine - Chain-of-Thought for autonomous decision-making
+- **Development Tools**:
+  - BedrockClient - Shared module for all Bedrock API calls
+  - ReasoningEngine - Shared module for autonomous decisions
 
 ### Development Environment
-- **Docker Compose** - Local services (DynamoDB Local + Admin UI, MinIO, Chroma)
-- **SAM CLI** - Local API Gateway + Lambda testing (sam local start-api)
+- **AWS-Only Architecture** - Streamlit runs locally, all backend uses AWS directly
+- **SAM CLI** - Build and deploy serverless applications
 - **Python 3.11+** - Runtime and development
-- **pytest** - Integration testing framework (통합 테스트만 사용)
+- **pytest** - Integration testing framework
+- **diagrams** - Python library for generating architecture diagrams
 - **black, flake8, isort** - Code formatting and linting
 
 ## Environment Configuration
 
 ### Local Development
 ```bash
-# Services: DynamoDB Local (8000), DynamoDB Admin (8002), MinIO (9000/9001), Chroma (8001)
-./scripts/setup-local.sh        # Initial setup
-docker-compose -f docker-compose.local.yml up -d    # Start services
-sam build && sam local start-api --port 3000        # Local API Gateway + Lambda
-cd src/streamlit && streamlit run app.py            # Run Streamlit app
+# Streamlit runs locally, connects to AWS services
+source venv/bin/activate                # Activate virtual environment
+streamlit run src/streamlit/app.py      # Run Streamlit UI (localhost:8501)
+
+# All backend services use AWS directly:
+# - API Gateway: https://xxx.execute-api.us-west-2.amazonaws.com/dev
+# - Lambda: 7 agent functions
+# - DynamoDB: ai-branding-chatbot-sessions
+# - S3: ai-branding-chatbot-assets-xxx
 ```
 
 ### SAM Deployment
@@ -57,28 +59,30 @@ sam logs --stack-name branding-chatbot --tail  # Real-time logs
 # 환경 설정
 python3 -m venv venv                    # 가상환경 생성
 source venv/bin/activate                # 가상환경 활성화
-pip install -r requirements.txt        # 의존성 설치
+pip install -r requirements.txt         # 의존성 설치
 
 # SAM 개발 워크플로
 sam build                               # SAM 애플리케이션 빌드
-sam local start-api --port 3000         # 로컬 API Gateway + Lambda
-sam deploy --guided                     # 대화형 AWS 배포
-sam logs --stack-name branding-chatbot --tail  # 실시간 로그
+sam deploy --guided                     # 대화형 AWS 배포 (첫 배포)
+sam deploy --config-env dev             # 이후 배포
+sam logs --stack-name ai-branding-chatbot-dev --tail  # 실시간 로그
 
-# 통합 테스트 (Docker Compose 기반)
-./scripts/setup-local.sh               # 로컬 환경 설정
-docker-compose -f docker-compose.local.yml up -d    # 서비스 시작
-python -m pytest tests/integration/    # 통합 테스트 실행
-cd src/streamlit && streamlit run app.py  # 앱 실행
+# Streamlit 실행
+streamlit run src/streamlit/app.py      # 웹 UI 실행 (localhost:8501)
 
-# Docker 서비스 관리
-docker-compose -f docker-compose.local.yml up -d    # 서비스 시작
-docker-compose -f docker-compose.local.yml down -v  # 서비스 중지 + 볼륨 삭제
+# 통합 테스트 (AWS 환경)
+python -m pytest tests/integration/ -v  # AWS dev 환경 테스트
 
-# 로컬 서비스 접근
-# DynamoDB Admin UI: http://localhost:8002
-# MinIO Console: http://localhost:9001 (minioadmin/minioadmin)
-# Chroma API: http://localhost:8001
+# 아키텍처 다이어그램 생성
+python3 -m venv venv-diagram
+source venv-diagram/bin/activate
+pip install diagrams graphviz
+python3 scripts/generate_architecture_diagram.py
+
+# AWS 리소스 모니터링
+aws logs tail /aws/lambda/ai-branding-chatbot-supervisor-agent-dev --follow
+aws dynamodb scan --table-name ai-branding-chatbot-sessions --max-items 5
+aws s3 ls s3://ai-branding-chatbot-assets-xxx/ --recursive
 ```
 
 ## Architecture Patterns
@@ -93,24 +97,25 @@ docker-compose -f docker-compose.local.yml down -v  # 서비스 중지 + 볼륨 
 - **Environment abstraction** for local/dev/prod configurations
 
 ### Bedrock Integration Strategy
-- **Primary**: Bedrock Claude + SDXL for all production workloads
-- **Fallback**: OpenAI/Gemini only when `DEV_PROFILE=true`
-- **Submission Mode**: `ENABLE_FALLBACK=false` for Bedrock-only operation
+- **Primary**: Bedrock Claude 4 Sonnet + Titan Image Generator v2 for all workloads
+- **Bedrock-Only Mode**: `ENABLE_FALLBACK=false` for hackathon compliance
 - **Reasoning Chain**: Store all LLM decision-making steps in DynamoDB
+- **Shared Modules**: BedrockClient and ReasoningEngine in src/lambda/shared/
 
 ### Error Handling
-- **Graceful degradation** with fallback results
-- **Automatic retries** via Step Functions + Bedrock exponential backoff
-- **Dead Letter Queues** for failed messages
-- **Supervisor monitoring** of all agent executions via AgentCore
+- **Autonomous Error Recovery** - Supervisor Agent uses Reasoning LLM for intelligent recovery
+- **Automatic retries** with exponential backoff
+- **Supervisor monitoring** of all agent executions
 - **Bedrock-specific errors**: ThrottlingException, ValidationException handling
+- **CloudWatch logging** for debugging and monitoring
 
 ### Performance Requirements
 - Text responses: ≤ 5 seconds (Bedrock Claude)
-- Image generation: ≤ 30 seconds (Bedrock SDXL)
+- Image generation: ≤ 30 seconds (Bedrock Titan Image Generator v2)
 - Full workflow: ≤ 5 minutes
 - Session TTL: 24 hours
 - Bedrock API latency: P95 < 3 seconds
+- Cost per workflow: ~$0.20
 
 ## Dependencies
 
@@ -123,32 +128,42 @@ docker-compose -f docker-compose.local.yml down -v  # 서비스 중지 + 볼륨 
 
 ### AI/ML Packages (Hackathon Compliant)
 - **Primary**:
-  - `boto3` with `bedrock-runtime` - Bedrock Claude, SDXL, Knowledge Base
-  - `boto3` with `bedrock-agent-runtime` - Bedrock AgentCore
-- **Fallback (Dev only)**:
-  - `openai` - DALL-E integration (fallback)
-  - `google-generativeai` - Gemini integration (fallback)
-  - `chromadb` - Vector database (local development)
+  - `boto3` with `bedrock-runtime` - Bedrock Claude 4 Sonnet, Titan Image Generator v2
+  - BedrockClient module - Shared Bedrock API client
+  - ReasoningEngine module - Autonomous decision-making with Chain-of-Thought
 
 ### Development Tools
-- `pytest` - Testing (통합 테스트만 사용)
+- `pytest` - Integration testing with AWS dev environment
+- `diagrams` - Architecture diagram generation
+- `graphviz` - Diagram rendering
 - `black` - Code formatting
 - `flake8` - Linting
 - `mypy` - Type checking
 
 ### Hackathon-Specific Dependencies
 - Bedrock model IDs:
-  - `us.anthropic.claude-sonnet-4-20250514-v1:0` (reasoning, text - Claude 4 Sonnet)
-  - `stability.stable-diffusion-xl-v1` (image generation)
-- AgentCore primitives: Tool Use, Memory
-- Reasoning Engine: Chain-of-Thought prompting
+  - `us.anthropic.claude-sonnet-4-20250514-v1:0` (Claude 4 Sonnet - text and reasoning)
+  - `amazon.titan-image-generator-v2:0` (Titan Image Generator v2 - image generation)
+- Reasoning Engine: Chain-of-Thought prompting for autonomous decisions
+- Architecture Diagrams: Python diagrams library for visual documentation
 
 ## 테스트 정책
 
-**Docker Compose 기반 통합 테스트만 사용합니다:**
-- 단위 테스트는 복잡성만 증가시키므로 사용하지 않음
-- Docker Compose로 실제 환경 시뮬레이션하여 end-to-end 테스트
-- `tests/integration/` - Docker 기반 워크플로 전체 테스트
-- DynamoDB Admin UI (http://localhost:8002)로 데이터 시각적 검증
-- MinIO Console (http://localhost:9001)로 파일 업로드/다운로드 확인
-- pytest fixture로 Docker 서비스 라이프사이클 자동 관리
+**AWS Dev Environment 기반 통합 테스트:**
+- 단위 테스트는 사용하지 않음 (복잡성 증가)
+- AWS dev 환경에서 실제 서비스로 end-to-end 테스트
+- `tests/integration/` - AWS 기반 워크플로 전체 테스트
+- 실제 DynamoDB, S3, Lambda, Bedrock 사용
+- AWS Console에서 데이터 시각적 검증
+- pytest로 테스트 자동화
+
+## 아키텍처 다이어그램 생성
+
+**Python diagrams 라이브러리 사용:**
+- `scripts/generate_architecture_diagram.py` - 다이어그램 생성 스크립트
+- 3개 다이어그램 자동 생성:
+  - AWS Infrastructure Architecture
+  - 5-Step Workflow Sequence
+  - Bedrock Integration Details
+- PNG 형식으로 `docs/` 디렉토리에 저장
+- README.md에 자동 임베드

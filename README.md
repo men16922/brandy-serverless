@@ -1,511 +1,483 @@
-# AI Branding Chatbot 🤖
+# AI Branding Chatbot - AWS Bedrock Implementation
 
-A serverless system that automatically generates **business names, signboard designs, interior recommendations, and PDF reports** by simply entering industry, region, and size.
+An intelligent AI-powered branding system that generates comprehensive business branding materials through a 5-step automated workflow using Amazon Bedrock and serverless architecture.
 
-## 🎯 What Does This Project Do?
+## 🎯 Overview
+
+This project automates the entire business branding process, from market analysis to final report generation, using AI agents powered by Amazon Bedrock. It generates:
+
+- **Business Analysis** - Industry, region, and market insights
+- **Business Names** - 3 AI-generated name suggestions with scoring
+- **Signboard Designs** - AI-generated visual designs using Bedrock SDXL
+- **Interior Recommendations** - 3 interior style options
+- **Comprehensive Report** - HTML report with all branding materials
+
+## 🏗️ Architecture
+
+> 📊 **Visual Architecture Diagrams**: 
+> - [AWS Infrastructure Diagram](docs/aws_architecture_diagram.png) - Complete system architecture
+> - [5-Step Workflow Diagram](docs/workflow_sequence_diagram.png) - Workflow sequence
+> - [Bedrock Integration Diagram](docs/bedrock_integration_diagram.png) - AI/ML integration
+> - [Detailed Mermaid Diagrams](docs/architecture-diagram.md) - Interactive diagrams
+
+### AWS Infrastructure Architecture
+
+![AWS Architecture](docs/aws_architecture_diagram.png)
+
+**Key Components:**
+- **Streamlit UI**: Web interface running locally
+- **API Gateway**: HTTP API for RESTful endpoints
+- **Supervisor Agent**: Central orchestrator for session management, error recovery, and workflow coordination
+- **6 Specialized Agents**: Product Insight, Market Analyst, Reporter, Signboard, Interior, Report Generator
+- **Amazon Bedrock**: Claude 4 Sonnet for text/reasoning, Titan Image Generator v2 for images
+- **DynamoDB**: Session state storage with 24-hour TTL
+- **S3**: Asset storage for images and reports
+- **CloudWatch**: Centralized logging and monitoring
+
+### 5-Step Workflow
+
+![Workflow Sequence](docs/workflow_sequence_diagram.png)
+
+### Bedrock Integration
+
+![Bedrock Integration](docs/bedrock_integration_diagram.png)
+
+### High-Level Architecture
 
 ```
-Input: "Planning to operate a small cafe in Gangnam, Seoul"
-↓
-AI automatically generates:
-✅ 3 business name candidates (with pronunciation/search scores)
-✅ 3 signboard designs (DALL-E, SDXL, Gemini)
-✅ 3 interior recommendations (matched to signboard style)
-✅ Comprehensive branding PDF report
+┌─────────────┐
+│  Streamlit  │ Web Interface
+│     UI      │
+└──────┬──────┘
+       │
+       ▼
+┌─────────────────────────────────────────┐
+│         API Gateway (HTTP API)          │
+└─────────────────────────────────────────┘
+       │
+       ├──────┬──────┬──────┬──────┬──────┬──────┐
+       │      │      │      │      │      │      │
+       ▼      ▼      ▼      ▼      ▼      ▼      ▼
+    ┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐
+    │PI  ││MA  ││REP ││SB  ││INT ││RG  ││SUP │
+    │Agt ││Agt ││Agt ││Agt ││Agt ││Agt ││Agt │
+    └─┬──┘└─┬──┘└─┬──┘└─┬──┘└─┬──┘└─┬──┘└─┬──┘
+      │     │     │     │     │     │     │
+      │     │     │     │     │     │     │ (Session Mgmt,
+      │     │     │     │     │     │     │  Error Recovery,
+      └─────┴─────┴─────┴─────┴─────┴─────┘  Orchestration)
+                      │
+       ├──────────────┼──────────────┐
+       │              │              │
+       ▼              ▼              ▼
+┌──────────┐  ┌──────────┐  ┌──────────┐
+│ Bedrock  │  │ DynamoDB │  │    S3    │
+│Claude/   │  │ Sessions │  │  Assets  │
+│  SDXL    │  │          │  │          │
+└──────────┘  └──────────┘  └──────────┘
+
+PI=Product Insight, MA=Market Analyst, REP=Reporter
+SB=Signboard, INT=Interior, RG=Report Gen, SUP=Supervisor
 ```
 
-## 🏗️ System Architecture
+### 5-Step Workflow
 
-### 6 AI Agents Working Sequentially
-1. **Supervisor** - Overall workflow management
-2. **Product Insight** - Business analysis  
-3. **Market Analyst** - Market trend analysis
-4. **Reporter** - Business name generation
-5. **Signboard** - Signboard design (3 AIs simultaneously)
-6. **Interior** - Interior recommendations
+```
+Step 1: Business Analysis
+   ↓ (Product Insight + Market Analyst Agents)
+   ↓ Uses: Bedrock Claude for analysis
+   ↓
+Step 2: Name Generation
+   ↓ (Reporter Agent)
+   ↓ Uses: Bedrock Claude for reasoning
+   ↓
+Step 3: Signboard Design
+   ↓ (Signboard Agent)
+   ↓ Uses: Bedrock SDXL for image generation
+   ↓
+Step 4: Interior Recommendations
+   ↓ (Interior Agent)
+   ↓ Uses: Bedrock Claude for recommendations
+   ↓
+Step 5: Report Generation
+   ↓ (Report Generator Agent)
+   ↓ Uses: Bedrock Claude for synthesis
+   ↓
+   ✓ Final HTML Report
+```
 
-### Technology Stack
-- **AWS SAM** - Serverless deployment
-- **Lambda + API Gateway** - Backend
-- **DynamoDB + S3** - Data storage
-- **Step Functions** - Workflow management
+## 🚀 Key Features
 
-## 🚀 Quick Start (AWS-Only Architecture)
+### AWS Bedrock Integration
+- **Primary LLM**: Amazon Bedrock Claude 4 Sonnet for text generation and reasoning
+- **Image Generation**: Amazon Bedrock SDXL (Titan Image Generator v2) for signboard designs
+- **Reasoning Engine**: Chain-of-Thought reasoning for autonomous decision-making
 
-### Prerequisites
-- AWS Account with credentials configured
-- Python 3.11+
-- AWS CLI installed
+### Agent-Based Architecture
+- **6 Specialized Agents**: Each agent handles a specific task in the workflow
+- **Supervisor Agent**: 
+  - Session management (create, read, update sessions in DynamoDB)
+  - API Gateway request routing and response handling
+  - Autonomous error recovery with Reasoning LLM
+  - Workflow orchestration via AgentCore (when enabled)
+  - Structured logging and monitoring
+- **Autonomous Execution**: Minimal user input required after initial setup
 
-### 1. Setup
+### Serverless Infrastructure
+- **AWS SAM**: Infrastructure as Code for easy deployment
+- **Lambda Functions**: Serverless compute for all agents
+- **DynamoDB**: Session state management with TTL
+- **S3**: Asset storage for images and reports
+- **API Gateway**: RESTful HTTP API endpoints
+
+## 📋 Prerequisites
+
+- AWS Account with appropriate permissions
+- AWS CLI configured (`aws configure`)
+- AWS SAM CLI installed
+- Python 3.9+
+- Node.js 16+ (for Streamlit)
+
+### Required AWS Permissions
+
+Your IAM user/role needs:
+- `bedrock:InvokeModel` - For Claude and SDXL
+- `lambda:*` - For Lambda functions
+- `dynamodb:*` - For session storage
+- `s3:*` - For asset storage
+- `apigateway:*` - For API Gateway
+- `cloudformation:*` - For SAM deployment
+
+### Bedrock Model Access
+
+Enable these models in AWS Bedrock console (us-west-2):
+1. **Anthropic Claude 4 Sonnet** (`us.anthropic.claude-sonnet-4-20250514-v1:0`)
+2. **Amazon Titan Image Generator v2** (`amazon.titan-image-generator-v2:0`)
+
+Check model access:
 ```bash
-# Clone repository
-git clone <repository>
-cd brandy-serverless
+aws bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?contains(modelId, `claude`) || contains(modelId, `titan-image`)].modelId'
+```
 
+## 🛠️ Installation & Deployment
+
+### 1. Clone Repository
+
+```bash
+git clone https://github.com/yourusername/ai-branding-chatbot.git
+cd ai-branding-chatbot
+```
+
+### 2. Install Dependencies
+
+```bash
 # Create virtual environment
 python3 -m venv venv
-source venv/bin/activate
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install dependencies
+# Install Python dependencies
 pip install -r requirements.txt
+
+# Install SAM CLI (if not installed)
+brew install aws-sam-cli  # macOS
+# Or follow: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html
 ```
 
-### 2. Configure AWS
-```bash
-# Configure AWS credentials
-aws configure
-
-# Store OpenAI API key in Secrets Manager
-aws secretsmanager create-secret \
-    --name openai-api-key \
-    --secret-string '{"api_key":"sk-your-key-here"}' \
-    --region us-west-2
-```
-
-### 3. Deploy to AWS
-```bash
-# Deploy using safe deployment script (recommended)
-./safe_deploy.sh
-
-# This will:
-# - Build SAM application
-# - Deploy to AWS dev environment
-# - Extract API Gateway URL
-# - Update .env file
-# - Test API connectivity
-```
-
-### 4. Run Streamlit Locally
-```bash
-# Start Streamlit (connects to AWS backend)
-streamlit run src/streamlit/app.py
-
-# Browser opens automatically: http://localhost:8501
-```
-
-### 5. Verify
-- **Streamlit UI**: http://localhost:8501 (local)
-- **API Gateway**: Check .env for API_BASE_URL
-- **AWS Console**: CloudFormation, Lambda, DynamoDB, S3
-- **Logs**: `sam logs --stack-name ai-branding-chatbot-dev --tail`
-
-## 🎨 Using the Application
-
-### 1. Start Streamlit
-```bash
-# Activate virtual environment
-source venv/bin/activate
-
-# Run Streamlit (connects to AWS)
-streamlit run src/streamlit/app.py
-```
-
-### 2. Access Web Interface
-- **URL**: http://localhost:8501
-- Select industry/region/size → Start analysis → 5-step workflow runs automatically
-
-### 3. Troubleshooting
-
-#### API Connection Error
-```bash
-# 1. Check .env file has correct API_BASE_URL
-cat .env | grep API_BASE_URL
-
-# 2. Verify AWS API Gateway is accessible
-curl $(grep API_BASE_URL .env | cut -d '=' -f2)/
-
-# 3. Check AWS credentials
-aws sts get-caller-identity
-
-# 4. Redeploy if needed
-./safe_deploy.sh
-
-# 5. Restart Streamlit with correct environment
-source venv/bin/activate
-```
-
-#### Session Creation Error (`Session ID is required`)
-```bash
-# Restart SAM Local (to reflect code changes)
-# Stop with Ctrl+C in terminal, then restart
-./scripts/dev.sh api
-```
-
-#### Dependency Errors
-```bash
-# Reset development environment
-./scripts/activate-dev.sh
-
-# Manual installation
-source venv/bin/activate
-pip install -r src/streamlit/requirements.txt
-```
-
-#### Port Conflicts
-```bash
-# Check port usage
-lsof -i :3000,8501,8000,9000
-
-# Kill processes and restart
-./scripts/dev.sh cleanup
-./scripts/dev.sh setup
-```
-
-## 🧪 Testing (Using Real Database)
+### 3. Configure Environment
 
 ```bash
-./scripts/dev.sh test      # Run integration tests (includes Bedrock validation)
-./scripts/dev.sh validate  # Validate environment and Bedrock
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your settings
+# Required:
+# - AWS_REGION=us-west-2
+# - ENVIRONMENT=dev
 ```
 
-**Feature**: No mocks used. Reliable testing with actual DynamoDB, MinIO, and Chroma
-
-### Bedrock Local Testing
-
-To test AWS Bedrock locally:
+### 4. Build and Deploy
 
 ```bash
-# 1. Configure AWS credentials
-aws configure
-# Or set environment variables
-export AWS_ACCESS_KEY_ID=your_key
-export AWS_SECRET_ACCESS_KEY=your_secret
-export AWS_DEFAULT_REGION=us-west-2
+# Build SAM application
+sam build
 
-# 2. Verify Bedrock setup
-./scripts/verify-bedrock-setup.sh
+# Deploy (first time - interactive)
+sam deploy --guided
 
-# 3. Configure environment variables (.env file)
-BEDROCK_REGION=us-west-2
-CLAUDE_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
-SDXL_MODEL_ID=stability.stable-diffusion-xl-v1
-ENABLE_FALLBACK=true  # true for local dev, false for submission
+# Follow prompts:
+# - Stack Name: ai-branding-chatbot-dev
+# - AWS Region: us-west-2
+# - Confirm changes: Y
+# - Allow SAM CLI IAM role creation: Y
+# - Save arguments to config: Y
 
-# 4. Run Bedrock integration tests
-python -m pytest tests/integration/test_bedrock_integration.py -v
+# Subsequent deployments
+sam deploy --config-env dev
 ```
 
-**Note**: Local development possible without AWS credentials (Fallback mode)
+### 5. Get API Endpoint
 
-## 🛠️ Development Commands
-
-### Integrated Development Script (Recommended)
+After deployment, note the API endpoint:
 ```bash
-./scripts/dev.sh setup     # Setup local environment
-./scripts/dev.sh validate  # Validate environment
-./scripts/dev.sh test      # Run integration tests
-./scripts/dev.sh build     # Build SAM application
-./scripts/dev.sh api       # Start local API server
-./scripts/dev.sh app       # Start Streamlit app
-./scripts/dev.sh cleanup   # Clean up environment
-./scripts/dev.sh help      # Show help
+aws cloudformation describe-stacks \
+  --stack-name ai-branding-chatbot-dev \
+  --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' \
+  --output text
 ```
 
-### Individual Scripts
-```bash
-# Environment management
-./scripts/activate-dev.sh               # Activate development environment
-./scripts/setup-local.sh                # Start Docker services
-python scripts/validate-environment.py  # Validate entire environment
-
-# SAM development workflow
-./scripts/sam-build.sh                  # Build SAM application
-./safe_deploy.sh                        # Safe AWS deployment
-sam logs --stack-name ai-branding-chatbot-dev --tail  # Real-time logs
-```
-
-### AWS Console Access
-- **CloudFormation**: Check stack status
-- **DynamoDB**: View session data
-- **S3**: View generated files
-- **CloudWatch**: View logs
-
-## ⚙️ Environment Variables
-
-### Required Variables (.env file)
+### 6. Run Streamlit UI
 
 ```bash
-# AWS Configuration
-AWS_REGION=us-west-2
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
+# Update API endpoint in .env
+echo "API_BASE_URL=https://your-api-id.execute-api.us-west-2.amazonaws.com/dev" >> .env
 
-# API Gateway (from deployment)
-API_BASE_URL=https://your-api-id.execute-api.us-west-2.amazonaws.com/dev
-
-# DynamoDB
-SESSIONS_TABLE=ai-branding-chatbot-sessions
-
-# S3
-S3_BUCKET=ai-branding-chatbot-assets-908601828278
-
-# OpenAI API (for fallback)
-OPENAI_API_KEY=sk-...
-
-# Bedrock Configuration
-BEDROCK_REGION=us-west-2
-CLAUDE_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
-SDXL_MODEL_ID=amazon.titan-image-generator-v2:0  # Titan Image Generator v2
-IMAGE_MODEL_ID=amazon.titan-image-generator-v2:0  # Alias for SDXL_MODEL_ID
-
-# Bedrock Retry Configuration
-BEDROCK_MAX_RETRIES=3        # Number of retry attempts
-BEDROCK_BASE_DELAY=1.0       # Base delay for exponential backoff (seconds)
-BEDROCK_MAX_DELAY=30.0       # Maximum delay cap (seconds)
-BEDROCK_TIMEOUT=30           # API timeout (seconds)
-
-# Fallback Settings
-ENABLE_FALLBACK=true   # Development: true, Production: false
-DEV_PROFILE=true       # Development: true, Production: false
-ENVIRONMENT=dev        # Always 'dev' for development
+# Run Streamlit
+cd src/streamlit
+streamlit run app.py
 ```
 
-### Production Settings (Hackathon Submission)
+Access the UI at: http://localhost:8501
+
+## 🎨 Regenerating Architecture Diagrams
+
+To regenerate the architecture diagrams:
 
 ```bash
-ENABLE_FALLBACK=false  # Bedrock Only!
-DEV_PROFILE=false
-ENVIRONMENT=prod
-BEDROCK_REGION=us-west-2
-# AWS credentials required
+# Install diagram dependencies
+python3 -m venv venv-diagram
+source venv-diagram/bin/activate
+pip install diagrams graphviz
+
+# Generate diagrams
+python3 scripts/generate_architecture_diagram.py
+
+# Diagrams will be created in docs/ directory:
+# - aws_architecture_diagram.png
+# - workflow_sequence_diagram.png
+# - bedrock_integration_diagram.png
 ```
 
-### Environment Variable Validation
-
-```bash
-# Validate entire environment
-./scripts/dev.sh validate
-
-# Validate Bedrock configuration only
-./scripts/verify-bedrock-setup.sh
-```
-
-## 📁 Project Structure
+## 📊 Project Structure
 
 ```
-├── template.yaml                      # SAM template (all AWS resources)
-├── samconfig.toml                     # SAM deployment config
-├── safe_deploy.sh                     # Safe deployment script
 ├── src/
-│   ├── lambda/agents/                 # Agent Lambda functions
-│   │   ├── supervisor/                # Workflow orchestration
-│   │   ├── product-insight/           # Business analysis
-│   │   ├── market-analyst/            # Market analysis
-│   │   ├── reporter/                  # Name suggestions
-│   │   ├── signboard/                 # Signboard design
-│   │   ├── interior/                  # Interior recommendations
-│   │   └── report-generator/          # PDF report generation
-│   ├── lambda/shared/                 # Shared utilities (Lambda Layer)
-│   └── streamlit/                     # Streamlit web app (runs locally)
-├── statemachine/                      # Step Functions definitions
-├── scripts/                           # Deployment and validation scripts
-├── tests/integration/                 # AWS integration tests
-└── .env                               # Environment variables
+│   ├── lambda/
+│   │   ├── agents/                    # Agent Lambda functions
+│   │   │   ├── supervisor/            # Workflow coordinator
+│   │   │   ├── product-insight/       # Business analysis
+│   │   │   ├── market-analyst/        # Market analysis
+│   │   │   ├── reporter/              # Name generation
+│   │   │   ├── signboard/             # Image generation
+│   │   │   ├── interior/              # Interior recommendations
+│   │   │   └── report-generator/      # Report generation
+│   │   ├── shared/                    # Shared utilities (Lambda Layer)
+│   │   │   ├── base_agent.py          # Base agent class
+│   │   │   ├── bedrock_client.py      # Bedrock API client
+│   │   │   ├── models.py              # Data models
+│   │   │   └── utils.py               # Common utilities
+│   │   └── layers/                    # Lambda layers
+│   └── streamlit/                     # Web interface
+│       └── app.py                     # Streamlit application
+├── template.yaml                      # SAM template (IaC)
+├── samconfig.toml                     # SAM deployment config
+├── requirements.txt                   # Python dependencies
+└── README.md                          # This file
 ```
 
-## 📚 Documentation
+## 🎮 Usage
 
-- **Deployment Guide**: `DEPLOYMENT_FIX.md` - AWS deployment guide
-- **Local Environment**: `.kiro/steering/local-environment.md` - Development setup
-- **Integration Testing**: `.kiro/steering/integration-testing.md` - Testing strategy
+### Via Streamlit UI
 
-## 🗑️ Cleanup
+1. Open http://localhost:8501
+2. Enter business information:
+   - Industry (e.g., "Restaurant")
+   - Region (e.g., "Seoul, Gangnam")
+   - Size (e.g., "Small (1-10 employees)")
+3. Click "Start Analysis"
+4. Follow the 5-step workflow
+5. Download final report
+
+### Via API
+
+#### Create Session
+```bash
+curl -X POST https://your-api-id.execute-api.us-west-2.amazonaws.com/dev/sessions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "industry": "Restaurant",
+    "region": "Seoul, Gangnam",
+    "size": "Small"
+  }'
+```
+
+#### Get Session Status
+```bash
+curl https://your-api-id.execute-api.us-west-2.amazonaws.com/dev/sessions/{sessionId}
+```
+
+#### Generate Business Names
+```bash
+curl -X POST https://your-api-id.execute-api.us-west-2.amazonaws.com/dev/names/suggest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sessionId": "your-session-id",
+    "businessInfo": {...}
+  }'
+```
+
+## 🧪 Testing
+
+### Integration Tests
 
 ```bash
-# Delete CloudFormation stack
-aws cloudformation delete-stack --stack-name ai-branding-chatbot-dev
+# Run all integration tests
+python -m pytest tests/integration/ -v
 
-# Empty S3 bucket
-aws s3 rm s3://ai-branding-chatbot-assets-908601828278/ --recursive
-
-# Delete DynamoDB table
-aws dynamodb delete-table --table-name ai-branding-chatbot-sessions
+# Run specific test
+python -m pytest tests/integration/test_workflow.py -v
 ```
 
-## 📄 License
+### Manual Testing
 
-MIT License
+```bash
+# Test Bedrock access
+aws bedrock-runtime invoke-model \
+  --model-id us.anthropic.claude-sonnet-4-20250514-v1:0 \
+  --body '{"prompt":"Hello","max_tokens":100}' \
+  --region us-west-2 \
+  output.json
 
-## 🔧 Troubleshooting
+# Test API endpoint
+curl https://your-api-id.execute-api.us-west-2.amazonaws.com/dev/
+```
 
-### Signboard Generation Issues
+## 📈 Monitoring
 
-#### Problem: Fallback images appearing instead of AI-generated images
+### CloudWatch Logs
 
-**Symptoms**:
-- "⚠️ Fallback image (used when AI generation fails)" message
-- Placeholder images instead of actual designs
+```bash
+# Supervisor Agent logs
+aws logs tail /aws/lambda/ai-branding-chatbot-supervisor-agent-dev --follow
 
-**Solutions**:
+# All agent logs
+aws logs tail /aws/lambda/ai-branding-chatbot --follow
+```
 
-1. **Check CloudWatch Logs**:
-   ```bash
-   aws logs tail /aws/lambda/ai-branding-chatbot-signboard-agent-dev --follow
-   ```
-   
-   Look for error messages about Bedrock initialization or API calls.
+### DynamoDB Sessions
 
-2. **Verify Bedrock Access**:
-   ```bash
-   aws bedrock list-foundation-models --region us-west-2 \
-     --query 'modelSummaries[?contains(modelId, `titan-image-generator`)].modelId'
-   ```
-   
-   Should return: `amazon.titan-image-generator-v2:0`
+```bash
+# List recent sessions
+aws dynamodb scan \
+  --table-name ai-branding-chatbot-sessions \
+  --max-items 5 \
+  --region us-west-2
+```
 
-3. **Check IAM Permissions**:
-   ```bash
-   aws lambda get-function-configuration \
-     --function-name ai-branding-chatbot-signboard-agent-dev \
-     --query 'Role'
-   ```
-   
-   Verify the role has `bedrock:InvokeModel` permission.
+### S3 Assets
 
-4. **Verify Environment Variables**:
-   ```bash
-   aws lambda get-function-configuration \
-     --function-name ai-branding-chatbot-signboard-agent-dev \
-     --query 'Environment.Variables'
-   ```
-   
-   Check:
-   - `SDXL_MODEL_ID`: `amazon.titan-image-generator-v2:0`
-   - `BEDROCK_REGION`: `us-west-2`
-   - `ENABLE_FALLBACK`: `true` (dev) or `false` (prod)
+```bash
+# List generated assets
+aws s3 ls s3://ai-branding-chatbot-dev-brandingassetsbucket-xxxxx/ --recursive
+```
 
-#### Problem: Timeout errors during image generation
+## 💰 Cost Estimation
 
-**Symptoms**:
-- "Task timed out after 60.00 seconds"
-- Incomplete image generation
+Approximate costs per workflow execution:
 
-**Solutions**:
+- **Bedrock Claude**: ~$0.015 per request (5 requests) = $0.075
+- **Bedrock SDXL**: ~$0.04 per image (3 images) = $0.12
+- **Lambda**: ~$0.0001 per invocation (7 invocations) = $0.0007
+- **DynamoDB**: ~$0.0001 per request = $0.0001
+- **S3**: ~$0.001 per GB = $0.001
+- **API Gateway**: ~$0.001 per request = $0.001
 
-1. **Increase Lambda Timeout**:
-   Edit `template.yaml`:
-   ```yaml
-   SignboardAgent:
-     Properties:
-       Timeout: 90  # Increase from 60
-   ```
-   
-   Redeploy:
-   ```bash
-   sam build && sam deploy --config-env dev
-   ```
+**Total per workflow**: ~$0.20
 
-2. **Check Bedrock API Latency**:
-   Monitor CloudWatch metrics for Bedrock API response times.
+## 🔧 Configuration
 
-3. **Verify Network Connectivity**:
-   Ensure Lambda has internet access (if in VPC, check NAT Gateway).
+### Environment Variables
 
-#### Problem: Rate limiting errors
+Key environment variables in `template.yaml`:
 
-**Symptoms**:
-- "ThrottlingException" in CloudWatch logs
-- Frequent retry attempts
+```yaml
+BEDROCK_REGION: us-west-2
+CLAUDE_MODEL_ID: us.anthropic.claude-sonnet-4-20250514-v1:0
+SDXL_MODEL_ID: amazon.titan-image-generator-v2:0
+ENABLE_FALLBACK: false  # Bedrock-only mode
+ENVIRONMENT: dev
+```
 
-**Solutions**:
+### Customization
 
-1. **Exponential Backoff** (already implemented):
-   The system automatically retries with exponential backoff and jitter.
+- **Timeout**: Adjust Lambda timeout in `template.yaml`
+- **Memory**: Adjust Lambda memory in `template.yaml`
+- **TTL**: Adjust DynamoDB TTL (default: 24 hours)
+- **Prompts**: Customize prompts in each agent's code
 
-2. **Request Quota Increase**:
-   Contact AWS Support to increase Bedrock API quotas.
+## 🐛 Troubleshooting
 
-3. **Monitor Retry Metrics**:
-   ```bash
-   aws logs filter-log-events \
-     --log-group-name /aws/lambda/ai-branding-chatbot-signboard-agent-dev \
-     --filter-pattern "retry"
-   ```
+### Bedrock Access Denied
 
-### AWS Deployment Issues
+```bash
+# Check IAM permissions
+aws iam get-user
+aws iam list-attached-user-policies --user-name your-username
 
-#### Problem: SAM deployment fails
+# Enable Bedrock models in console
+# https://console.aws.amazon.com/bedrock/home?region=us-west-2#/modelaccess
+```
 
-**Solutions**:
+### Lambda Timeout
 
-1. **Check Stack Status**:
-   ```bash
-   aws cloudformation describe-stacks \
-     --stack-name ai-branding-chatbot-dev \
-     --query 'Stacks[0].StackStatus'
-   ```
+- Increase timeout in `template.yaml`
+- Check CloudWatch logs for specific errors
+- Verify Bedrock API latency
 
-2. **View Failed Events**:
-   ```bash
-   aws cloudformation describe-stack-events \
-     --stack-name ai-branding-chatbot-dev \
-     --max-items 20 \
-     --query 'StackEvents[?contains(ResourceStatus, `FAILED`)]'
-   ```
+### DynamoDB Throttling
 
-3. **Delete and Redeploy**:
-   ```bash
-   aws cloudformation delete-stack --stack-name ai-branding-chatbot-dev
-   # Wait for deletion, then redeploy
-   ./safe_deploy.sh
-   ```
+- Check CloudWatch metrics
+- Consider increasing provisioned capacity
+- Use exponential backoff in code
 
-### Streamlit Connection Issues
+## 📝 License
 
-#### Problem: Cannot connect to API
-
-**Symptoms**:
-- Connection timeout errors
-- "Failed to fetch" messages
-
-**Solutions**:
-
-1. **Verify API URL**:
-   Check `.env` file has correct `API_BASE_URL`.
-
-2. **Test API Endpoint**:
-   ```bash
-   curl -X GET $API_BASE_URL/
-   ```
-
-3. **Check Lambda Cold Start**:
-   First request may take longer. Wait 5-10 seconds and retry.
-
-## 📖 Additional Documentation
-
-- [Signboard Generation Fix](docs/SIGNBOARD_GENERATION_FIX.md) - Complete troubleshooting guide for image generation issues
-- [Signboard Prompt Length Fix](SIGNBOARD_PROMPT_LENGTH_FIX.md) - **NEW**: Titan Image Generator v2 prompt validation fix
-- [Test Guide](TEST_SIGNBOARD_FIX.md) - **NEW**: Testing guide for signboard generation
-- [Deployment Checklist](DEPLOYMENT_CHECKLIST.md) - Step-by-step deployment guide
-- [Hackathon Rules](docs/AWS%20Hackathon%20rules.md) - AWS AI Agent Global Hackathon requirements
-- [Architecture Overview](docs/AWS%20Hackathon%20overview.md) - System architecture and design
-
-## 🆕 Recent Updates (2025-10-19)
-
-### Signboard Generation Fix - Prompt Length Validation
-
-**Issue**: Images not generating due to prompt length exceeding Titan Image Generator v2's 512 character limit.
-
-**Fixed**:
-- ✅ Added 512 character limit validation in `_create_image_prompt()`
-- ✅ Implemented intelligent truncation preserving key information
-- ✅ Updated `_optimize_prompt_for_titan()` with proper validation
-- ✅ Added comprehensive logging for debugging
-- ✅ Deployed to dev environment
-
-**Status**: ✅ **DEPLOYED - READY FOR TESTING**
-
-See [SIGNBOARD_PROMPT_LENGTH_FIX.md](SIGNBOARD_PROMPT_LENGTH_FIX.md) for complete details.
+MIT License - see [LICENSE](LICENSE) file for details
 
 ## 🤝 Contributing
 
-This project is for the AWS AI Agent Global Hackathon. For issues or questions:
+Contributions welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
 
-1. Check CloudWatch logs for error details
-2. Review troubleshooting guide above
-3. Consult [Signboard Generation Fix](docs/SIGNBOARD_GENERATION_FIX.md) for known issues
+## 📧 Contact
 
-## 📄 License
+- **Project**: AI Branding Chatbot
+- **Author**: Your Name
+- **Email**: your.email@example.com
+- **GitHub**: https://github.com/yourusername/ai-branding-chatbot
 
-MIT License - See LICENSE file for details
+## 🏆 AWS AI Agent Global Hackathon
+
+This project was built for the AWS AI Agent Global Hackathon 2025.
+
+### Key Technologies
+- Amazon Bedrock (Claude 4 Sonnet, SDXL)
+- AWS Lambda (Serverless)
+- AWS SAM (Infrastructure as Code)
+- DynamoDB (Session Management)
+- S3 (Asset Storage)
+- API Gateway (HTTP API)
+
+### Hackathon Requirements Met
+- ✅ Amazon Bedrock as primary LLM provider
+- ✅ Agent-based architecture (6 specialized agents)
+- ✅ Autonomous task execution
+- ✅ External tool integration (DynamoDB, S3)
+- ✅ Reproducible deployment (SAM)
+- ✅ Comprehensive documentation
+
+---
+
+**Built with ❤️ using Amazon Bedrock and AWS Serverless**
