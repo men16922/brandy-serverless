@@ -1,0 +1,13 @@
+{
+  "restaurant": "dining area, tables and chairs, welcoming atmosphere",
+  "cafe": "coffee shop, cozy seating, relaxed ambiance",
+  "retail": "store interior, product displays, shopping space",
+  "service": "professional office, consultation area, clean design",
+  "healthcare": "medical facility, clean environment, professional setting",
+  "education": "learning space, classroom, educational environment",
+  "technology": "modern office, tech workspace, innovative design",
+  "manufacturing": "industrial space, work area, functional design",
+  "construction": "office space, project area, professional setting",
+  "finance": "corporate office, meeting rooms, professional atmosphere",
+  "other": "commercial space, business interior, professional design"
+}

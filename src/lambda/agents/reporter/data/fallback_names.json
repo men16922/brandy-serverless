@@ -1,0 +1,52 @@
+{
+  "restaurant": [
+    "Midam",
+    "Delicious House",
+    "Happy Table"
+  ],
+  "retail": [
+    "Good Store",
+    "Happy Shopping",
+    "Trust Shop"
+  ],
+  "service": [
+    "Kind Service",
+    "Trust Place",
+    "Happy Space"
+  ],
+  "healthcare": [
+    "Healthy Life",
+    "Care Plus",
+    "Wellbeing Clinic"
+  ],
+  "education": [
+    "Learning Place",
+    "Knowledge Sharing",
+    "Growth Academy"
+  ],
+  "technology": [
+    "Tech Solution",
+    "Innovation Lab",
+    "Smart System"
+  ],
+  "manufacturing": [
+    "Quality Factory",
+    "Precision Workshop",
+    "Premium Maker"
+  ],
+  "construction": [
+    "Strong Construction",
+    "Safe Construction",
+    "Trust Build"
+  ],
+  "finance": [
+    "Trust Finance",
+    "Stable Investment",
+    "Growth Capital"
+  ],
+  "other": [
+    "Good Company",
+    "Trust Partners",
+    "Happy Group"
+  ]
+}

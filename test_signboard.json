@@ -1,9 +1,0 @@
-{
-  "sessionId": "test-session-123",
-  "businessName": "테스트 카페",
-  "businessInfo": {
-    "industry": "카페",
-    "region": "서울 강남",
-    "size": "소형"
-  }
-}

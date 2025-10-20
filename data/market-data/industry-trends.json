@@ -1,110 +1,86 @@
 {
   "restaurant": {
-    "hot_trends": [
-      {"trend": "플랜트 베이스 메뉴", "growth": "+45%", "period": "2024년", "description": "식물성 대체 식품 확산"},
-      {"trend": "제로 웨이스트", "growth": "+38%", "period": "2024년", "description": "음식물 쓰레기 최소화"},
-      {"trend": "하이브리드 다이닝", "growth": "+52%", "period": "2024년", "description": "매장+배달 통합 서비스"},
-      {"trend": "AI 추천 메뉴", "growth": "+28%", "period": "2024년", "description": "개인화 메뉴 추천 시스템"}
+    "current_trends": [
+      "Delivery and takeout growth",
+      "Health-conscious menus",
+      "Sustainable practices",
+      "Technology integration"
     ],
-    "declining_trends": [
-      {"trend": "대형 뷔페", "decline": "-25%", "reason": "개인화 선호", "period": "2024년"},
-      {"trend": "단체 회식", "decline": "-35%", "reason": "문화 변화", "period": "2024년"}
-    ],
-    "consumer_behaviors": [
-      {"behavior": "배달 앱 사용 증가", "percentage": "+78%", "age_group": "전 연령"},
-      {"behavior": "건강 메뉴 선호", "percentage": "+45%", "age_group": "30-50대"},
-      {"behavior": "인스타그래머블 중시", "percentage": "+62%", "age_group": "20-30대"},
-      {"behavior": "개인 다이닝 선호", "percentage": "+38%", "age_group": "전 연령"}
+    "emerging_trends": [
+      "Ghost kitchens",
+      "Plant-based options",
+      "Contactless service",
+      "Personalization"
     ]
   },
   "retail": {
-    "hot_trends": [
-      {"trend": "소셜 커머스", "growth": "+65%", "period": "2024년", "description": "SNS 기반 쇼핑"},
-      {"trend": "리셀 마켓", "growth": "+42%", "period": "2024년", "description": "중고품 거래 활성화"},
-      {"trend": "AR 쇼핑", "growth": "+38%", "period": "2024년", "description": "증강현실 체험 쇼핑"},
-      {"trend": "구독 박스", "growth": "+33%", "period": "2024년", "description": "정기 구독 상품"}
+    "current_trends": [
+      "E-commerce dominance",
+      "Omnichannel experience",
+      "Experiential retail",
+      "Social commerce"
     ],
-    "declining_trends": [
-      {"trend": "대형 매장", "decline": "-18%", "reason": "온라인 전환", "period": "2024년"},
-      {"trend": "충동 구매", "decline": "-22%", "reason": "신중한 소비", "period": "2024년"}
-    ],
-    "consumer_behaviors": [
-      {"behavior": "온라인 우선 구매", "percentage": "+85%", "age_group": "20-40대"},
-      {"behavior": "리뷰 의존도 증가", "percentage": "+72%", "age_group": "전 연령"},
-      {"behavior": "지속가능성 고려", "percentage": "+55%", "age_group": "20-30대"},
-      {"behavior": "개인화 상품 선호", "percentage": "+48%", "age_group": "전 연령"}
+    "emerging_trends": [
+      "AR/VR shopping",
+      "Sustainability focus",
+      "Direct-to-consumer",
+      "Subscription models"
     ]
   },
   "service": {
-    "hot_trends": [
-      {"trend": "AI 상담 서비스", "growth": "+58%", "period": "2024년", "description": "인공지능 기반 고객 상담"},
-      {"trend": "구독형 서비스", "growth": "+41%", "period": "2024년", "description": "월 정액 서비스 모델"},
-      {"trend": "하이브리드 서비스", "growth": "+35%", "period": "2024년", "description": "온오프라인 통합 서비스"},
-      {"trend": "개인화 서비스", "growth": "+47%", "period": "2024년", "description": "맞춤형 서비스 제공"}
+    "current_trends": [
+      "Digital transformation",
+      "Remote services",
+      "Subscription models",
+      "Personalization"
     ],
-    "declining_trends": [
-      {"trend": "일회성 서비스", "decline": "-28%", "reason": "관계 중심 선호", "period": "2024년"},
-      {"trend": "표준화 서비스", "decline": "-32%", "reason": "맞춤화 요구", "period": "2024년"}
-    ],
-    "consumer_behaviors": [
-      {"behavior": "비대면 서비스 선호", "percentage": "+68%", "age_group": "전 연령"},
-      {"behavior": "구독 서비스 선호", "percentage": "+52%", "age_group": "20-40대"},
-      {"behavior": "개인 맞춤 서비스", "percentage": "+65%", "age_group": "30-50대"},
-      {"behavior": "투명한 가격 정책", "percentage": "+58%", "age_group": "전 연령"}
+    "emerging_trends": [
+      "AI-powered services",
+      "Platform economy",
+      "Gig economy growth",
+      "Automation"
     ]
   },
   "healthcare": {
-    "hot_trends": [
-      {"trend": "디지털 치료제", "growth": "+72%", "period": "2024년", "description": "앱 기반 치료 솔루션"},
-      {"trend": "원격 모니터링", "growth": "+55%", "period": "2024년", "description": "IoT 기반 건강 관리"},
-      {"trend": "예방 중심 케어", "growth": "+48%", "period": "2024년", "description": "질병 예방 중심 의료"},
-      {"trend": "개인 맞춤 의료", "growth": "+62%", "period": "2024년", "description": "유전자 기반 맞춤 치료"}
+    "current_trends": [
+      "Telemedicine growth",
+      "Preventive care focus",
+      "Wellness integration",
+      "Digital health"
     ],
-    "declining_trends": [
-      {"trend": "대면 진료 선호", "decline": "-15%", "reason": "편의성 중시", "period": "2024년"},
-      {"trend": "치료 중심", "decline": "-25%", "reason": "예방 중시", "period": "2024년"}
-    ],
-    "consumer_behaviors": [
-      {"behavior": "건강 앱 사용", "percentage": "+78%", "age_group": "전 연령"},
-      {"behavior": "예방 검진 증가", "percentage": "+65%", "age_group": "40-60대"},
-      {"behavior": "웰니스 관심", "percentage": "+72%", "age_group": "20-40대"},
-      {"behavior": "개인화 치료 선호", "percentage": "+58%", "age_group": "전 연령"}
+    "emerging_trends": [
+      "AI diagnostics",
+      "Personalized medicine",
+      "Wearable devices",
+      "Mental health focus"
     ]
   },
   "education": {
-    "hot_trends": [
-      {"trend": "마이크로 러닝", "growth": "+68%", "period": "2024년", "description": "짧은 단위 학습"},
-      {"trend": "AI 튜터링", "growth": "+52%", "period": "2024년", "description": "인공지능 개인 교사"},
-      {"trend": "실무 중심 교육", "growth": "+45%", "period": "2024년", "description": "실무 역량 중심 커리큘럼"},
-      {"trend": "메타버스 교육", "growth": "+38%", "period": "2024년", "description": "가상현실 교육 환경"}
+    "current_trends": [
+      "Online learning growth",
+      "Hybrid models",
+      "Skill-based education",
+      "Lifelong learning"
     ],
-    "declining_trends": [
-      {"trend": "장시간 강의", "decline": "-35%", "reason": "집중력 한계", "period": "2024년"},
-      {"trend": "이론 중심", "decline": "-28%", "reason": "실무 선호", "period": "2024년"}
-    ],
-    "consumer_behaviors": [
-      {"behavior": "온라인 학습 선호", "percentage": "+82%", "age_group": "전 연령"},
-      {"behavior": "개인화 학습", "percentage": "+75%", "age_group": "학생층"},
-      {"behavior": "실무 중심 선호", "percentage": "+68%", "age_group": "직장인"},
-      {"behavior": "짧은 학습 선호", "percentage": "+72%", "age_group": "20-30대"}
+    "emerging_trends": [
+      "AI tutoring",
+      "Micro-credentials",
+      "Gamification",
+      "VR classrooms"
     ]
   },
   "technology": {
-    "hot_trends": [
-      {"trend": "생성형 AI", "growth": "+125%", "period": "2024년", "description": "AI 콘텐츠 생성 기술"},
-      {"trend": "엣지 컴퓨팅", "growth": "+78%", "period": "2024년", "description": "분산 컴퓨팅 처리"},
-      {"trend": "양자 컴퓨팅", "growth": "+45%", "period": "2024년", "description": "차세대 컴퓨팅 기술"},
-      {"trend": "블록체인 실용화", "growth": "+35%", "period": "2024년", "description": "실제 비즈니스 적용"}
+    "current_trends": [
+      "Cloud computing",
+      "AI/ML adoption",
+      "Cybersecurity focus",
+      "5G deployment"
     ],
-    "declining_trends": [
-      {"trend": "단순 자동화", "decline": "-22%", "reason": "AI 대체", "period": "2024년"},
-      {"trend": "중앙집중식", "decline": "-18%", "reason": "분산화 선호", "period": "2024년"}
-    ],
-    "consumer_behaviors": [
-      {"behavior": "AI 도구 사용", "percentage": "+88%", "age_group": "전 연령"},
-      {"behavior": "클라우드 우선", "percentage": "+82%", "age_group": "기업"},
-      {"behavior": "보안 중시", "percentage": "+75%", "age_group": "전 연령"},
-      {"behavior": "개인화 기술", "percentage": "+68%", "age_group": "개인 사용자"}
+    "emerging_trends": [
+      "Quantum computing",
+      "Edge computing",
+      "Web3 technologies",
+      "Sustainable tech"
     ]
   }
 }

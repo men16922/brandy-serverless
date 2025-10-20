@@ -93,11 +93,58 @@ class ReportGeneratorAgent(BaseAgent):
                     "error": "sessionId is required"
                 })
             
+            # Check for async mode
+            headers = event.get('headers', {})
+            is_async = headers.get('x-async-mode', 'false').lower() == 'true'
+            
             # Start execution
             self.start_execution(session_id, "report.generate")
             
             # Execute action
             if action == 'generate':
+                # Async mode: return 202 immediately and process in background
+                if is_async:
+                    self.logger.info(f"Async mode enabled for report generation: {session_id}")
+                    
+                    # Invoke self asynchronously
+                    try:
+                        import boto3
+                        lambda_client = boto3.client('lambda')
+                        function_name = os.getenv('AWS_LAMBDA_FUNCTION_NAME')
+                        
+                        # Remove async header for re-invocation
+                        sync_event = event.copy()
+                        if 'headers' in sync_event:
+                            sync_headers = sync_event['headers'].copy()
+                            sync_headers.pop('x-async-mode', None)
+                            sync_event['headers'] = sync_headers
+                        
+                        # Async invocation
+                        lambda_client.invoke(
+                            FunctionName=function_name,
+                            InvocationType='Event',
+                            Payload=json.dumps(sync_event)
+                        )
+                        
+                        self.logger.info(f"Async report generation started for session: {session_id}")
+                        
+                        # Update session status
+                        self.update_session_data(session_id, {
+                            "reportGenerationStatus": "in_progress",
+                            "reportGenerationStartedAt": datetime.utcnow().isoformat()
+                        })
+                        
+                        return self.create_lambda_response(202, {
+                            "message": "Report generation started",
+                            "sessionId": session_id,
+                            "status": "processing"
+                        })
+                        
+                    except Exception as invoke_error:
+                        self.logger.error(f"Failed to invoke async: {str(invoke_error)}")
+                        # Fall through to sync processing
+                
+                # Sync mode: generate report immediately
                 result = self._generate_report(session_id)
             elif action == 'download':
                 result = self._get_download_url(session_id)

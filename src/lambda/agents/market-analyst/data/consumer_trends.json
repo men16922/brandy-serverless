@@ -1,22 +1,22 @@
 [
   {
-    "behavior": "온라인 우선 구매",
+    "behavior": "online priority purchase",
     "percentage": "78%",
-    "age_group": "20-40대"
+    "age_group": "20-40generation"
   },
   {
-    "behavior": "가성비 중시",
+    "behavior": "value for money emphasis",
     "percentage": "85%",
-    "age_group": "전 연령"
+    "age_group": "all age"
   },
   {
-    "behavior": "브랜드 가치 중시",
+    "behavior": "brand value emphasis",
     "percentage": "65%",
-    "age_group": "30-50대"
+    "age_group": "30-50generation"
   },
   {
-    "behavior": "개인화 서비스 선호",
+    "behavior": "personalized service preference",
     "percentage": "72%",
-    "age_group": "20-30대"
+    "age_group": "20-30generation"
   }
 ]

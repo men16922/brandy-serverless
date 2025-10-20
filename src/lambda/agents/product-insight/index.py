@@ -162,24 +162,24 @@ class ProductInsightAgent(BaseAgent):
         return {
             "restaurant": {
                 "characteristics": [
-                    "높은 고객 회전율과 지역 밀착형 비즈니스",
-                    "식자재 비용과 인건비가 주요 운영비용",
-                    "계절성과 트렌드에 민감한 업종"
+                    "High customer turnover and community-anchored business",
+                    "Food ingredient costs and labor are the main operating expenses",
+                    "Sensitive to seasonality and trends"
                 ],
                 "success_factors": [
-                    "맛과 서비스 품질의 일관성",
-                    "효율적인 재고 관리와 원가 절감",
-                    "고객 재방문율 향상 전략"
+                    "Consistency in taste and service quality",
+                    "Efficient inventory control and cost reduction",
+                    "Strategies to increase repeat visits"
                 ],
                 "market_trends": [
-                    "건강식품과 비건 메뉴 수요 증가",
-                    "배달 서비스 플랫폼 의존도 상승",
-                    "개인화된 고객 경험 중시"
+                    "Growing demand for healthy and vegan menus",
+                    "Rising dependency on delivery platforms",
+                    "Emphasis on personalized customer experience"
                 ],
                 "risk_factors": [
-                    "높은 창업 실패율 (3년 내 70%)",
-                    "식자재 가격 변동성",
-                    "코로나19 등 외부 환경 변화에 취약"
+                    "High failure rate of new restaurants (70% within 3 years)",
+                    "Volatility in ingredient prices",
+                    "Vulnerability to external shocks such as pandemics"
                 ],
                 "base_score": 75,
                 "growth_potential": "MEDIUM",
@@ -187,24 +187,24 @@ class ProductInsightAgent(BaseAgent):
             },
             "retail": {
                 "characteristics": [
-                    "상품 진열과 고객 접점이 핵심",
-                    "재고 관리와 매출 예측이 중요",
-                    "온라인과 오프라인 채널 통합 필요"
+                    "Merchandising and customer touchpoints are key",
+                    "Inventory management and sales forecasting matter",
+                    "Need to integrate online and offline channels"
                 ],
                 "success_factors": [
-                    "상품 큐레이션과 진열 전략",
-                    "고객 데이터 기반 맞춤 서비스",
-                    "효율적인 공급망 관리"
+                    "Product curation and display strategy",
+                    "Customer-data-driven personalization",
+                    "Efficient supply chain management"
                 ],
                 "market_trends": [
-                    "O2O(Online to Offline) 서비스 확산",
-                    "개인 맞춤형 상품 추천 시스템",
-                    "친환경 제품에 대한 관심 증가"
+                    "Expansion of O2O (Online to Offline) services",
+                    "Personalized product recommendation systems",
+                    "Rising interest in eco-friendly products"
                 ],
                 "risk_factors": [
-                    "온라인 쇼핑몰과의 경쟁 심화",
-                    "임대료 상승 압박",
-                    "소비 패턴 변화에 대한 적응 필요"
+                    "Intensifying competition with online malls",
+                    "Upward pressure on rent",
+                    "Need to adapt to changing consumption patterns"
                 ],
                 "base_score": 70,
                 "growth_potential": "MEDIUM",
@@ -212,24 +212,24 @@ class ProductInsightAgent(BaseAgent):
             },
             "service": {
                 "characteristics": [
-                    "무형 서비스 제공으로 품질 표준화 어려움",
-                    "고객 만족도가 직접적인 매출 영향",
-                    "전문성과 신뢰도가 핵심 경쟁력"
+                    "Intangible service delivery makes standardization difficult",
+                    "Customer satisfaction directly impacts revenue",
+                    "Expertise and trust are core competitiveness"
                 ],
                 "success_factors": [
-                    "서비스 품질의 표준화와 일관성",
-                    "고객 관계 관리 시스템 구축",
-                    "전문 인력 확보와 교육"
+                    "Standardization and consistency of service quality",
+                    "Building a customer relationship management system",
+                    "Securing and training skilled professionals"
                 ],
                 "market_trends": [
-                    "디지털 플랫폼을 통한 서비스 제공",
-                    "구독 기반 서비스 모델 확산",
-                    "AI와 자동화 기술 도입"
+                    "Service delivery via digital platforms",
+                    "Expansion of subscription-based models",
+                    "Adoption of AI and automation"
                 ],
                 "risk_factors": [
-                    "서비스 품질 편차로 인한 평판 리스크",
-                    "숙련된 인력 확보의 어려움",
-                    "경기 변동에 따른 수요 감소"
+                    "Reputation risk from inconsistent service quality",
+                    "Difficulty securing experienced personnel",
+                    "Demand drops with economic cycles"
                 ],
                 "base_score": 78,
                 "growth_potential": "HIGH",
@@ -237,24 +237,24 @@ class ProductInsightAgent(BaseAgent):
             },
             "healthcare": {
                 "characteristics": [
-                    "높은 전문성과 자격 요건 필요",
-                    "규제가 엄격하고 안전성이 최우선",
-                    "지속적인 교육과 기술 업데이트 필수"
+                    "High level of expertise and qualifications required",
+                    "Strict regulation with safety as the top priority",
+                    "Continuous education and tech updates are essential"
                 ],
                 "success_factors": [
-                    "의료진의 전문성과 경험",
-                    "최신 의료 장비와 시설",
-                    "환자 중심의 서비스 제공"
+                    "Expertise and experience of medical staff",
+                    "Modern medical equipment and facilities",
+                    "Patient-centered services"
                 ],
                 "market_trends": [
-                    "디지털 헬스케어 기술 도입",
-                    "예방 중심의 건강 관리",
-                    "개인 맞춤형 치료 서비스"
+                    "Adoption of digital healthcare technologies",
+                    "Shift toward preventive care",
+                    "Personalized treatment services"
                 ],
                 "risk_factors": [
-                    "의료사고에 따른 법적 책임",
-                    "높은 초기 투자 비용",
-                    "의료진 수급 불균형"
+                    "Legal liability from medical incidents",
+                    "High initial capital expenditure",
+                    "Imbalance in supply of medical personnel"
                 ],
                 "base_score": 85,
                 "growth_potential": "HIGH",
@@ -262,24 +262,24 @@ class ProductInsightAgent(BaseAgent):
             },
             "education": {
                 "characteristics": [
-                    "장기적 관점의 성과 측정",
-                    "학습자 개별 특성 고려 필요",
-                    "교육 콘텐츠와 방법론이 핵심"
+                    "Performance measurement over a long horizon",
+                    "Need to consider individual learner characteristics",
+                    "Content and methodology are critical"
                 ],
                 "success_factors": [
-                    "차별화된 교육 프로그램",
-                    "우수한 강사진 확보",
-                    "학습 성과 추적 시스템"
+                    "Differentiated educational programs",
+                    "Securing excellent teaching staff",
+                    "Systems to track learning outcomes"
                 ],
                 "market_trends": [
-                    "온라인 교육 플랫폼 확산",
-                    "개인 맞춤형 학습 경험",
-                    "실무 중심의 교육 과정"
+                    "Proliferation of online education platforms",
+                    "Personalized learning experiences",
+                    "Practical, work-oriented curricula"
                 ],
                 "risk_factors": [
-                    "학령인구 감소",
-                    "온라인 교육과의 경쟁",
-                    "교육 정책 변화에 따른 영향"
+                    "Declining school-age population",
+                    "Competition from online learning",
+                    "Impact from changes in education policy"
                 ],
                 "base_score": 72,
                 "growth_potential": "MEDIUM",
@@ -287,24 +287,24 @@ class ProductInsightAgent(BaseAgent):
             },
             "technology": {
                 "characteristics": [
-                    "빠른 기술 변화와 혁신 필요",
-                    "높은 성장 잠재력과 확장성",
-                    "전문 인력과 R&D 투자 중요"
+                    "Rapid technological change requiring constant innovation",
+                    "High growth potential and scalability",
+                    "Skilled talent and R&D investment are crucial"
                 ],
                 "success_factors": [
-                    "기술 혁신과 특허 확보",
-                    "우수한 개발 인력 확보",
-                    "시장 진입 타이밍"
+                    "Technological innovation and IP/patents",
+                    "Securing top engineering talent",
+                    "Timing of market entry"
                 ],
                 "market_trends": [
-                    "AI와 머신러닝 기술 확산",
-                    "클라우드 서비스 전환",
-                    "사이버 보안 중요성 증대"
+                    "Widespread adoption of AI and ML",
+                    "Migration to cloud services",
+                    "Increased importance of cybersecurity"
                 ],
                 "risk_factors": [
-                    "기술 변화 속도에 따른 도태 위험",
-                    "높은 초기 개발 비용",
-                    "인력 확보 경쟁 심화"
+                    "Obsolescence risk due to rapid tech shifts",
+                    "High upfront development costs",
+                    "Intense competition for talent"
                 ],
                 "base_score": 82,
                 "growth_potential": "HIGH",
@@ -312,24 +312,24 @@ class ProductInsightAgent(BaseAgent):
             },
             "manufacturing": {
                 "characteristics": [
-                    "생산 효율성과 품질 관리가 핵심",
-                    "높은 초기 설비 투자 필요",
-                    "공급망 관리와 원자재 조달 중요"
+                    "Operational efficiency and quality management are key",
+                    "High initial capex for facilities",
+                    "Supply chain management and raw material sourcing matter"
                 ],
                 "success_factors": [
-                    "생산 공정 최적화",
-                    "품질 관리 시스템 구축",
-                    "안정적인 공급망 확보"
+                    "Optimized production processes",
+                    "Robust quality management systems",
+                    "Stable supply chains"
                 ],
                 "market_trends": [
-                    "스마트 팩토리와 자동화",
-                    "친환경 생산 공정",
-                    "맞춤형 제품 생산"
+                    "Smart factories and automation",
+                    "Eco-friendly production processes",
+                    "Mass customization"
                 ],
                 "risk_factors": [
-                    "원자재 가격 변동",
-                    "환경 규제 강화",
-                    "인력 부족과 고령화"
+                    "Volatility in raw material prices",
+                    "Stronger environmental regulations",
+                    "Labor shortages and aging workforce"
                 ],
                 "base_score": 76,
                 "growth_potential": "MEDIUM",
@@ -337,24 +337,24 @@ class ProductInsightAgent(BaseAgent):
             },
             "construction": {
                 "characteristics": [
-                    "프로젝트 기반의 일회성 사업",
-                    "안전 관리와 품질 보증 중요",
-                    "계절성과 경기 변동에 민감"
+                    "Project-based, one-off engagements",
+                    "Safety management and quality assurance are critical",
+                    "Sensitive to seasons and macro cycles"
                 ],
                 "success_factors": [
-                    "프로젝트 관리 역량",
-                    "안전 사고 예방 시스템",
-                    "협력업체 네트워크"
+                    "Project management capability",
+                    "Systems to prevent safety incidents",
+                    "Network of reliable subcontractors"
                 ],
                 "market_trends": [
-                    "친환경 건축 기술",
-                    "모듈러 건축과 프리팹",
-                    "BIM과 디지털 설계"
+                    "Green building technologies",
+                    "Modular and prefab construction",
+                    "BIM and digital design"
                 ],
                 "risk_factors": [
-                    "안전사고 발생 위험",
-                    "건설 경기 변동",
-                    "인력 수급 불안정"
+                    "Risk of safety incidents",
+                    "Cyclical construction market",
+                    "Labor market instability"
                 ],
                 "base_score": 68,
                 "growth_potential": "LOW",
@@ -362,24 +362,24 @@ class ProductInsightAgent(BaseAgent):
             },
             "finance": {
                 "characteristics": [
-                    "높은 신뢰성과 보안 요구",
-                    "복잡한 규제와 컴플라이언스",
-                    "디지털 전환 가속화"
+                    "Requires high trust and security",
+                    "Complex regulations and compliance",
+                    "Acceleration of digital transformation"
                 ],
                 "success_factors": [
-                    "리스크 관리 시스템",
-                    "고객 신뢰도 구축",
-                    "디지털 서비스 혁신"
+                    "Robust risk management",
+                    "Building customer trust",
+                    "Digital service innovation"
                 ],
                 "market_trends": [
-                    "핀테크와 디지털 뱅킹",
-                    "블록체인과 암호화폐",
-                    "개인화된 금융 서비스"
+                    "Fintech and digital banking",
+                    "Blockchain and cryptocurrencies",
+                    "Personalized financial services"
                 ],
                 "risk_factors": [
-                    "금융 규제 변화",
-                    "사이버 보안 위협",
-                    "핀테크 업체와의 경쟁"
+                    "Regulatory changes",
+                    "Cybersecurity threats",
+                    "Competition from fintechs"
                 ],
                 "base_score": 80,
                 "growth_potential": "MEDIUM",
@@ -387,24 +387,24 @@ class ProductInsightAgent(BaseAgent):
             },
             "beauty": {
                 "characteristics": [
-                    "트렌드와 개인 취향에 민감",
-                    "브랜드 이미지와 마케팅 중요",
-                    "고객 경험과 서비스 품질 핵심"
+                    "Highly sensitive to trends and personal tastes",
+                    "Brand image and marketing are crucial",
+                    "Customer experience and service quality are key"
                 ],
                 "success_factors": [
-                    "트렌드 대응력과 상품 기획",
-                    "고객 맞춤 서비스 제공",
-                    "브랜드 차별화 전략"
+                    "Trend responsiveness and product planning",
+                    "Providing personalized services",
+                    "Brand differentiation strategy"
                 ],
                 "market_trends": [
-                    "K-뷰티 글로벌 확산",
-                    "개인 맞춤형 화장품",
-                    "친환경 뷰티 제품"
+                    "Global growth of K-beauty",
+                    "Personalized cosmetics",
+                    "Eco-friendly beauty products"
                 ],
                 "risk_factors": [
-                    "트렌드 변화 속도",
-                    "온라인 채널과의 경쟁",
-                    "원자재 가격 상승"
+                    "Fast-changing trends",
+                    "Competition with online channels",
+                    "Rising raw material costs"
                 ],
                 "base_score": 74,
                 "growth_potential": "HIGH",
@@ -412,24 +412,24 @@ class ProductInsightAgent(BaseAgent):
             },
             "fitness": {
                 "characteristics": [
-                    "건강과 웰빙 트렌드 수혜",
-                    "개인 맞춤형 서비스 중요",
-                    "시설과 장비 투자 필요"
+                    "Riding the health and wellbeing trend",
+                    "Importance of personalized services",
+                    "Requires investment in facilities and equipment"
                 ],
                 "success_factors": [
-                    "전문 트레이너 확보",
-                    "차별화된 프로그램",
-                    "회원 관리 시스템"
+                    "Securing professional trainers",
+                    "Differentiated programs",
+                    "Membership management systems"
                 ],
                 "market_trends": [
-                    "홈트레이닝과 온라인 피트니스",
-                    "웨어러블 기기 연동",
-                    "기능성 운동과 재활"
+                    "Home training and online fitness",
+                    "Integration with wearables",
+                    "Functional training and rehabilitation"
                 ],
                 "risk_factors": [
-                    "코로나19 등 감염병 영향",
-                    "온라인 서비스와의 경쟁",
-                    "회원 이탈률 관리"
+                    "Impacts from infectious diseases",
+                    "Competition with online services",
+                    "Managing member churn"
                 ],
                 "base_score": 77,
                 "growth_potential": "HIGH",
@@ -437,24 +437,24 @@ class ProductInsightAgent(BaseAgent):
             },
             "entertainment": {
                 "characteristics": [
-                    "창의성과 콘텐츠가 핵심",
-                    "트렌드와 대중 취향에 민감",
-                    "높은 수익성과 리스크 공존"
+                    "Creativity and content are core",
+                    "Highly sensitive to trends and mass taste",
+                    "High returns and high risks coexist"
                 ],
                 "success_factors": [
-                    "독창적인 콘텐츠 기획",
-                    "타겟 고객층 분석",
-                    "마케팅과 홍보 전략"
+                    "Original content planning",
+                    "Target audience analysis",
+                    "Marketing and promotion strategies"
                 ],
                 "market_trends": [
-                    "OTT 플랫폼 확산",
-                    "메타버스와 VR 콘텐츠",
-                    "개인 방송과 크리에이터"
+                    "Expansion of OTT platforms",
+                    "Metaverse and VR content",
+                    "Independent creators and livestreaming"
                 ],
                 "risk_factors": [
-                    "콘텐츠 성공 불확실성",
-                    "저작권과 법적 이슈",
-                    "플랫폼 의존도"
+                    "Uncertainty of content success",
+                    "Copyright and legal issues",
+                    "Platform dependency"
                 ],
                 "base_score": 71,
                 "growth_potential": "HIGH",
@@ -462,24 +462,24 @@ class ProductInsightAgent(BaseAgent):
             },
             "automotive": {
                 "characteristics": [
-                    "기술 집약적 산업",
-                    "높은 초기 투자와 장기 회수",
-                    "안전성과 품질이 최우선"
+                    "Technology-intensive industry",
+                    "High initial investments and long payback",
+                    "Safety and quality take precedence"
                 ],
                 "success_factors": [
-                    "기술 혁신과 R&D",
-                    "품질 관리 시스템",
-                    "고객 서비스 네트워크"
+                    "Technological innovation and R&D",
+                    "Quality management systems",
+                    "Customer service networks"
                 ],
                 "market_trends": [
-                    "전기차와 자율주행",
-                    "모빌리티 서비스",
-                    "친환경 기술"
+                    "EVs and autonomous driving",
+                    "Mobility-as-a-service",
+                    "Eco-friendly technologies"
                 ],
                 "risk_factors": [
-                    "기술 변화 속도",
-                    "높은 진입 장벽",
-                    "환경 규제 강화"
+                    "Pace of technological change",
+                    "High entry barriers",
+                    "Strengthening environmental regulation"
                 ],
                 "base_score": 79,
                 "growth_potential": "MEDIUM",
@@ -487,24 +487,24 @@ class ProductInsightAgent(BaseAgent):
             },
             "agriculture": {
                 "characteristics": [
-                    "계절성과 기후 의존도 높음",
-                    "전통적 방식과 기술 혁신 공존",
-                    "식품 안전과 품질 중요"
+                    "High dependence on seasons and climate",
+                    "Traditional methods coexist with innovation",
+                    "Food safety and quality are important"
                 ],
                 "success_factors": [
-                    "생산성 향상 기술",
-                    "품질 관리와 브랜딩",
-                    "유통 채널 다양화"
+                    "Productivity-improving technologies",
+                    "Quality control and branding",
+                    "Diversified distribution channels"
                 ],
                 "market_trends": [
-                    "스마트팜과 정밀농업",
-                    "친환경 유기농",
-                    "직거래와 온라인 판매"
+                    "Smart farming and precision agriculture",
+                    "Eco-friendly organic farming",
+                    "Direct sales and online channels"
                 ],
                 "risk_factors": [
-                    "기후 변화 영향",
-                    "농산물 가격 변동",
-                    "고령화와 인력 부족"
+                    "Impact of climate change",
+                    "Fluctuating crop prices",
+                    "Aging farmers and labor shortages"
                 ],
                 "base_score": 65,
                 "growth_potential": "MEDIUM",
@@ -512,24 +512,24 @@ class ProductInsightAgent(BaseAgent):
             },
             "logistics": {
                 "characteristics": [
-                    "효율성과 정시성이 핵심",
-                    "네트워크와 인프라 중요",
-                    "기술 혁신으로 경쟁력 확보"
+                    "Efficiency and on-time delivery are critical",
+                    "Networks and infrastructure matter",
+                    "Tech innovation is a competitiveness lever"
                 ],
                 "success_factors": [
-                    "배송 네트워크 최적화",
-                    "IT 시스템과 자동화",
-                    "고객 서비스 품질"
+                    "Optimized delivery networks",
+                    "IT systems and automation",
+                    "High-quality customer service"
                 ],
                 "market_trends": [
-                    "이커머스 배송 수요 증가",
-                    "드론과 자율주행 배송",
-                    "친환경 물류"
+                    "Growth in e-commerce deliveries",
+                    "Drones and autonomous delivery",
+                    "Green logistics"
                 ],
                 "risk_factors": [
-                    "유가 변동과 운송비",
-                    "인력 부족",
-                    "교통 체증과 인프라"
+                    "Fuel price volatility and transport costs",
+                    "Labor shortages",
+                    "Traffic congestion and infrastructure constraints"
                 ],
                 "base_score": 73,
                 "growth_potential": "HIGH",
@@ -537,24 +537,24 @@ class ProductInsightAgent(BaseAgent):
             },
             "other": {
                 "characteristics": [
-                    "다양한 업종의 일반적 특성",
-                    "시장 상황에 따른 변동성",
-                    "차별화 전략 필요"
+                    "General characteristics spanning many industries",
+                    "Volatility depending on market conditions",
+                    "Need for differentiation strategy"
                 ],
                 "success_factors": [
-                    "시장 분석과 포지셔닝",
-                    "고객 니즈 파악",
-                    "운영 효율성 개선"
+                    "Market analysis and positioning",
+                    "Understanding customer needs",
+                    "Operational efficiency improvements"
                 ],
                 "market_trends": [
-                    "디지털 전환",
-                    "고객 경험 중시",
-                    "지속가능성"
+                    "Digital transformation",
+                    "Focus on customer experience",
+                    "Sustainability"
                 ],
                 "risk_factors": [
-                    "시장 경쟁 심화",
-                    "경기 변동 영향",
-                    "규제 변화"
+                    "Intensifying competition",
+                    "Macroeconomic fluctuations",
+                    "Regulatory changes"
                 ],
                 "base_score": 70,
                 "growth_potential": "MEDIUM",
@@ -575,19 +575,19 @@ class ProductInsightAgent(BaseAgent):
                 "consumer_power": "HIGH",
                 "rent_cost": "VERY_HIGH",
                 "characteristics": [
-                    "국내 최대 소비시장으로 높은 구매력",
-                    "치열한 경쟁과 높은 임대료",
-                    "트렌드 선도 지역으로 혁신 필요"
+                    "The largest consumer market in Korea with high purchasing power",
+                    "Fierce competition and high rents",
+                    "Trend-leading region that requires innovation"
                 ],
                 "advantages": [
-                    "대규모 고객층과 높은 접근성",
-                    "다양한 비즈니스 기회",
-                    "우수한 인프라와 교통망"
+                    "Large customer base and high accessibility",
+                    "Diverse business opportunities",
+                    "Excellent infrastructure and transportation networks"
                 ],
                 "challenges": [
-                    "높은 운영비용과 임대료",
-                    "치열한 경쟁 환경",
-                    "빠른 트렌드 변화 대응 필요"
+                    "High operating costs and rent",
+                    "Highly competitive environment",
+                    "Need to respond quickly to fast-changing trends"
                 ],
                 "score_modifier": 10
             },
@@ -597,19 +597,19 @@ class ProductInsightAgent(BaseAgent):
                 "consumer_power": "MEDIUM_HIGH",
                 "rent_cost": "MEDIUM",
                 "characteristics": [
-                    "제2의 도시로 안정적인 시장 규모",
-                    "항만도시 특성과 관광업 발달",
-                    "서울 대비 상대적으로 낮은 진입비용"
+                    "Second-largest city with a stable market size",
+                    "Port-city characteristics and developed tourism",
+                    "Lower entry costs compared to Seoul"
                 ],
                 "advantages": [
-                    "적정한 임대료와 운영비용",
-                    "관광객 유입으로 인한 수요",
-                    "지역 특색을 활용한 차별화 가능"
+                    "Reasonable rents and operating costs",
+                    "Demand fueled by tourist inflows",
+                    "Potential for differentiation using regional traits"
                 ],
                 "challenges": [
-                    "서울 대비 상대적으로 작은 시장",
-                    "지역 경제 의존도",
-                    "젊은 인구 유출"
+                    "Smaller market than Seoul",
+                    "Dependence on the local economy",
+                    "Outflow of younger population"
                 ],
                 "score_modifier": 5
             },
@@ -619,19 +619,19 @@ class ProductInsightAgent(BaseAgent):
                 "consumer_power": "MEDIUM",
                 "rent_cost": "LOW_MEDIUM",
                 "characteristics": [
-                    "섬유산업 중심의 전통적 상업도시",
-                    "보수적 소비성향과 안정적 시장",
-                    "의료산업과 교육기관 발달"
+                    "Traditional commercial city centered on the textile industry",
+                    "Conservative consumption and a stable market",
+                    "Growth in medical industry and educational institutions"
                 ],
                 "advantages": [
-                    "안정적인 지역 경제",
-                    "합리적인 운영비용",
-                    "충성도 높은 고객층"
+                    "Stable regional economy",
+                    "Reasonable operating costs",
+                    "High customer loyalty"
                 ],
                 "challenges": [
-                    "보수적 소비 패턴",
-                    "신규 트렌드 수용 속도 느림",
-                    "젊은 층 인구 감소"
+                    "Conservative spending patterns",
+                    "Slow adoption of new trends",
+                    "Declining young population"
                 ],
                 "score_modifier": 0
             },
@@ -641,19 +641,19 @@ class ProductInsightAgent(BaseAgent):
                 "consumer_power": "MEDIUM_HIGH",
                 "rent_cost": "MEDIUM_HIGH",
                 "characteristics": [
-                    "인천공항과 항만 중심의 물류도시",
-                    "서울 근접성으로 베드타운 역할",
-                    "신도시 개발로 인한 인구 증가"
+                    "Logistics city centered on Incheon Airport and Port",
+                    "Bedroom community role due to proximity to Seoul",
+                    "Population growth driven by new city developments"
                 ],
                 "advantages": [
-                    "지속적인 인구 유입",
-                    "물류와 교통의 요충지",
-                    "신규 상권 개발 기회"
+                    "Continuous population inflow",
+                    "Hub for logistics and transportation",
+                    "Opportunities from new commercial district development"
                 ],
                 "challenges": [
-                    "서울 의존적 소비 패턴",
-                    "상권 분산으로 인한 집객 어려움",
-                    "교통비 부담"
+                    "Consumption patterns dependent on Seoul",
+                    "Dispersed commercial districts make customer attraction difficult",
+                    "Burden of transportation costs"
                 ],
                 "score_modifier": 3
             },
@@ -663,19 +663,19 @@ class ProductInsightAgent(BaseAgent):
                 "consumer_power": "MEDIUM",
                 "rent_cost": "LOW_MEDIUM",
                 "characteristics": [
-                    "호남권 중심도시로 문화예술 발달",
-                    "대학가 중심의 젊은 소비층",
-                    "전통시장과 현대적 상권 공존"
+                    "Cultural and artistic hub of the Honam region",
+                    "University areas with a young consumer base",
+                    "Coexistence of traditional markets and modern commercial zones"
                 ],
                 "advantages": [
-                    "문화예술 콘텐츠 활용 가능",
-                    "대학생 고객층 확보",
-                    "지역 특산품과 연계 기회"
+                    "Ability to leverage culture and arts content",
+                    "Solid base of university students",
+                    "Opportunities linked to regional specialties"
                 ],
                 "challenges": [
-                    "상대적으로 작은 시장 규모",
-                    "지역 경제 성장 한계",
-                    "수도권 대비 구매력 차이"
+                    "Relatively small market size",
+                    "Limits to regional economic growth",
+                    "Lower purchasing power vs. the Seoul metro area"
                 ],
                 "score_modifier": -2
             },
@@ -685,19 +685,19 @@ class ProductInsightAgent(BaseAgent):
                 "consumer_power": "MEDIUM_HIGH",
                 "rent_cost": "MEDIUM",
                 "characteristics": [
-                    "과학기술 중심도시로 고학력층 집중",
-                    "연구기관과 대학 밀집 지역",
-                    "혁신적 소비성향과 기술 수용도 높음"
+                    "Science-and-technology city with highly educated residents",
+                    "Dense concentration of research institutes and universities",
+                    "High openness to innovation and technology"
                 ],
                 "advantages": [
-                    "고학력 고소득층 고객",
-                    "기술 혁신에 개방적",
-                    "정부기관 밀집으로 안정적 수요"
+                    "High-income, highly educated customer base",
+                    " receptive to technological innovation",
+                    "Stable demand due to many government agencies"
                 ],
                 "challenges": [
-                    "특화된 고객층으로 제한적 시장",
-                    "보수적 관료 문화",
-                    "주말 인구 감소"
+                    "Specialized customer base limits market size",
+                    "Conservative bureaucratic culture",
+                    "Weekend population declines"
                 ],
                 "score_modifier": 2
             },
@@ -707,19 +707,19 @@ class ProductInsightAgent(BaseAgent):
                 "consumer_power": "HIGH",
                 "rent_cost": "MEDIUM",
                 "characteristics": [
-                    "중화학공업 중심의 산업도시",
-                    "높은 소득수준과 구매력",
-                    "남성 중심의 소비 패턴"
+                    "Industrial city centered on heavy chemicals",
+                    "High income levels and purchasing power",
+                    "Male-dominated consumption pattern"
                 ],
                 "advantages": [
-                    "높은 평균 소득과 구매력",
-                    "상대적으로 낮은 경쟁",
-                    "산업단지 근로자 대상 시장"
+                    "High average income and purchasing power",
+                    "Relatively low competition",
+                    "Market targeting industrial complex workers"
                 ],
                 "challenges": [
-                    "단조로운 고객층 구성",
-                    "경기 변동에 민감",
-                    "문화 콘텐츠 부족"
+                    "Homogeneous customer composition",
+                    "Sensitive to macroeconomic fluctuations",
+                    "Lack of cultural content"
                 ],
                 "score_modifier": 1
             },
@@ -729,19 +729,19 @@ class ProductInsightAgent(BaseAgent):
                 "consumer_power": "HIGH",
                 "rent_cost": "HIGH",
                 "characteristics": [
-                    "수도권 최대 인구와 다양한 신도시",
-                    "서울 접근성과 독립적 상권 형성",
-                    "젊은 가족층 중심의 소비 시장"
+                    "Largest population in the metro area with diverse new towns",
+                    "Strong accessibility to Seoul with independent commercial districts",
+                    "Consumption market centered on young families"
                 ],
                 "advantages": [
-                    "대규모 인구와 지속적 유입",
-                    "다양한 연령층과 소득수준",
-                    "신도시 개발로 인한 성장 잠재력"
+                    "Large and continuously inflowing population",
+                    "Diverse age and income distributions",
+                    "Growth potential from ongoing new town developments"
                 ],
                 "challenges": [
-                    "지역별 편차가 큰 시장",
-                    "서울 상권과의 경쟁",
-                    "교통 접근성 차이"
+                    "Significant regional variance within the province",
+                    "Competition with Seoul commercial districts",
+                    "Differences in transportation accessibility"
                 ],
                 "score_modifier": 8
             },
@@ -751,19 +751,19 @@ class ProductInsightAgent(BaseAgent):
                 "consumer_power": "LOW_MEDIUM",
                 "rent_cost": "LOW",
                 "characteristics": [
-                    "관광과 레저 중심의 지역 경제",
-                    "계절성이 강한 소비 패턴",
-                    "자연환경과 연계한 비즈니스 기회"
+                    "Regional economy based on tourism and leisure",
+                    "Strong seasonality in consumption",
+                    "Opportunities linked to the natural environment"
                 ],
                 "advantages": [
-                    "낮은 진입비용과 임대료",
-                    "관광객 대상 시장",
-                    "자연환경 활용 가능"
+                    "Low entry costs and rents",
+                    "Tourist-targeted market",
+                    "Ability to utilize natural resources"
                 ],
                 "challenges": [
-                    "계절적 수요 변동",
-                    "상주인구 부족",
-                    "접근성과 물류 한계"
+                    "Seasonal demand fluctuations",
+                    "Limited resident population",
+                    "Constraints in accessibility and logistics"
                 ],
                 "score_modifier": -5
             },
@@ -773,19 +773,19 @@ class ProductInsightAgent(BaseAgent):
                 "consumer_power": "MEDIUM",
                 "rent_cost": "LOW",
                 "characteristics": [
-                    "농업과 제조업 중심의 안정적 경제",
-                    "보수적이고 실용적인 소비성향",
-                    "수도권 접근성 양호"
+                    "Stable economy centered on agriculture and manufacturing",
+                    "Conservative and practical consumption tendencies",
+                    "Good accessibility to the metro area"
                 ],
                 "advantages": [
-                    "안정적인 지역 경제",
-                    "낮은 운영비용",
-                    "수도권 물류 접근성"
+                    "Stable regional economy",
+                    "Low operating costs",
+                    "Logistics access to the metro area"
                 ],
                 "challenges": [
-                    "보수적 소비 패턴",
-                    "인구 고령화",
-                    "제한적 시장 규모"
+                    "Conservative consumption patterns",
+                    "Aging population",
+                    "Limited market size"
                 ],
                 "score_modifier": -3
             },
@@ -795,19 +795,19 @@ class ProductInsightAgent(BaseAgent):
                 "consumer_power": "MEDIUM",
                 "rent_cost": "LOW_MEDIUM",
                 "characteristics": [
-                    "천안·아산 등 산업도시 발달",
-                    "수도권 근접성과 교통 요충지",
-                    "제조업과 물류업 중심"
+                    "Industrial cities like Cheonan and Asan are developed",
+                    "Proximity to the metro area and transport hubs",
+                    "Manufacturing and logistics-centered economy"
                 ],
                 "advantages": [
-                    "산업단지 근로자 시장",
-                    "교통 접근성 우수",
-                    "합리적 운영비용"
+                    "Market of industrial complex workers",
+                    "Excellent transportation accessibility",
+                    "Reasonable operating costs"
                 ],
                 "challenges": [
-                    "지역별 발전 격차",
-                    "수도권 의존적 경제구조",
-                    "농촌 지역 인구 감소"
+                    "Development gaps between regions",
+                    "Economic dependence on the metro area",
+                    "Population decline in rural areas"
                 ],
                 "score_modifier": -1
             },
@@ -817,19 +817,19 @@ class ProductInsightAgent(BaseAgent):
                 "consumer_power": "LOW_MEDIUM",
                 "rent_cost": "LOW",
                 "characteristics": [
-                    "농업 중심의 전통적 지역 경제",
-                    "전주 한옥마을 등 관광자원 보유",
-                    "보수적이고 전통적인 소비문화"
+                    "Traditional regional economy centered on agriculture",
+                    "Tourism assets including Jeonju Hanok Village",
+                    "Conservative and traditional consumption culture"
                 ],
                 "advantages": [
-                    "전통문화와 관광 연계",
-                    "낮은 진입비용",
-                    "지역 특산품 활용"
+                    "Linkage of traditional culture and tourism",
+                    "Low entry costs",
+                    "Utilization of regional specialties"
                 ],
                 "challenges": [
-                    "인구 감소와 고령화",
-                    "경제 성장 둔화",
-                    "젊은 층 유출"
+                    "Population decline and aging",
+                    "Slowing economic growth",
+                    "Outflow of young people"
                 ],
                 "score_modifier": -4
             },
@@ -839,19 +839,19 @@ class ProductInsightAgent(BaseAgent):
                 "consumer_power": "LOW_MEDIUM",
                 "rent_cost": "LOW",
                 "characteristics": [
-                    "농수산업과 관광업 중심",
-                    "순천만, 여수 등 관광지 보유",
-                    "느린 생활과 웰빙 트렌드"
+                    "Economy based on agriculture, fisheries, and tourism",
+                    "Tourist destinations such as Suncheon Bay and Yeosu",
+                    "Slow-paced lifestyle aligned with wellbeing trends"
                 ],
                 "advantages": [
-                    "자연환경과 관광자원",
-                    "매우 낮은 운영비용",
-                    "웰빙 라이프스타일 수요"
+                    "Natural environment and tourism resources",
+                    "Very low operating costs",
+                    "Demand for wellbeing lifestyle products"
                 ],
                 "challenges": [
-                    "급속한 인구 감소",
-                    "제한적 소비시장",
-                    "접근성과 물류 한계"
+                    "Rapid population decline",
+                    "Limited consumption market",
+                    "Accessibility and logistics constraints"
                 ],
                 "score_modifier": -6
             },
@@ -861,19 +861,19 @@ class ProductInsightAgent(BaseAgent):
                 "consumer_power": "MEDIUM",
                 "rent_cost": "LOW",
                 "characteristics": [
-                    "포항제철 등 중공업과 농업 공존",
-                    "경주 등 역사문화 관광지",
-                    "보수적이고 안정적인 시장"
+                    "Coexistence of heavy industry (e.g., POSCO) and agriculture",
+                    "Historic and cultural tourism in Gyeongju",
+                    "Conservative and stable market"
                 ],
                 "advantages": [
-                    "산업도시 고소득층",
-                    "역사문화 관광 연계",
-                    "안정적 지역 경제"
+                    "High-income areas in industrial cities",
+                    "Linkage with cultural/historical tourism",
+                    "Stable regional economy"
                 ],
                 "challenges": [
-                    "지역별 편차 큰 시장",
-                    "고령화 진행",
-                    "신규 트렌드 수용 느림"
+                    "Large disparities across regions",
+                    "Progressive aging",
+                    "Slow acceptance of new trends"
                 ],
                 "score_modifier": -2
             },
@@ -883,19 +883,19 @@ class ProductInsightAgent(BaseAgent):
                 "consumer_power": "MEDIUM_HIGH",
                 "rent_cost": "MEDIUM",
                 "characteristics": [
-                    "창원·김해 등 제조업 중심지",
-                    "부산 인접으로 상권 연계성",
-                    "젊은 근로자층 집중"
+                    "Manufacturing hubs like Changwon and Gimhae",
+                    "Commercial linkage with adjacent Busan",
+                    "Concentration of young workers"
                 ],
                 "advantages": [
-                    "제조업 근로자 시장",
-                    "부산권 연계 효과",
-                    "상대적 높은 소득수준"
+                    "Manufacturing worker market",
+                    "Synergy with the Busan area",
+                    "Relatively high income levels"
                 ],
                 "challenges": [
-                    "부산 상권 의존성",
-                    "제조업 경기 민감",
-                    "지역 내 경쟁 심화"
+                    "Dependence on Busan’s commercial area",
+                    "Sensitivity to manufacturing cycles",
+                    "Intensifying internal regional competition"
                 ],
                 "score_modifier": 1
             },
@@ -905,19 +905,19 @@ class ProductInsightAgent(BaseAgent):
                 "consumer_power": "MEDIUM_HIGH",
                 "rent_cost": "HIGH",
                 "characteristics": [
-                    "관광업 중심의 특수 경제구조",
-                    "높은 관광객 유입과 계절성",
-                    "독특한 지역 문화와 특산품"
+                    "Tourism-centered special economic structure",
+                    "High tourist inflow and strong seasonality",
+                    "Distinct local culture and specialties"
                 ],
                 "advantages": [
-                    "연간 1,500만 관광객 시장",
-                    "프리미엄 상품 수용도 높음",
-                    "독특한 지역 특색 활용"
+                    "15 million annual tourists",
+                    "High acceptance of premium products",
+                    "Ability to leverage unique regional traits"
                 ],
                 "challenges": [
-                    "극심한 계절적 변동",
-                    "높은 임대료와 인건비",
-                    "물류비용 부담"
+                    "Extreme seasonal fluctuations",
+                    "High rent and labor costs",
+                    "Logistics cost burden"
                 ],
                 "score_modifier": -1
             }
@@ -932,79 +932,79 @@ class ProductInsightAgent(BaseAgent):
         return {
             "small": {
                 "characteristics": [
-                    "소규모 자본으로 시작 가능",
-                    "빠른 의사결정과 유연한 운영",
-                    "개인적 관계와 서비스 중심"
+                    "Possible to start with small capital",
+                    "Fast decision-making and flexible operations",
+                    "Personal relationships and service-centric approach"
                 ],
                 "advantages": [
-                    "낮은 초기 투자비용",
-                    "신속한 시장 대응",
-                    "개인화된 고객 서비스"
+                    "Low initial investment cost",
+                    "Rapid market responsiveness",
+                    "Personalized customer service"
                 ],
                 "challenges": [
-                    "제한적인 자원과 인력",
-                    "마케팅 예산 부족",
-                    "규모의 경제 한계"
+                    "Limited resources and personnel",
+                    "Insufficient marketing budget",
+                    "Lack of economies of scale"
                 ],
                 "strategies": [
-                    "틈새시장 공략과 차별화",
-                    "디지털 마케팅 활용",
-                    "고객 충성도 극대화"
+                    "Target niche markets and differentiate",
+                    "Leverage digital marketing",
+                    "Maximize customer loyalty"
                 ],
-                "investment_range": "1천만원 - 5천만원",
-                "employee_range": "1-5명",
+                "investment_range": "10M KRW - 50M KRW",
+                "employee_range": "1-5",
                 "score_modifier": -5,
                 "risk_level": "MEDIUM_HIGH"
             },
             "medium": {
                 "characteristics": [
-                    "적정 규모의 안정적 운영",
-                    "체계적 관리와 전문화",
-                    "지역 시장에서의 인지도"
+                    "Stable operations at moderate scale",
+                    "Structured management and specialization",
+                    "Recognizable presence in regional markets"
                 ],
                 "advantages": [
-                    "안정적인 현금흐름",
-                    "전문 인력 확보 가능",
-                    "브랜드 구축 기회"
+                    "Stable cash flow",
+                    "Ability to secure skilled personnel",
+                    "Opportunity to build brand"
                 ],
                 "challenges": [
-                    "성장 정체 위험",
-                    "대기업과의 경쟁",
-                    "관리 복잡성 증가"
+                    "Risk of growth stagnation",
+                    "Competition with large enterprises",
+                    "Increasing management complexity"
                 ],
                 "strategies": [
-                    "핵심 역량 강화",
-                    "시스템화와 표준화",
-                    "전략적 제휴 추진"
+                    "Strengthen core competencies",
+                    "Systematize and standardize",
+                    "Pursue strategic partnerships"
                 ],
-                "investment_range": "5천만원 - 3억원",
-                "employee_range": "6-30명",
+                "investment_range": "50M KRW - 300M KRW",
+                "employee_range": "6-30",
                 "score_modifier": 0,
                 "risk_level": "MEDIUM"
             },
             "large": {
                 "characteristics": [
-                    "대규모 자본과 인프라",
-                    "시장 지배력과 브랜드 파워",
-                    "복합적 사업 포트폴리오"
+                    "Large capital and infrastructure",
+                    "Market dominance and strong brand power",
+                    "Diversified business portfolio"
                 ],
                 "advantages": [
-                    "규모의 경제 실현",
-                    "강력한 브랜드 파워",
-                    "다양한 사업 기회"
+                    "Realization of economies of scale",
+                    "Powerful brand influence",
+                    "Access to diverse opportunities"
                 ],
                 "challenges": [
-                    "높은 고정비용",
-                    "조직 관리 복잡성",
-                    "시장 변화 대응 속도"
+                    "High fixed costs",
+                    "Complex organizational management",
+                    "Slower response speed to market change"
                 ],
                 "strategies": [
-                    "시장 점유율 확대",
-                    "혁신과 R&D 투자",
-                    "글로벌 진출 추진"
+                    "Expand market share",
+                    "Invest in innovation and R&D",
+                    "Pursue global expansion"
                 ],
-                "investment_range": "3억원 이상",
-                "employee_range": "30명 이상",
+                "investment_range": "300M KRW or more",
+                "employee_range": "30+",
                 "score_modifier": 5,
                 "risk_level": "LOW_MEDIUM"
             }
@@ -1045,35 +1045,35 @@ class ProductInsightAgent(BaseAgent):
         competition = industry_data["competition_level"]
         
         if growth_potential == "HIGH" and competition == "HIGH":
-            insights.append(f"{industry} 업종은 높은 성장 잠재력을 가지고 있지만 치열한 경쟁 환경에서 차별화 전략이 필수입니다.")
+            insights.append(f"The {industry} sector has strong growth potential, but differentiation is essential in a highly competitive landscape.")
         elif growth_potential == "HIGH" and competition in ["MEDIUM", "LOW"]:
-            insights.append(f"{industry} 업종은 높은 성장 잠재력과 상대적으로 낮은 경쟁으로 진입하기 좋은 시기입니다.")
+            insights.append(f"The {industry} sector offers high growth potential with relatively lower competition, making this a favorable entry period.")
         elif growth_potential == "MEDIUM":
-            insights.append(f"{industry} 업종은 안정적인 성장이 예상되며, 꾸준한 운영 전략이 중요합니다.")
+            insights.append(f"The {industry} sector is expected to grow steadily; sustained and disciplined operations will matter.")
         else:
-            insights.append(f"{industry} 업종은 성숙한 시장으로 혁신적인 접근이 필요합니다.")
+            insights.append(f"The {industry} sector is a mature market; innovative approaches will be required to unlock growth.")
         
         # Region insight
         market_size = region_data["market_size"]
         consumer_power = region_data["consumer_power"]
         
         if market_size in ["LARGE", "VERY_LARGE"] and consumer_power == "HIGH":
-            insights.append(f"{region} 지역은 대규모 시장과 높은 구매력을 가진 최적의 사업 환경입니다.")
+            insights.append(f"The {region} region offers an optimal business environment with a large market and strong purchasing power.")
         elif market_size in ["MEDIUM", "MEDIUM_LARGE"]:
-            insights.append(f"{region} 지역은 적정 규모의 안정적인 시장으로 지역 특성을 활용한 전략이 효과적입니다.")
+            insights.append(f"The {region} region is a stable market of moderate size; strategies leveraging local characteristics will be effective.")
         else:
-            insights.append(f"{region} 지역은 틈새시장 공략과 지역 밀착형 서비스로 경쟁력을 확보해야 합니다.")
+            insights.append(f"In the {region} region, focus on niche market penetration and community-anchored services to build competitiveness.")
         
         # Size insight
         risk_level = size_data["risk_level"]
         investment_range = size_data["investment_range"]
         
         if size == "small":
-            insights.append(f"{size} 규모는 {investment_range}의 투자로 시작 가능하며, 빠른 시장 진입과 고객 밀착 서비스가 핵심입니다.")
+            insights.append(f"The {size} size can launch with an investment of {investment_range}; fast market entry and close customer engagement are key.")
         elif size == "medium":
-            insights.append(f"{size} 규모는 {investment_range}의 투자로 안정적 운영이 가능하며, 체계적 관리와 브랜드 구축이 중요합니다.")
+            insights.append(f"The {size} size can operate stably with an investment of {investment_range}; structured management and brand building are important.")
         else:
-            insights.append(f"{size} 규모는 {investment_range}의 대규모 투자로 시장 지배력 확보와 규모의 경제 실현이 가능합니다.")
+            insights.append(f"The {size} size requires a large investment of {investment_range}; focus on achieving economies of scale and market leadership.")
         
         return insights
     
@@ -1133,46 +1133,39 @@ Provide:
 4. Risk mitigation strategies
 5. Growth opportunities
 
-Respond in Korean with a professional, insightful tone."""
+Respond in English with a professional, insightful tone."""
             
-            prompt = f"""비즈니스 분석 요청:
+            prompt = f"""Business Analysis Request:
 
-업종: {industry}
-지역: {region}
-규모: {size}
+Industry: {industry}
+Region: {region}
+Size: {size}
 
-업종 특성:
+Industry Characteristics:
 {json.dumps(industry_data['characteristics'], ensure_ascii=False, indent=2)}
 
-시장 트렌드:
+Market Trends:
 {json.dumps(industry_data['market_trends'], ensure_ascii=False, indent=2)}
 
-지역 시장 환경:
-- 시장 규모: {region_data['market_size']}
-- 경쟁 수준: {region_data['competition_level']}
-- 소비력: {region_data['consumer_power']}
-- 임대료 수준: {region_data['rent_cost']}
+Regional Market Environment:
+- Market size: {region_data['market_size']}
+- Competition level: {region_data['competition_level']}
+- Consumer power: {region_data['consumer_power']}
+- Rent level: {region_data.get('rent_cost', 'N/A')}
 
-규모별 특성:
-- 투자 범위: {size_data['investment_range']}
-- 리스크 수준: {size_data['risk_level']}
+Size-specific Traits:
+- Investment range: {size_data['investment_range']}
+- Risk level: {size_data['risk_level']}
 
-위 정보를 바탕으로 다음을 분석해주세요:
+Based on the above, analyze and respond in JSON with:
 
-1. 종합 평가 (0-100점 척도로 점수 제시)
-2. 핵심 인사이트 3가지 (구체적이고 실행 가능한 내용)
-3. 성공을 위한 전략적 권장사항 3가지
-4. 주의해야 할 리스크 요인
-5. 성장 기회 및 차별화 포인트
-
-JSON 형식으로 응답해주세요:
 {{
     "score": 0-100,
-    "reasoning": "점수 산정 근거",
-    "insights": ["인사이트 1", "인사이트 2", "인사이트 3"],
-    "recommendations": ["권장사항 1", "권장사항 2", "권장사항 3"],
-    "risk_factors": ["리스크 1", "리스크 2"],
-    "growth_opportunities": ["기회 1", "기회 2"],
+    "reasoning": "Basis for the score",
+    "insights": ["Insight 1", "Insight 2", "Insight 3"],
+    "recommendations": ["Recommendation 1", "Recommendation 2", "Recommendation 3"],
+    "risk_factors": ["Risk 1", "Risk 2"],
+    "growth_opportunities": ["Opportunity 1", "Opportunity 2"],
     "confidence": 0.0-1.0
 }}"""
             
@@ -1360,7 +1353,7 @@ JSON 형식으로 응답해주세요:
             
             # Create analysis result
             analysis_result = AnalysisResult(
-                summary=f"{region} 지역의 {size} 규모 {industry} 사업 분석 결과, 종합 점수 {final_score}점으로 평가됩니다.",
+                summary=f"Business analysis for {industry} in {region} at {size} scale: Overall score evaluated at {final_score}.",
                 score=final_score,
                 insights=final_insights,
                 market_trends=industry_data["market_trends"],
@@ -1386,7 +1379,7 @@ JSON 형식으로 응답해주세요:
                     'market_trends': analysis_result.market_trends,
                     'recommendations': analysis_result.recommendations,
                     'industry_characteristics': industry_data["characteristics"],
-                    'region_advantages': region_data["advantages"],
+                    'region_advantages': self.region_data.get(region, self.region_data["seoul"]).get("advantages", []),
                     'size_strategies': size_data["strategies"],
                     'investment_range': size_data["investment_range"],
                     'risk_level': size_data["risk_level"]

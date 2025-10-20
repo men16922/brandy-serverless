@@ -1,32 +1,104 @@
 {
   "restaurant": [
-    {"barrier": "초기 투자비", "level": "중간", "description": "인테리어, 장비 비용"},
-    {"barrier": "위치 선정", "level": "높음", "description": "임대료, 유동인구"},
-    {"barrier": "인허가", "level": "중간", "description": "영업신고, 위생허가"}
+    {
+      "barrier": "Initial investment cost",
+      "level": "Medium",
+      "description": "Interior and equipment expenses"
+    },
+    {
+      "barrier": "Location selection",
+      "level": "High",
+      "description": "Rent and foot traffic considerations"
+    },
+    {
+      "barrier": "Licensing",
+      "level": "Medium",
+      "description": "Business registration and hygiene permits"
+    }
   ],
   "retail": [
-    {"barrier": "재고 투자", "level": "높음", "description": "초기 상품 구매비용"},
-    {"barrier": "유통망", "level": "높음", "description": "공급업체 확보"},
-    {"barrier": "브랜드 인지도", "level": "중간", "description": "마케팅 비용"}
+    {
+      "barrier": "Inventory investment",
+      "level": "High",
+      "description": "Initial product purchase costs"
+    },
+    {
+      "barrier": "Distribution",
+      "level": "High",
+      "description": "Securing supply vendors and channels"
+    },
+    {
+      "barrier": "Brand awareness",
+      "level": "Medium",
+      "description": "Marketing and promotion costs"
+    }
   ],
   "service": [
-    {"barrier": "전문성", "level": "높음", "description": "자격증, 경험"},
-    {"barrier": "신뢰 구축", "level": "높음", "description": "평판, 실적"},
-    {"barrier": "초기 투자", "level": "낮음", "description": "상대적으로 적은 비용"}
+    {
+      "barrier": "Expertise",
+      "level": "High",
+      "description": "Required certifications and experience"
+    },
+    {
+      "barrier": "Trust building",
+      "level": "High",
+      "description": "Reputation and proven track record"
+    },
+    {
+      "barrier": "Initial investment",
+      "level": "Low",
+      "description": "Relatively small startup cost"
+    }
   ],
   "healthcare": [
-    {"barrier": "면허/자격", "level": "매우 높음", "description": "의료진 확보"},
-    {"barrier": "시설 투자", "level": "매우 높음", "description": "의료장비, 시설"},
-    {"barrier": "규제 준수", "level": "매우 높음", "description": "의료법 준수"}
+    {
+      "barrier": "Licensing and qualifications",
+      "level": "Very High",
+      "description": "Securing qualified medical professionals"
+    },
+    {
+      "barrier": "Facility investment",
+      "level": "Very High",
+      "description": "Medical equipment and infrastructure costs"
+    },
+    {
+      "barrier": "Regulatory compliance",
+      "level": "Very High",
+      "description": "Strict adherence to medical laws and regulations"
+    }
   ],
   "education": [
-    {"barrier": "강사 확보", "level": "중간", "description": "우수 강사진"},
-    {"barrier": "커리큘럼", "level": "중간", "description": "교육 프로그램"},
-    {"barrier": "시설 투자", "level": "중간", "description": "교육 시설"}
+    {
+      "barrier": "Instructor recruitment",
+      "level": "Medium",
+      "description": "Securing qualified teaching staff"
+    },
+    {
+      "barrier": "Curriculum development",
+      "level": "Medium",
+      "description": "Designing effective educational programs"
+    },
+    {
+      "barrier": "Facility investment",
+      "level": "Medium",
+      "description": "Classroom and educational infrastructure setup"
+    }
   ],
   "technology": [
-    {"barrier": "기술력", "level": "매우 높음", "description": "R&D 투자"},
-    {"barrier": "인재 확보", "level": "매우 높음", "description": "개발자, 엔지니어"},
-    {"barrier": "자본 조달", "level": "높음", "description": "개발 비용"}
+    {
+      "barrier": "Technological capability",
+      "level": "Very High",
+      "description": "Significant R&D investment"
+    },
+    {
+      "barrier": "Talent acquisition",
+      "level": "Very High",
+      "description": "Hiring skilled developers and engineers"
+    },
+    {
+      "barrier": "Capital procurement",
+      "level": "High",
+      "description": "Securing funds for development and scaling"
+    }
   ]
 }

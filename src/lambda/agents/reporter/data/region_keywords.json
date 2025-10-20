@@ -1,0 +1,101 @@
+{
+  "seoul": [
+    "Seoul",
+    "Han River",
+    "Namsan",
+    "Gangnam",
+    "Hongdae",
+    "Myeongdong"
+  ],
+  "busan": [
+    "Busan",
+    "Haeundae",
+    "Gwangan",
+    "Taejongdae",
+    "Gamcheon"
+  ],
+  "daegu": [
+    "Daegu",
+    "Palgongsan",
+    "Suseong",
+    "Central"
+  ],
+  "incheon": [
+    "Incheon",
+    "Song",
+    "Wolmi",
+    "Chinatown"
+  ],
+  "gwangju": [
+    "Gwangju",
+    "Mudeungsan",
+    "Chungjang"
+  ],
+  "daejeon": [
+    "Daejeon",
+    "Yuseong",
+    "Dunsan",
+    "Expo"
+  ],
+  "ulsan": [
+    "Ulsan",
+    "Taehwagang",
+    "Ganjeolgot"
+  ],
+  "gyeonggi": [
+    "Gyeonggi",
+    "Suwon",
+    "Seongnam",
+    "Goyang",
+    "Yongin"
+  ],
+  "gangwon": [
+    "Gangwon",
+    "Seorak",
+    "Pyeongchang",
+    "Chuncheon",
+    "Gangneung"
+  ],
+  "chungbuk": [
+    "Chungbuk",
+    "Cheongju",
+    "Jecheon",
+    "Danyang"
+  ],
+  "chungnam": [
+    "Chungnam",
+    "Cheonan",
+    "Asan",
+    "Gongju"
+  ],
+  "jeonbuk": [
+    "Jeonbuk",
+    "Jeonju",
+    "Gunsan",
+    "Iksan"
+  ],
+  "jeonnam": [
+    "Jeonnam",
+    "Mokpo",
+    "Yeosu",
+    "Suncheon"
+  ],
+  "gyeongbuk": [
+    "Gyeongbuk",
+    "Gyeongju",
+    "Andong",
+    "Pohang"
+  ],
+  "gyeongnam": [
+    "Gyeongnam",
+    "Changwon",
+    "Jinju",
+    "Tongyeong"
+  ],
+  "jeju": [
+    "Jeju",
+    "Hallasan",
+    "Seongsan",
+    "U"
+  ]
+}

@@ -1,8 +1,8 @@
 {
-  "restaurant": "지역 주민 및 직장인",
-  "retail": "품질 중시 고객층",
-  "service": "전문 서비스 수요층",
-  "healthcare": "건강 관심 고객",
-  "education": "교육 투자 적극층",
-  "technology": "얼리어답터층"
+  "restaurant": "Local residents and office workers",
+  "retail": "Quality-focused customer base",
+  "service": "General service demand demographic",
+  "healthcare": "Health-conscious customers",
+  "education": "Demographic actively investing in education",
+  "technology": "Early adopter demographic"
 }

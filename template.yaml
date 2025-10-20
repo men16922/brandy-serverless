@@ -109,7 +109,7 @@ Resources:
     Type: AWS::Serverless::LayerVersion
     Properties:
       LayerName: !Sub "${ProjectName}-shared-utilities-${Environment}"
-      Description: Shared utilities for all agent functions (Float to Decimal fix)
+      Description: Shared utilities for all agent functions (SDXL Bedrock-only v2.3)
       ContentUri: src/lambda/layers/shared-utilities/
       CompatibleRuntimes:
         - python3.9
@@ -199,8 +199,6 @@ Resources:
             TableName: !Ref WorkflowSessionsTable
         - S3ReadPolicy:
             BucketName: !Ref BrandingAssetsBucket
-        - StepFunctionsExecutionPolicy:
-            StateMachineName: !GetAtt BrandingWorkflow.Name
         - !Ref BedrockAccessPolicy
         # Allow Supervisor to invoke other Agent Lambda functions
         - Version: '2012-10-17'
@@ -445,33 +443,6 @@ Resources:
             BucketName: !Ref BrandingAssetsBucket
         - !Ref BedrockAccessPolicy
 
-  # Step Functions State Machine
-  BrandingWorkflow:
-    Type: AWS::Serverless::StateMachine
-    Properties:
-      Name: !Sub "${ProjectName}-workflow-${Environment}"
-      DefinitionUri: statemachine/branding-workflow.asl.json
-      DefinitionSubstitutions:
-        ProductInsightAgentArn: !GetAtt ProductInsightAgent.Arn
-        MarketAnalystAgentArn: !GetAtt MarketAnalystAgent.Arn
-        ReporterAgentArn: !GetAtt ReporterAgent.Arn
-        SignboardAgentArn: !GetAtt SignboardAgent.Arn
-        InteriorAgentArn: !GetAtt InteriorAgent.Arn
-        ReportGeneratorAgentArn: !GetAtt ReportGeneratorAgent.Arn
-      Policies:
-        - LambdaInvokePolicy:
-            FunctionName: !Ref ProductInsightAgent
-        - LambdaInvokePolicy:
-            FunctionName: !Ref MarketAnalystAgent
-        - LambdaInvokePolicy:
-            FunctionName: !Ref ReporterAgent
-        - LambdaInvokePolicy:
-            FunctionName: !Ref SignboardAgent
-        - LambdaInvokePolicy:
-            FunctionName: !Ref InteriorAgent
-        - LambdaInvokePolicy:
-            FunctionName: !Ref ReportGeneratorAgent
-
   # DynamoDB Table for session management
   WorkflowSessionsTable:
     Type: AWS::DynamoDB::Table
@@ -638,8 +609,4 @@ Outputs:
     Export:
       Name: !Sub "${ProjectName}-s3-bucket-${Environment}"
 
-  StateMachineArn:
-    Description: Step Functions state machine ARN
-    Value: !Ref BrandingWorkflow
-    Export:
-      Name: !Sub "${ProjectName}-statemachine-arn-${Environment}"
+

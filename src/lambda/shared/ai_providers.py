@@ -269,8 +269,11 @@ class SDXLProvider(AIProvider):
             self.logger.error(f"Failed to initialize Bedrock client: {type(e).__name__}: {str(e)}")
             self.logger.error(f"Error details: region={self.region}, environment={environment}")
             self.bedrock_client = None
-            # Re-raise to make initialization failure visible
-            raise Exception(f"SDXLProvider initialization failed: {str(e)}")
+            
+            # Don't raise - allow provider to be created but mark as unavailable
+            # This allows graceful fallback to other providers or fallback images
+            self.logger.warning("SDXLProvider created but Bedrock client is unavailable")
+            self.logger.warning("Image generation will fail unless Bedrock access is fixed")
     
     def _create_logger(self):
         """Create logger for SDXL provider"""
@@ -321,8 +324,7 @@ class SDXLProvider(AIProvider):
         for attempt in range(self.max_retries):
             try:
                 self.logger.info(f"SDXL API call attempt {attempt + 1}/{self.max_retries}: model_id={self.model_id}")
-                # Note: Some loggers don't have debug method
-                self.logger.info(f"SDXL payload keys: {list(payload.keys())}")
+                self.logger.info(f"SDXL payload: taskType={payload['taskType']}, prompt_length={len(payload['textToImageParams']['text'])}")
                 
                 # Bedrock API 호출
                 response = self.bedrock_client.invoke_model(
@@ -375,6 +377,40 @@ class SDXLProvider(AIProvider):
             except Exception as e:
                 error_type = type(e).__name__
                 error_msg = str(e)
+                
+                # Check for specific Bedrock errors
+                if 'ValidationException' in error_type or 'ValidationException' in error_msg:
+                    self.logger.error(f"Bedrock ValidationException: {error_msg}")
+                    self.logger.error(f"Prompt length: {len(payload['textToImageParams']['text'])} chars")
+                    self.logger.error(f"Prompt preview: {payload['textToImageParams']['text'][:200]}...")
+                    
+                    # If prompt is too long, try to truncate further
+                    if 'prompt' in error_msg.lower() or 'text' in error_msg.lower():
+                        current_prompt = payload['textToImageParams']['text']
+                        if len(current_prompt) > 400:
+                            # Aggressive truncation
+                            truncated = current_prompt[:400]
+                            self.logger.warning(f"Aggressively truncating prompt: {len(current_prompt)} → 400 chars")
+                            payload['textToImageParams']['text'] = truncated
+                            
+                            if attempt < self.max_retries - 1:
+                                continue
+                
+                elif 'AccessDeniedException' in error_type or 'AccessDenied' in error_msg:
+                    self.logger.error(f"Bedrock AccessDeniedException: {error_msg}")
+                    self.logger.error("Check IAM permissions for bedrock:InvokeModel")
+                    # Don't retry on permission errors
+                    raise Exception(f"Bedrock access denied: {error_msg}")
+                
+                elif 'ThrottlingException' in error_type or 'Throttling' in error_msg:
+                    self.logger.warning(f"Bedrock ThrottlingException: {error_msg}")
+                    # Retry with longer backoff
+                    if attempt < self.max_retries - 1:
+                        retry_delay = exponential_backoff(attempt, base_delay=5.0, max_delay=60.0)
+                        self.logger.info(f"Throttled, retrying in {retry_delay:.2f}s...")
+                        await asyncio.sleep(retry_delay)
+                        continue
+                
                 self.logger.error(f"SDXL generation attempt {attempt + 1} failed: {error_type}: {error_msg}")
                 
                 if attempt < self.max_retries - 1:
@@ -384,7 +420,7 @@ class SDXLProvider(AIProvider):
                     await asyncio.sleep(retry_delay)
                     continue
                 else:
-                    final_error = f"SDXL generation failed after {self.max_retries} attempts: {error_msg}"
+                    final_error = f"SDXL generation failed after {self.max_retries} attempts: {error_type}: {error_msg}"
                     self.logger.error(final_error)
                     raise Exception(final_error)
     

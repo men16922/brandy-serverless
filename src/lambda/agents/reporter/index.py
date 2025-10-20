@@ -52,55 +52,55 @@ class ReporterAgent(BaseAgent):
         self.search_weight = 0.45         # SEO 친화성
         self.uniqueness_weight = 0.20     # 고유성 보너스
         
-        # 업종별 키워드 매핑
+        # 업종별 키워드 매핑 - English only
         self.industry_keywords = {
-            "restaurant": ["맛", "향", "집", "원", "가든", "하우스", "키친", "테이블"],
-            "retail": ["샵", "스토어", "마켓", "플레이스", "코너", "갤러리"],
-            "service": ["센터", "스튜디오", "랩", "클리닉", "오피스", "룸"],
-            "healthcare": ["클리닉", "케어", "메디", "헬스", "웰", "라이프"],
-            "education": ["아카데미", "스쿨", "센터", "랩", "스튜디오", "클래스"],
-            "technology": ["테크", "랩", "시스템", "솔루션", "이노베이션"],
-            "manufacturing": ["팩토리", "웍스", "인더스트리", "메이커"],
-            "construction": ["빌드", "컨스트럭션", "하우징", "데벨롭"],
-            "finance": ["파이낸스", "캐피탈", "인베스트", "펀드"],
-            "other": ["컴퍼니", "그룹", "파트너스", "솔루션"]
+            "restaurant": ["Taste", "Flavor", "House", "Garden", "Kitchen", "Table", "Dining", "Bistro"],
+            "retail": ["Shop", "Store", "Market", "Place", "Corner", "Gallery", "Boutique", "Emporium"],
+            "service": ["Center", "Studio", "Lab", "Clinic", "Office", "Room", "Hub", "Space"],
+            "healthcare": ["Clinic", "Care", "Medi", "Health", "Well", "Life", "Wellness", "Medical"],
+            "education": ["Academy", "School", "Center", "Lab", "Studio", "Class", "Institute", "Learning"],
+            "technology": ["Tech", "Lab", "System", "Solution", "Innovation", "Digital", "Smart", "Cyber"],
+            "manufacturing": ["Factory", "Works", "Industry", "Maker", "Craft", "Production", "Forge", "Mill"],
+            "construction": ["Build", "Construction", "Housing", "Develop", "Structure", "Foundation", "Architect", "Design"],
+            "finance": ["Finance", "Capital", "Invest", "Fund", "Wealth", "Asset", "Trust", "Equity"],
+            "other": ["Company", "Group", "Partners", "Solution", "Enterprise", "Ventures", "Associates", "Collective"]
         }
         
-        # 지역별 특성 키워드
+        # 지역별 특성 키워드 - English only
         self.region_keywords = {
-            "seoul": ["서울", "한강", "남산", "강남", "홍대", "명동"],
-            "busan": ["부산", "해운대", "광안", "태종대", "감천"],
-            "daegu": ["대구", "팔공산", "수성", "중앙로"],
-            "incheon": ["인천", "송도", "월미도", "차이나타운"],
-            "gwangju": ["광주", "무등산", "충장로"],
-            "daejeon": ["대전", "유성", "둔산", "엑스포"],
-            "ulsan": ["울산", "태화강", "간절곶"],
-            "gyeonggi": ["경기", "수원", "성남", "고양", "용인"],
-            "gangwon": ["강원", "설악", "평창", "춘천", "강릉"],
-            "chungbuk": ["충북", "청주", "제천", "단양"],
-            "chungnam": ["충남", "천안", "아산", "공주"],
-            "jeonbuk": ["전북", "전주", "군산", "익산"],
-            "jeonnam": ["전남", "목포", "여수", "순천"],
-            "gyeongbuk": ["경북", "경주", "안동", "포항"],
-            "gyeongnam": ["경남", "창원", "진주", "통영"],
-            "jeju": ["제주", "한라산", "성산", "우도"]
+            "seoul": ["Seoul", "Han", "Namsan", "Gangnam", "Hongdae", "Myeongdong", "Capital", "Metro"],
+            "busan": ["Busan", "Haeundae", "Gwangan", "Beach", "Port", "Coastal", "Marine", "Harbor"],
+            "daegu": ["Daegu", "Palgong", "Suseong", "Central", "Valley", "Historic", "Traditional", "Heritage"],
+            "incheon": ["Incheon", "Songdo", "Wolmi", "Gateway", "Port", "International", "Bridge", "Coast"],
+            "gwangju": ["Gwangju", "Mudeung", "Culture", "Art", "Heritage", "Traditional", "Historic", "Valley"],
+            "daejeon": ["Daejeon", "Yuseong", "Science", "Tech", "Innovation", "Research", "Expo", "Modern"],
+            "ulsan": ["Ulsan", "Taehwa", "Industrial", "Modern", "Coastal", "River", "Harbor", "Bay"],
+            "gyeonggi": ["Gyeonggi", "Suwon", "Metro", "Modern", "Urban", "Central", "Gateway", "Hub"],
+            "gangwon": ["Gangwon", "Seorak", "Mountain", "Alpine", "Nature", "Highland", "Peak", "Valley"],
+            "chungbuk": ["Chungbuk", "Cheongju", "Central", "Valley", "Heritage", "Traditional", "Historic", "Lake"],
+            "chungnam": ["Chungnam", "Cheonan", "Asan", "Central", "Heritage", "Traditional", "Valley", "Bay"],
+            "jeonbuk": ["Jeonbuk", "Jeonju", "Heritage", "Traditional", "Historic", "Culture", "Valley", "Classic"],
+            "jeonnam": ["Jeonnam", "Mokpo", "Yeosu", "Coastal", "Bay", "Harbor", "Marine", "Island"],
+            "gyeongbuk": ["Gyeongbuk", "Gyeongju", "Heritage", "Historic", "Ancient", "Traditional", "Culture", "Temple"],
+            "gyeongnam": ["Gyeongnam", "Changwon", "Coastal", "Industrial", "Modern", "Bay", "Harbor", "Marine"],
+            "jeju": ["Jeju", "Island", "Hallasan", "Volcanic", "Coastal", "Paradise", "Nature", "Ocean"]
         }
         
         # 금지 단어 목록 (중복 회피용)
         self.forbidden_words = set()
         
-        # Fallback names (업종별 기본 상호명)
+        # Fallback names (업종별 기본 상호명) - English only
         self.fallback_names = {
-            "restaurant": ["미담", "맛있는집", "행복한식탁"],
-            "retail": ["좋은가게", "행복한쇼핑", "믿음상점"],
-            "service": ["친절한서비스", "믿음가게", "행복한공간"],
-            "healthcare": ["건강한삶", "케어플러스", "웰빙클리닉"],
-            "education": ["배움터", "지식나눔", "성장아카데미"],
-            "technology": ["테크솔루션", "이노베이션랩", "스마트시스템"],
-            "manufacturing": ["품질공장", "정밀제작소", "프리미엄메이커"],
-            "construction": ["튼튼건설", "안전시공", "믿음빌드"],
-            "finance": ["신뢰금융", "안정투자", "성장캐피탈"],
-            "other": ["좋은회사", "믿음파트너스", "행복한그룹"]
+            "restaurant": ["TasteHouse", "DeliciousTable", "HappyDining"],
+            "retail": ["GoodStore", "HappyShopping", "TrustShop"],
+            "service": ["KindService", "TrustPlace", "HappySpace"],
+            "healthcare": ["HealthyLife", "CarePlus", "WellbeingClinic"],
+            "education": ["LearningPlace", "KnowledgeShare", "GrowthAcademy"],
+            "technology": ["TechSolution", "InnovationLab", "SmartSystem"],
+            "manufacturing": ["QualityFactory", "PrecisionWorks", "PremiumMaker"],
+            "construction": ["StrongBuild", "SafeConstruction", "TrustBuild"],
+            "finance": ["TrustFinance", "StableInvest", "GrowthCapital"],
+            "other": ["GoodCompany", "TrustPartners", "HappyGroup"]
         }
         
     def execute(self, event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -362,23 +362,24 @@ class ReporterAgent(BaseAgent):
         existing_names.extend(list(self.forbidden_words))
         
         # Claude에게 상호명 생성 요청
-        system_prompt = """You are an expert Korean business naming consultant.
-Generate creative, memorable, and market-appropriate business names.
+        system_prompt = """You are an expert business naming consultant.
+Generate creative, memorable, and market-appropriate business names IN ENGLISH ONLY.
 
 Requirements:
-1. Names should be 2-8 characters in Korean or mixed Korean-English
-2. Easy to pronounce and remember
+1. Names MUST be in English only (no Korean characters)
+2. Names should be 2-4 words, easy to pronounce and remember
 3. Reflect the industry and regional characteristics
 4. SEO-friendly and unique
 5. Avoid common or generic names
+6. Can combine words creatively (e.g., "TasteAlley", "SeoulBites", "FreshCorner")
 
 Respond in JSON format with exactly 3 name suggestions:
 {
     "suggestions": [
         {
-            "name": "상호명",
-            "description": "이름에 대한 설명 (한글)",
-            "reasoning": "선택 이유와 브랜드 적합성 분석"
+            "name": "BusinessName",
+            "description": "Description of the name in English",
+            "reasoning": "Reasoning for selection and brand fit analysis"
         }
     ]
 }"""

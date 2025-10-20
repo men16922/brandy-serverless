@@ -1,22 +1,22 @@
 {
   "seoul": {
-    "rate": "매우 높음",
-    "speed": "빠름",
-    "openness": "높음"
+    "rate": "Very high",
+    "speed": "Fast",
+    "openness": "High"
   },
   "busan": {
-    "rate": "높음",
-    "speed": "보통",
-    "openness": "중간"
+    "rate": "High",
+    "speed": "Moderate",
+    "openness": "Medium"
   },
   "gyeonggi": {
-    "rate": "높음",
-    "speed": "보통",
-    "openness": "높음"
+    "rate": "High",
+    "speed": "Moderate",
+    "openness": "High"
   },
   "jeju": {
-    "rate": "중간",
-    "speed": "느림",
-    "openness": "중간"
+    "rate": "Medium",
+    "speed": "Slow",
+    "openness": "Medium"
   }
 }

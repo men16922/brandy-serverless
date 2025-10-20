@@ -1,119 +1,219 @@
 {
   "modern": {
-    "name": "모던 스타일",
-    "description": "깔끔하고 세련된 현대적 디자인으로 심플함과 기능성을 강조합니다.",
-    "color_scheme": ["화이트", "그레이", "블랙", "실버"],
-    "materials": ["스테인리스 스틸", "유리", "콘크리트", "인조대리석"],
-    "furniture": ["미니멀 테이블", "모던 의자", "LED 조명", "심플 수납장"],
-    "characteristics": ["깔끔한 라인", "기능적 디자인", "개방감", "미니멀리즘"],
-    "estimated_cost": "중간",
-    "maintenance": "쉬움",
-    "durability": "높음",
-    "customer_appeal": "높음",
+    "name": "Modern Style",
+    "description": "Clean and sophisticated contemporary design emphasizing simplicity and functionality.",
+    "color_scheme": [
+      "White",
+      "Gray",
+      "Black",
+      "Silver"
+    ],
+    "materials": [
+      "Stainless Steel",
+      "Glass",
+      "Concrete",
+      "Artificial Marble"
+    ],
+    "furniture": [
+      "Minimal Table",
+      "Modern Chair",
+      "LED Lighting",
+      "Simple Storage"
+    ],
+    "characteristics": [
+      "Clean Lines",
+      "Functional Design",
+      "Openness",
+      "Minimalism"
+    ],
+    "estimated_cost": "Medium",
+    "maintenance": "Easy",
+    "durability": "High",
+    "customer_appeal": "High",
     "pros": [
-      "세련되고 전문적인 이미지",
-      "청결하고 위생적인 느낌",
-      "관리가 용이함",
-      "시대를 타지 않는 디자인"
+      "Sophisticated and professional image",
+      "Clean and hygienic feel",
+      "Easy to maintain",
+      "Timeless design"
     ],
     "cons": [
-      "차가운 느낌을 줄 수 있음",
-      "개성이 부족할 수 있음",
-      "초기 비용이 다소 높음"
+      "Can feel cold",
+      "May lack personality",
+      "Somewhat high initial cost"
     ]
   },
   "cozy": {
-    "name": "코지 스타일",
-    "description": "따뜻하고 아늑한 분위기로 고객에게 편안함과 친근감을 제공합니다.",
-    "color_scheme": ["따뜻한 브라운", "크림", "베이지", "소프트 오렌지"],
-    "materials": ["원목", "패브릭", "자연석", "라탄"],
-    "furniture": ["편안한 소파", "원목 테이블", "따뜻한 조명", "쿠션"],
-    "characteristics": ["따뜻한 분위기", "자연 소재", "편안함", "친근감"],
-    "estimated_cost": "낮음",
-    "maintenance": "보통",
-    "durability": "보통",
-    "customer_appeal": "높음",
+    "name": "Cozy Style",
+    "description": "Warm and cozy atmosphere providing comfort and friendliness to customers.",
+    "color_scheme": [
+      "Warm Brown",
+      "Cream",
+      "Beige",
+      "Soft Orange"
+    ],
+    "materials": [
+      "Natural Wood",
+      "Fabric",
+      "Natural Stone",
+      "Rattan"
+    ],
+    "furniture": [
+      "Comfortable Sofa",
+      "Wooden Table",
+      "Warm Lighting",
+      "Cushions"
+    ],
+    "characteristics": [
+      "Warm Atmosphere",
+      "Natural Materials",
+      "Comfort",
+      "Friendliness"
+    ],
+    "estimated_cost": "Low",
+    "maintenance": "Moderate",
+    "durability": "Moderate",
+    "customer_appeal": "High",
     "pros": [
-      "친근하고 편안한 분위기",
-      "고객 체류시간 증가",
-      "상대적으로 저렴한 비용",
-      "다양한 연령층에게 어필"
+      "Friendly and comfortable atmosphere",
+      "Increased customer dwell time",
+      "Relatively affordable cost",
+      "Appeals to various age groups"
     ],
     "cons": [
-      "관리가 다소 까다로움",
-      "트렌디함이 부족할 수 있음",
-      "공간이 답답해 보일 수 있음"
+      "Somewhat difficult to maintain",
+      "May lack trendiness",
+      "Space may feel cramped"
     ]
   },
   "industrial": {
-    "name": "인더스트리얼 스타일",
-    "description": "산업적이고 독특한 매력으로 개성 있는 공간을 연출합니다.",
-    "color_scheme": ["다크 그레이", "러스트", "블랙", "브론즈"],
-    "materials": ["노출 벽돌", "철재", "재활용 목재", "콘크리트"],
-    "furniture": ["인더스트리얼 테이블", "메탈 의자", "펜던트 조명", "파이프 선반"],
-    "characteristics": ["거친 질감", "노출 구조", "빈티지 감성", "개성적 디자인"],
-    "estimated_cost": "높음",
-    "maintenance": "어려움",
-    "durability": "매우 높음",
-    "customer_appeal": "보통",
+    "name": "Industrial Style",
+    "description": "Industrial and unique charm creating a distinctive space.",
+    "color_scheme": [
+      "Dark Gray",
+      "Rust",
+      "Black",
+      "Bronze"
+    ],
+    "materials": [
+      "Exposed Brick",
+      "Steel",
+      "Reclaimed Wood",
+      "Concrete"
+    ],
+    "furniture": [
+      "Industrial Table",
+      "Metal Chair",
+      "Pendant Lighting",
+      "Pipe Shelving"
+    ],
+    "characteristics": [
+      "Rough Texture",
+      "Exposed Structure",
+      "Vintage Sensibility",
+      "Distinctive Design"
+    ],
+    "estimated_cost": "High",
+    "maintenance": "Difficult",
+    "durability": "Very High",
+    "customer_appeal": "Moderate",
     "pros": [
-      "독특하고 개성적인 분위기",
-      "매우 내구성이 높음",
-      "인스타그래머블한 공간",
-      "브랜드 차별화 효과"
+      "Unique and distinctive atmosphere",
+      "Very high durability",
+      "Instagram-worthy space",
+      "Brand differentiation effect"
     ],
     "cons": [
-      "높은 초기 투자 비용",
-      "일부 고객에게 부담스러울 수 있음",
-      "유지보수가 복잡함",
-      "계절감이 부족함"
+      "High initial investment cost",
+      "May be overwhelming for some customers",
+      "Complex maintenance",
+      "Lacks seasonal feel"
     ]
   },
   "scandinavian": {
-    "name": "스칸디나비안 스타일",
-    "description": "북유럽의 심플하고 자연친화적인 디자인으로 편안하면서도 세련된 공간을 만듭니다.",
-    "color_scheme": ["화이트", "라이트 그레이", "내추럴 우드", "파스텔 블루"],
-    "materials": ["자작나무", "린넨", "울", "세라믹"],
-    "furniture": ["심플 우드 테이블", "패브릭 의자", "자연광 활용", "식물 장식"],
-    "characteristics": ["자연 친화적", "기능적 아름다움", "밝은 분위기", "심플함"],
-    "estimated_cost": "중간",
-    "maintenance": "쉬움",
-    "durability": "높음",
-    "customer_appeal": "매우 높음",
+    "name": "Scandinavian Style",
+    "description": "Nordic simple and nature-friendly design creating a comfortable yet sophisticated space.",
+    "color_scheme": [
+      "White",
+      "Light Gray",
+      "Natural Wood",
+      "Pastel Blue"
+    ],
+    "materials": [
+      "Birch",
+      "Linen",
+      "Wool",
+      "Ceramic"
+    ],
+    "furniture": [
+      "Simple Wood Table",
+      "Fabric Chair",
+      "Natural Light Utilization",
+      "Plant Decoration"
+    ],
+    "characteristics": [
+      "Nature-Friendly",
+      "Functional Beauty",
+      "Bright Atmosphere",
+      "Simplicity"
+    ],
+    "estimated_cost": "Medium",
+    "maintenance": "Easy",
+    "durability": "High",
+    "customer_appeal": "Very High",
     "pros": [
-      "밝고 쾌적한 분위기",
-      "자연친화적 이미지",
-      "MZ세대에게 인기",
-      "사진 찍기 좋은 공간"
+      "Bright and pleasant atmosphere",
+      "Nature-friendly image",
+      "Popular with MZ generation",
+      "Photo-friendly space"
     ],
     "cons": [
-      "개성이 부족할 수 있음",
-      "유행에 민감함",
-      "일부 소재의 내구성 우려"
+      "May lack personality",
+      "Trend-sensitive",
+      "Durability concerns for some materials"
     ]
   },
   "vintage": {
-    "name": "빈티지 스타일",
-    "description": "과거의 향수를 불러일으키는 클래식한 매력으로 특별한 경험을 제공합니다.",
-    "color_scheme": ["앤틱 브라운", "딥 그린", "골드", "버건디"],
-    "materials": ["앤틱 우드", "가죽", "브라스", "벨벳"],
-    "furniture": ["앤틱 테이블", "클래식 의자", "빈티지 조명", "장식장"],
-    "characteristics": ["클래식한 우아함", "역사적 감성", "고급스러움", "스토리텔링"],
-    "estimated_cost": "높음",
-    "maintenance": "어려움",
-    "durability": "높음",
-    "customer_appeal": "보통",
+    "name": "Vintage Style",
+    "description": "Classic charm evoking nostalgia providing a special experience.",
+    "color_scheme": [
+      "Antique Brown",
+      "Deep Green",
+      "Gold",
+      "Burgundy"
+    ],
+    "materials": [
+      "Antique Wood",
+      "Leather",
+      "Brass",
+      "Velvet"
+    ],
+    "furniture": [
+      "Antique Table",
+      "Classic Chair",
+      "Vintage Lighting",
+      "Display Cabinet"
+    ],
+    "characteristics": [
+      "Classic Elegance",
+      "Historical Sensibility",
+      "Luxury",
+      "Storytelling"
+    ],
+    "estimated_cost": "High",
+    "maintenance": "Difficult",
+    "durability": "High",
+    "customer_appeal": "Moderate",
     "pros": [
-      "고급스럽고 우아한 분위기",
-      "독특한 스토리텔링",
-      "시간이 지날수록 가치 상승",
-      "차별화된 브랜드 이미지"
+      "Luxurious and elegant atmosphere",
+      "Unique storytelling",
+      "Value increases over time",
+      "Differentiated brand image"
     ],
     "cons": [
-      "높은 초기 비용",
-      "관리가 까다로움",
-      "젊은 층에게 어필 부족",
-      "공간 활용도가 낮을 수 있음"
+      "High initial cost",
+      "Difficult to maintain",
+      "Less appeal to younger demographics",
+      "Lower space utilization"
     ]
   }
 }

@@ -1,70 +1,70 @@
 {
   "restaurant": {
-    "total": "45조원",
-    "growth_rate": "연 3.2%",
-    "maturity": "성숙기",
+    "total": "45 trillion KRW",
+    "growth_rate": "3.2% annually",
+    "maturity": "Mature",
     "segments": {
-      "fine_dining": "8조원",
-      "casual_dining": "15조원",
-      "fast_food": "12조원",
-      "cafe": "10조원"
+      "fine_dining": "8 trillion KRW",
+      "casual_dining": "15 trillion KRW",
+      "fast_food": "12 trillion KRW",
+      "cafe": "10 trillion KRW"
     },
-    "description": "외식업계 전체 시장 규모"
+    "description": "Total restaurant industry market size"
   },
   "retail": {
-    "total": "180조원",
-    "growth_rate": "연 2.8%",
-    "maturity": "성숙기",
+    "total": "180 trillion KRW",
+    "growth_rate": "2.8% annually",
+    "maturity": "Mature",
     "segments": {
-      "fashion": "35조원",
-      "electronics": "25조원",
-      "grocery": "80조원",
-      "specialty": "40조원"
+      "fashion": "35 trillion KRW",
+      "electronics": "25 trillion KRW",
+      "grocery": "80 trillion KRW",
+      "specialty": "40 trillion KRW"
     },
-    "description": "소매업계 전체 시장 규모"
+    "description": "Total retail industry market size"
   },
   "service": {
-    "total": "95조원",
-    "growth_rate": "연 5.1%",
-    "maturity": "성장기",
+    "total": "95 trillion KRW",
+    "growth_rate": "5.1% annually",
+    "maturity": "Growing",
     "segments": {
-      "professional": "30조원",
-      "personal": "25조원",
-      "business": "40조원"
+      "professional": "30 trillion KRW",
+      "personal": "25 trillion KRW",
+      "business": "40 trillion KRW"
     },
-    "description": "서비스업계 전체 시장 규모"
+    "description": "Total service industry market size"
   },
   "healthcare": {
-    "total": "85조원",
-    "growth_rate": "연 7.2%",
-    "maturity": "성장기",
+    "total": "85 trillion KRW",
+    "growth_rate": "7.2% annually",
+    "maturity": "Growing",
     "segments": {
-      "medical": "50조원",
-      "wellness": "20조원",
-      "beauty": "15조원"
+      "medical": "50 trillion KRW",
+      "wellness": "20 trillion KRW",
+      "beauty": "15 trillion KRW"
     },
-    "description": "헬스케어업계 전체 시장 규모"
+    "description": "Total healthcare industry market size"
   },
   "education": {
-    "total": "25조원",
-    "growth_rate": "연 4.5%",
-    "maturity": "성장기",
+    "total": "25 trillion KRW",
+    "growth_rate": "4.5% annually",
+    "maturity": "Growing",
     "segments": {
-      "private": "15조원",
-      "vocational": "6조원",
-      "online": "4조원"
+      "private": "15 trillion KRW",
+      "vocational": "6 trillion KRW",
+      "online": "4 trillion KRW"
     },
-    "description": "교육업계 전체 시장 규모"
+    "description": "Total education industry market size"
   },
   "technology": {
-    "total": "120조원",
-    "growth_rate": "연 12.8%",
-    "maturity": "급성장기",
+    "total": "120 trillion KRW",
+    "growth_rate": "12.8% annually",
+    "maturity": "Rapid Growth",
     "segments": {
-      "software": "45조원",
-      "hardware": "35조원",
-      "services": "40조원"
+      "software": "45 trillion KRW",
+      "hardware": "35 trillion KRW",
+      "services": "40 trillion KRW"
     },
-    "description": "기술업계 전체 시장 규모"
+    "description": "Total technology industry market size"
   }
 }

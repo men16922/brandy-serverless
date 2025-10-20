@@ -5,19 +5,19 @@
     "consumer_power": "HIGH",
     "rent_cost": "VERY_HIGH",
     "characteristics": [
-      "국내 최대 소비시장으로 높은 구매력",
-      "치열한 경쟁과 높은 임대료",
-      "트렌드 선도 지역으로 혁신 필요"
+      "The largest consumer market in Korea with high purchasing power",
+      "Intense competition and high rental costs",
+      "A trend-leading region that demands innovation"
     ],
     "advantages": [
-      "대규모 고객층과 높은 접근성",
-      "다양한 비즈니스 기회",
-      "우수한 인프라와 교통망"
+      "Large customer base with high accessibility",
+      "Diverse business opportunities",
+      "Excellent infrastructure and transportation network"
     ],
     "challenges": [
-      "높은 운영비용과 임대료",
-      "치열한 경쟁 환경",
-      "빠른 트렌드 변화 대응 필요"
+      "High operating costs and rent",
+      "Highly competitive environment",
+      "Need to quickly adapt to changing trends"
     ],
     "score_modifier": 10
   },
@@ -27,19 +27,19 @@
     "consumer_power": "MEDIUM_HIGH",
     "rent_cost": "MEDIUM",
     "characteristics": [
-      "제2의 도시로 안정적인 시장 규모",
-      "항만도시 특성과 관광업 발달",
-      "서울 대비 상대적으로 낮은 진입비용"
+      "The second-largest city with a stable market size",
+      "Port city characteristics with a developed tourism industry",
+      "Relatively lower entry cost compared to Seoul"
     ],
     "advantages": [
-      "적정한 임대료와 운영비용",
-      "관광객 유입으로 인한 수요",
-      "지역 특색을 활용한 차별화 가능"
+      "Reasonable rent and operating costs",
+      "Tourist-driven demand",
+      "Potential for regional differentiation"
     ],
     "challenges": [
-      "서울 대비 상대적으로 작은 시장",
-      "지역 경제 의존도",
-      "젊은 인구 유출"
+      "Smaller market compared to Seoul",
+      "Dependence on the local economy",
+      "Outflow of young population"
     ],
     "score_modifier": 5
   },
@@ -49,19 +49,19 @@
     "consumer_power": "MEDIUM",
     "rent_cost": "LOW_MEDIUM",
     "characteristics": [
-      "섬유산업 중심의 전통적 상업도시",
-      "보수적 소비성향과 안정적 시장",
-      "의료산업과 교육기관 발달"
+      "A traditional commercial city centered on the textile industry",
+      "Conservative consumption patterns and a stable market",
+      "Growth in medical and educational sectors"
     ],
     "advantages": [
-      "안정적인 지역 경제",
-      "합리적인 운영비용",
-      "충성도 높은 고객층"
+      "Stable regional economy",
+      "Reasonable operational costs",
+      "High customer loyalty"
     ],
     "challenges": [
-      "보수적 소비 패턴",
-      "신규 트렌드 수용 속도 느림",
-      "젊은 층 인구 감소"
+      "Conservative spending habits",
+      "Slow adoption of new trends",
+      "Decreasing young population"
     ],
     "score_modifier": 0
   },
@@ -71,19 +71,19 @@
     "consumer_power": "MEDIUM_HIGH",
     "rent_cost": "MEDIUM_HIGH",
     "characteristics": [
-      "인천공항과 항만 중심의 물류도시",
-      "서울 근접성으로 베드타운 역할",
-      "신도시 개발로 인한 인구 증가"
+      "A logistics hub city centered on Incheon Airport and Port",
+      "Functions as a commuter city due to its proximity to Seoul",
+      "Population growth driven by new city developments"
     ],
     "advantages": [
-      "지속적인 인구 유입",
-      "물류와 교통의 요충지",
-      "신규 상권 개발 기회"
+      "Continuous population inflow",
+      "Hub for logistics and transportation",
+      "Opportunities from new commercial district developments"
     ],
     "challenges": [
-      "서울 의존적 소비 패턴",
-      "상권 분산으로 인한 집객 어려움",
-      "교통비 부담"
+      "Consumption pattern dependent on Seoul",
+      "Dispersed commercial districts make customer attraction difficult",
+      "Transportation cost burden"
     ],
     "score_modifier": 3
   },
@@ -93,19 +93,19 @@
     "consumer_power": "MEDIUM",
     "rent_cost": "LOW_MEDIUM",
     "characteristics": [
-      "호남권 중심도시로 문화예술 발달",
-      "대학가 중심의 젊은 소비층",
-      "전통시장과 현대적 상권 공존"
+      "Cultural and artistic hub of the Honam region",
+      "University-centered young consumer base",
+      "Coexistence of traditional markets and modern shopping areas"
     ],
     "advantages": [
-      "문화예술 콘텐츠 활용 가능",
-      "대학생 고객층 확보",
-      "지역 특산품과 연계 기회"
+      "Utilization of cultural and artistic content",
+      "Strong university student customer base",
+      "Linkage with regional specialty products"
     ],
     "challenges": [
-      "상대적으로 작은 시장 규모",
-      "지역 경제 성장 한계",
-      "수도권 대비 구매력 차이"
+      "Relatively small market size",
+      "Limited regional economic growth",
+      "Lower purchasing power compared to the Seoul metropolitan area"
     ],
     "score_modifier": -2
   },
@@ -115,19 +115,19 @@
     "consumer_power": "MEDIUM_HIGH",
     "rent_cost": "MEDIUM",
     "characteristics": [
-      "과학기술 중심도시로 고학력층 집중",
-      "연구기관과 대학 밀집 지역",
-      "혁신적 소비성향과 기술 수용도 높음"
+      "A science and technology city with a high concentration of educated residents",
+      "Dense network of research institutes and universities",
+      "High openness to innovation and technology"
     ],
     "advantages": [
-      "고학력 고소득층 고객",
-      "기술 혁신에 개방적",
-      "정부기관 밀집으로 안정적 수요"
+      "Highly educated, high-income customer base",
+      "Strong acceptance of technological innovation",
+      "Stable demand from government and research institutions"
     ],
     "challenges": [
-      "특화된 고객층으로 제한적 시장",
-      "보수적 관료 문화",
-      "주말 인구 감소"
+      "Limited market due to specialized customer base",
+      "Conservative and bureaucratic culture",
+      "Decreased weekend population"
     ],
     "score_modifier": 2
   },
@@ -137,19 +137,19 @@
     "consumer_power": "HIGH",
     "rent_cost": "MEDIUM",
     "characteristics": [
-      "중화학공업 중심의 산업도시",
-      "높은 소득수준과 구매력",
-      "남성 중심의 소비 패턴"
+      "An industrial city centered on the heavy chemical industry",
+      "High income levels and purchasing power",
+      "Male-dominated consumption patterns"
     ],
     "advantages": [
-      "높은 평균 소득과 구매력",
-      "상대적으로 낮은 경쟁",
-      "산업단지 근로자 대상 시장"
+      "High average income and spending power",
+      "Relatively low competition",
+      "Industrial worker-based market"
     ],
     "challenges": [
-      "단조로운 고객층 구성",
-      "경기 변동에 민감",
-      "문화 콘텐츠 부족"
+      "Homogeneous customer composition",
+      "Sensitive to economic fluctuations",
+      "Lack of cultural content"
     ],
     "score_modifier": 1
   },
@@ -159,19 +159,19 @@
     "consumer_power": "HIGH",
     "rent_cost": "HIGH",
     "characteristics": [
-      "수도권 최대 인구와 다양한 신도시",
-      "서울 접근성과 독립적 상권 형성",
-      "젊은 가족층 중심의 소비 시장"
+      "The most populous metropolitan area with diverse new towns",
+      "Strong accessibility to Seoul with independent commercial zones",
+      "Consumption market centered on young families"
     ],
     "advantages": [
-      "대규모 인구와 지속적 유입",
-      "다양한 연령층과 소득수준",
-      "신도시 개발로 인한 성장 잠재력"
+      "Large and continuously growing population",
+      "Diverse demographics and income levels",
+      "High growth potential from ongoing new town development"
     ],
     "challenges": [
-      "지역별 편차가 큰 시장",
-      "서울 상권과의 경쟁",
-      "교통 접근성 차이"
+      "High market variability between regions",
+      "Competition with Seoul’s commercial districts",
+      "Differences in transportation accessibility"
     ],
     "score_modifier": 8
   },
@@ -181,19 +181,19 @@
     "consumer_power": "LOW_MEDIUM",
     "rent_cost": "LOW",
     "characteristics": [
-      "관광과 레저 중심의 지역 경제",
-      "계절성이 강한 소비 패턴",
-      "자연환경과 연계한 비즈니스 기회"
+      "Tourism and leisure-based regional economy",
+      "Strong seasonality in consumption patterns",
+      "Business opportunities linked to natural environment"
     ],
     "advantages": [
-      "낮은 진입비용과 임대료",
-      "관광객 대상 시장",
-      "자연환경 활용 가능"
+      "Low entry and rental costs",
+      "Tourist-oriented market",
+      "Utilization of natural resources possible"
     ],
     "challenges": [
-      "계절적 수요 변동",
-      "상주인구 부족",
-      "접근성과 물류 한계"
+      "Seasonal demand fluctuations",
+      "Small resident population",
+      "Accessibility and logistics limitations"
     ],
     "score_modifier": -5
   },
@@ -203,19 +203,19 @@
     "consumer_power": "MEDIUM",
     "rent_cost": "LOW",
     "characteristics": [
-      "농업과 제조업 중심의 안정적 경제",
-      "보수적이고 실용적인 소비성향",
-      "수도권 접근성 양호"
+      "Stable economy centered on agriculture and manufacturing",
+      "Conservative and practical spending habits",
+      "Good accessibility to the metropolitan area"
     ],
     "advantages": [
-      "안정적인 지역 경제",
-      "낮은 운영비용",
-      "수도권 물류 접근성"
+      "Stable regional economy",
+      "Low operational costs",
+      "Logistical access to the metropolitan area"
     ],
     "challenges": [
-      "보수적 소비 패턴",
-      "인구 고령화",
-      "제한적 시장 규모"
+      "Conservative consumption culture",
+      "Aging population",
+      "Limited market size"
     ],
     "score_modifier": -3
   },
@@ -225,19 +225,19 @@
     "consumer_power": "MEDIUM",
     "rent_cost": "LOW_MEDIUM",
     "characteristics": [
-      "천안·아산 등 산업도시 발달",
-      "수도권 근접성과 교통 요충지",
-      "제조업과 물류업 중심"
+      "Industrial cities such as Cheonan and Asan driving development",
+      "Close proximity to the metropolitan area and strong transport links",
+      "Manufacturing and logistics-focused economy"
     ],
     "advantages": [
-      "산업단지 근로자 시장",
-      "교통 접근성 우수",
-      "합리적 운영비용"
+      "Industrial worker customer base",
+      "Excellent transportation accessibility",
+      "Reasonable operating costs"
     ],
     "challenges": [
-      "지역별 발전 격차",
-      "수도권 의존적 경제구조",
-      "농촌 지역 인구 감소"
+      "Development gaps between regions",
+      "Economic dependence on the metropolitan area",
+      "Declining rural population"
     ],
     "score_modifier": -1
   },
@@ -247,19 +247,19 @@
     "consumer_power": "LOW_MEDIUM",
     "rent_cost": "LOW",
     "characteristics": [
-      "농업 중심의 전통적 지역 경제",
-      "전주 한옥마을 등 관광자원 보유",
-      "보수적이고 전통적인 소비문화"
+      "Agriculture-based traditional regional economy",
+      "Possesses tourism resources such as Jeonju Hanok Village",
+      "Conservative and traditional consumption culture"
     ],
     "advantages": [
-      "전통문화와 관광 연계",
-      "낮은 진입비용",
-      "지역 특산품 활용"
+      "Integration with traditional culture and tourism",
+      "Low entry costs",
+      "Use of regional specialty products"
     ],
     "challenges": [
-      "인구 감소와 고령화",
-      "경제 성장 둔화",
-      "젊은 층 유출"
+      "Population decline and aging",
+      "Slowing economic growth",
+      "Outflow of younger population"
     ],
     "score_modifier": -4
   },
@@ -269,19 +269,19 @@
     "consumer_power": "LOW_MEDIUM",
     "rent_cost": "LOW",
     "characteristics": [
-      "농수산업과 관광업 중심",
-      "순천만, 여수 등 관광지 보유",
-      "느린 생활과 웰빙 트렌드"
+      "Agriculture, fisheries, and tourism-based economy",
+      "Tourist attractions like Suncheon Bay and Yeosu",
+      "Slow-paced lifestyle aligned with wellbeing trends"
     ],
     "advantages": [
-      "자연환경과 관광자원",
-      "매우 낮은 운영비용",
-      "웰빙 라이프스타일 수요"
+      "Abundant natural and tourism resources",
+      "Very low operating costs",
+      "Demand for wellbeing lifestyle products"
     ],
     "challenges": [
-      "급속한 인구 감소",
-      "제한적 소비시장",
-      "접근성과 물류 한계"
+      "Rapid population decline",
+      "Limited consumption market",
+      "Accessibility and logistics constraints"
     ],
     "score_modifier": -6
   },
@@ -291,19 +291,19 @@
     "consumer_power": "MEDIUM",
     "rent_cost": "LOW",
     "characteristics": [
-      "포항제철 등 중공업과 농업 공존",
-      "경주 등 역사문화 관광지",
-      "보수적이고 안정적인 시장"
+      "Coexistence of heavy industry (POSCO) and agriculture",
+      "Cultural tourism hub including Gyeongju",
+      "Conservative and stable market"
     ],
     "advantages": [
-      "산업도시 고소득층",
-      "역사문화 관광 연계",
-      "안정적 지역 경제"
+      "High-income industrial city areas",
+      "Cultural and historical tourism integration",
+      "Stable regional economy"
     ],
     "challenges": [
-      "지역별 편차 큰 시장",
-      "고령화 진행",
-      "신규 트렌드 수용 느림"
+      "Large regional disparities",
+      "Progressive aging population",
+      "Slow adoption of new trends"
     ],
     "score_modifier": -2
   },
@@ -313,19 +313,19 @@
     "consumer_power": "MEDIUM_HIGH",
     "rent_cost": "MEDIUM",
     "characteristics": [
-      "창원·김해 등 제조업 중심지",
-      "부산 인접으로 상권 연계성",
-      "젊은 근로자층 집중"
+      "Manufacturing centers such as Changwon and Gimhae",
+      "Linked commercial influence from nearby Busan",
+      "Young working population concentration"
     ],
     "advantages": [
-      "제조업 근로자 시장",
-      "부산권 연계 효과",
-      "상대적 높은 소득수준"
+      "Strong manufacturing workforce market",
+      "Synergistic effect with Busan region",
+      "Relatively high income levels"
     ],
     "challenges": [
-      "부산 상권 의존성",
-      "제조업 경기 민감",
-      "지역 내 경쟁 심화"
+      "Dependence on Busan’s commercial area",
+      "Vulnerability to manufacturing industry cycles",
+      "Increasing internal regional competition"
     ],
     "score_modifier": 1
   },
@@ -335,19 +335,19 @@
     "consumer_power": "MEDIUM_HIGH",
     "rent_cost": "HIGH",
     "characteristics": [
-      "관광업 중심의 특수 경제구조",
-      "높은 관광객 유입과 계절성",
-      "독특한 지역 문화와 특산품"
+      "Tourism-driven economy with a unique industrial structure",
+      "High tourist influx with strong seasonality",
+      "Distinct regional culture and specialty goods"
     ],
     "advantages": [
-      "연간 1,500만 관광객 시장",
-      "프리미엄 상품 수용도 높음",
-      "독특한 지역 특색 활용"
+      "15 million annual tourists",
+      "High acceptance of premium products",
+      "Strong potential through unique regional branding"
     ],
     "challenges": [
-      "극심한 계절적 변동",
-      "높은 임대료와 인건비",
-      "물류비용 부담"
+      "Extreme seasonal fluctuations",
+      "High rent and labor costs",
+      "Burden of logistics expenses"
     ],
     "score_modifier": -1
   }

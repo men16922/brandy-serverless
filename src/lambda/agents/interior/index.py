@@ -1,5 +1,5 @@
 """
-Interior Agent - 인테리어 스타일 추천 및 디자인 가이드 제공
+Interior Agent – Recommend interior styles & provide design guides
 Bedrock Integration: Uses Claude 4 Sonnet for reasoning-based interior recommendations
 """
 
@@ -31,7 +31,7 @@ class InteriorRecommendation:
     
     def validate(self) -> bool:
         return bool(self.style and self.description and self.color_scheme and 
-                   self.materials and self.furniture and self.estimated_cost)
+                    self.materials and self.furniture and self.estimated_cost)
 
 class InteriorRecommendations:
     def __init__(self, recommendations: List[InteriorRecommendation] = None):
@@ -50,7 +50,7 @@ try:
 except ImportError as e:
     print(f"Failed to import shared modules: {e}")
     HAS_SHARED_MODULES = False
-    # For testing purposes, create mock implementations
+    # Mock implementations for testing
     from datetime import datetime
     from typing import Dict, Any, List
     from enum import Enum
@@ -76,7 +76,7 @@ except ImportError as e:
         
         def validate(self) -> bool:
             return bool(self.style and self.description and self.color_scheme and 
-                       self.materials and self.furniture and self.estimated_cost)
+                        self.materials and self.furniture and self.estimated_cost)
     
     class InteriorRecommendations:
         def __init__(self, recommendations: List[InteriorRecommendation] = None):
@@ -122,8 +122,6 @@ except ImportError as e:
         def get_session_data(self, session_id: str):
             return None
         
-        # Removed mock update_session_data - using BaseAgent's implementation
-        
         def create_lambda_response(self, status_code: int, body: Any, headers=None):
             return {
                 'statusCode': status_code,
@@ -144,7 +142,7 @@ except ImportError as e:
 
 
 class InteriorAgent(BaseAgent):
-    """Interior Agent - 인테리어 스타일 추천"""
+    """Interior Agent – interior style recommendations"""
     
     def __init__(self):
         super().__init__(AgentType.INTERIOR)
@@ -183,279 +181,267 @@ class InteriorAgent(BaseAgent):
             if not HAS_SHARED_MODULES:
                 self.logger.warning("Shared modules not available, using fallback")
         
-        # 데이터 로더 초기화 (shared 모듈이 있는 경우만)
+        # Data loader initialization (only if shared modules are available)
         if HAS_SHARED_MODULES:
             self.data_loader = get_data_loader()
-            # 데이터 초기화 (필요시)
             self._ensure_data_initialized()
-            # 인테리어 관련 데이터 로드
             self._load_all_data()
         else:
-            # 폴백 데이터 사용
             self.data_loader = None
             self._load_fallback_data()
     
     def _ensure_data_initialized(self) -> None:
-        """데이터가 초기화되었는지 확인하고 필요시 초기화"""
+        """Ensure data is initialized, initialize if needed"""
         try:
-            # 데이터 디렉토리 경로 설정
             current_dir = os.path.dirname(os.path.abspath(__file__))
             project_root = os.path.join(current_dir, '..', '..', '..')
             data_dir = os.path.join(project_root, 'data')
-            
-            # 데이터 초기화
             self.data_loader.initialize_all_data(data_dir, force_reload=False)
-            
         except Exception as e:
             self.logger.warning(f"Failed to initialize data from files: {str(e)}")
-            # 폴백: 하드코딩된 기본 데이터 사용
             self._load_fallback_data()
     
     def _load_all_data(self) -> None:
-        """DynamoDB에서 모든 인테리어 데이터 로드"""
+        """Load all interior data from DynamoDB"""
         try:
             if not self.data_loader:
                 self._load_fallback_data()
                 return
                 
             all_data = self.data_loader.get_all_interior_data()
-            
             self.interior_styles = all_data.get('interior_styles', {})
             self.industry_characteristics = all_data.get('industry_characteristics', {})
             self.regional_trends = all_data.get('regional_trends', {})
             self.size_considerations = all_data.get('size_considerations', {})
             
-            # 데이터가 비어있으면 폴백 데이터 사용
             if not self.interior_styles:
                 self.logger.warning("No data found in DynamoDB, using fallback data")
                 self._load_fallback_data()
-                
         except Exception as e:
             self.logger.error(f"Failed to load data from DynamoDB: {str(e)}")
             self._load_fallback_data()
     
     def _load_fallback_data(self) -> None:
-        """폴백용 기본 데이터 로드"""
+        """Load baseline fallback data"""
         self.interior_styles = self._get_fallback_interior_styles()
         self.industry_characteristics = self._get_fallback_industry_characteristics()
         self.regional_trends = self._get_fallback_regional_trends()
         self.size_considerations = self._get_fallback_size_considerations()
     
     def _get_fallback_interior_styles(self) -> Dict[str, Dict[str, Any]]:
-        """인테리어 스타일 데이터 로드"""
+        """Interior style dataset (EN)"""
         return {
             "modern": {
-                "name": "모던 스타일",
-                "description": "깔끔하고 세련된 현대적 디자인으로 심플함과 기능성을 강조합니다.",
-                "color_scheme": ["화이트", "그레이", "블랙", "실버"],
-                "materials": ["스테인리스 스틸", "유리", "콘크리트", "인조대리석"],
-                "furniture": ["미니멀 테이블", "모던 의자", "LED 조명", "심플 수납장"],
-                "estimated_cost": "중간",
+                "name": "Modern Style",
+                "description": "Clean and refined contemporary design emphasizing simplicity and function.",
+                "color_scheme": ["White", "Gray", "Black", "Silver"],
+                "materials": ["Stainless steel", "Glass", "Concrete", "Engineered stone"],
+                "furniture": ["Minimal table", "Modern chairs", "LED lighting", "Simple storage"],
+                "estimated_cost": "Medium",
                 "pros": [
-                    "세련되고 전문적인 이미지",
-                    "청결하고 위생적인 느낌",
-                    "관리가 용이함",
-                    "시대를 타지 않는 디자인"
+                    "Sleek, professional image",
+                    "Clean and hygienic impression",
+                    "Easy to maintain",
+                    "Timeless design"
                 ],
                 "cons": [
-                    "차가운 느낌을 줄 수 있음",
-                    "개성이 부족할 수 있음",
-                    "초기 비용이 다소 높음"
+                    "Can feel cold",
+                    "May lack personality",
+                    "Slightly higher upfront cost"
                 ]
             },
             "cozy": {
-                "name": "코지 스타일",
-                "description": "따뜻하고 아늑한 분위기로 고객에게 편안함과 친근감을 제공합니다.",
-                "color_scheme": ["따뜻한 브라운", "크림", "베이지", "소프트 오렌지"],
-                "materials": ["원목", "패브릭", "자연석", "라탄"],
-                "furniture": ["편안한 소파", "원목 테이블", "따뜻한 조명", "쿠션"],
-                "estimated_cost": "낮음",
+                "name": "Cozy Style",
+                "description": "Warm and welcoming atmosphere that provides comfort and friendliness.",
+                "color_scheme": ["Warm brown", "Cream", "Beige", "Soft orange"],
+                "materials": ["Solid wood", "Fabric", "Natural stone", "Rattan"],
+                "furniture": ["Comfortable sofa", "Wood table", "Warm lighting", "Cushions"],
+                "estimated_cost": "Low",
                 "pros": [
-                    "친근하고 편안한 분위기",
-                    "고객 체류시간 증가",
-                    "상대적으로 저렴한 비용",
-                    "다양한 연령층에게 어필"
+                    "Friendly, relaxing mood",
+                    "Encourages longer stays",
+                    "Relatively affordable",
+                    "Appeals to a wide age range"
                 ],
                 "cons": [
-                    "관리가 다소 까다로움",
-                    "트렌디함이 부족할 수 있음",
-                    "공간이 답답해 보일 수 있음"
+                    "Slightly harder to maintain",
+                    "May feel less trendy",
+                    "Space can feel cramped"
                 ]
             },
             "industrial": {
-                "name": "인더스트리얼 스타일",
-                "description": "산업적이고 독특한 매력으로 개성 있는 공간을 연출합니다.",
-                "color_scheme": ["다크 그레이", "러스트", "블랙", "브론즈"],
-                "materials": ["노출 벽돌", "철재", "재활용 목재", "콘크리트"],
-                "furniture": ["인더스트리얼 테이블", "메탈 의자", "펜던트 조명", "파이프 선반"],
-                "estimated_cost": "높음",
+                "name": "Industrial Style",
+                "description": "Urban, distinctive charm that creates a highly individual space.",
+                "color_scheme": ["Dark gray", "Rust", "Black", "Bronze"],
+                "materials": ["Exposed brick", "Metal", "Reclaimed wood", "Concrete"],
+                "furniture": ["Industrial table", "Metal chairs", "Pendant lights", "Pipe shelving"],
+                "estimated_cost": "High",
                 "pros": [
-                    "독특하고 개성적인 분위기",
-                    "매우 내구성이 높음",
-                    "인스타그래머블한 공간",
-                    "브랜드 차별화 효과"
+                    "Unique and full of character",
+                    "Very durable",
+                    "Highly Instagrammable",
+                    "Strong brand differentiation"
                 ],
                 "cons": [
-                    "높은 초기 투자 비용",
-                    "일부 고객에게 부담스러울 수 있음",
-                    "유지보수가 복잡함",
-                    "계절감이 부족함"
+                    "High initial cost",
+                    "May feel heavy to some customers",
+                    "Maintenance can be complex",
+                    "Less seasonal warmth"
                 ]
             },
             "scandinavian": {
-                "name": "스칸디나비안 스타일",
-                "description": "북유럽의 심플하고 자연친화적인 디자인으로 편안하면서도 세련된 공간을 만듭니다.",
-                "color_scheme": ["화이트", "라이트 그레이", "내추럴 우드", "파스텔 블루"],
-                "materials": ["자작나무", "린넨", "울", "세라믹"],
-                "furniture": ["심플 우드 테이블", "패브릭 의자", "자연광 활용", "식물 장식"],
-                "estimated_cost": "중간",
+                "name": "Scandinavian Style",
+                "description": "Simple, nature-friendly design creating a comfortable yet refined space.",
+                "color_scheme": ["White", "Light gray", "Natural wood", "Pastel blue"],
+                "materials": ["Birch", "Linen", "Wool", "Ceramic"],
+                "furniture": ["Simple wood table", "Fabric chairs", "Maximize daylight", "Greenery"],
+                "estimated_cost": "Medium",
                 "pros": [
-                    "밝고 쾌적한 분위기",
-                    "자연친화적 이미지",
-                    "MZ세대에게 인기",
-                    "사진 찍기 좋은 공간"
+                    "Bright, pleasant ambiance",
+                    "Eco-friendly image",
+                    "Popular with younger customers",
+                    "Great for photos"
                 ],
                 "cons": [
-                    "개성이 부족할 수 있음",
-                    "유행에 민감함",
-                    "일부 소재의 내구성 우려"
+                    "May feel less distinctive",
+                    "Sensitive to trends",
+                    "Some materials may lack durability"
                 ]
             },
             "vintage": {
-                "name": "빈티지 스타일",
-                "description": "과거의 향수를 불러일으키는 클래식한 매력으로 특별한 경험을 제공합니다.",
-                "color_scheme": ["앤틱 브라운", "딥 그린", "골드", "버건디"],
-                "materials": ["앤틱 우드", "가죽", "브라스", "벨벳"],
-                "furniture": ["앤틱 테이블", "클래식 의자", "빈티지 조명", "장식장"],
-                "estimated_cost": "높음",
+                "name": "Vintage Style",
+                "description": "Classic charm that evokes nostalgia to provide a special experience.",
+                "color_scheme": ["Antique brown", "Deep green", "Gold", "Burgundy"],
+                "materials": ["Antique wood", "Leather", "Brass", "Velvet"],
+                "furniture": ["Antique table", "Classic chairs", "Vintage lighting", "Display cabinet"],
+                "estimated_cost": "High",
                 "pros": [
-                    "고급스럽고 우아한 분위기",
-                    "독특한 스토리텔링",
-                    "시간이 지날수록 가치 상승",
-                    "차별화된 브랜드 이미지"
+                    "Luxurious and elegant",
+                    "Strong storytelling potential",
+                    "Ages gracefully",
+                    "Distinct brand image"
                 ],
                 "cons": [
-                    "높은 초기 비용",
-                    "관리가 까다로움",
-                    "젊은 층에게 어필 부족",
-                    "공간 활용도가 낮을 수 있음"
+                    "High initial cost",
+                    "Challenging maintenance",
+                    "May appeal less to younger audiences",
+                    "Potentially lower space efficiency"
                 ]
             }
         }
     
     def _get_fallback_industry_characteristics(self) -> Dict[str, Dict[str, Any]]:
-        """폴백용 업종별 인테리어 특성"""
+        """Fallback: industry-specific interior characteristics (EN)"""
         return {
             "restaurant": {
-                "priority_factors": ["위생성", "편안함", "분위기", "효율성"],
+                "priority_factors": ["Hygiene", "Comfort", "Ambience", "Operational efficiency"],
                 "recommended_styles": ["modern", "cozy", "scandinavian"],
                 "avoid_styles": ["industrial"],
                 "special_requirements": [
-                    "위생적인 소재 사용",
-                    "청소가 용이한 구조",
-                    "적절한 조명 설계",
-                    "소음 차단 고려"
+                    "Hygienic, non-porous materials",
+                    "Layouts that are easy to clean",
+                    "Appropriate lighting design",
+                    "Sound insulation"
                 ],
                 "customer_considerations": [
-                    "식사 시간 고려한 편안한 좌석",
-                    "음식과 어울리는 색상",
-                    "가족 단위 고객 배려"
+                    "Comfortable seating for mealtime",
+                    "Colors that complement food",
+                    "Family-friendly options"
                 ]
             },
             "retail": {
-                "priority_factors": ["상품 진열", "고객 동선", "브랜드 이미지", "조명"],
+                "priority_factors": ["Merchandising", "Customer flow", "Brand image", "Lighting"],
                 "recommended_styles": ["modern", "scandinavian", "industrial"],
                 "avoid_styles": [],
                 "special_requirements": [
-                    "상품이 돋보이는 조명",
-                    "효율적인 진열 공간",
-                    "고객 동선 최적화",
-                    "브랜드 컬러 반영"
+                    "Lighting that highlights products",
+                    "Efficient display space",
+                    "Optimized customer pathways",
+                    "Reflect brand colors"
                 ],
                 "customer_considerations": [
-                    "쇼핑하기 편한 환경",
-                    "상품 체험 공간",
-                    "대기 공간 마련"
+                    "Easy-to-shop environment",
+                    "Product try-out area",
+                    "Waiting/rest area"
                 ]
             },
             "service": {
-                "priority_factors": ["전문성", "신뢰감", "편안함", "프라이버시"],
+                "priority_factors": ["Professionalism", "Trust", "Comfort", "Privacy"],
                 "recommended_styles": ["modern", "scandinavian"],
                 "avoid_styles": ["industrial", "vintage"],
                 "special_requirements": [
-                    "전문적인 이미지 연출",
-                    "상담 공간 분리",
-                    "차분한 색상 사용",
-                    "소음 차단"
+                    "Professional visual language",
+                    "Separate consultation zones",
+                    "Calm color palette",
+                    "Noise control"
                 ],
                 "customer_considerations": [
-                    "프라이버시 보호",
-                    "편안한 상담 환경",
-                    "신뢰감 조성"
+                    "Privacy protection",
+                    "Comfortable consultation space",
+                    "Foster trust"
                 ]
             }
         }
     
     def _get_fallback_regional_trends(self) -> Dict[str, Dict[str, Any]]:
-        """폴백용 지역별 인테리어 트렌드"""
+        """Fallback: regional interior trends (EN)"""
         return {
             "seoul": {
                 "trending_styles": ["modern", "scandinavian"],
-                "characteristics": ["트렌디", "세련됨", "효율성"],
-                "budget_range": "높음",
-                "customer_preferences": ["인스타그래머블", "브랜드 가치", "차별화"]
+                "characteristics": ["Trendy", "Sophisticated", "Efficient"],
+                "budget_range": "High",
+                "customer_preferences": ["Instagrammable", "Brand value", "Differentiation"]
             },
             "busan": {
                 "trending_styles": ["cozy", "scandinavian"],
-                "characteristics": ["편안함", "자연친화적", "실용성"],
-                "budget_range": "중간",
-                "customer_preferences": ["편안함", "가성비", "지역 특색"]
+                "characteristics": ["Comfort", "Nature-friendly", "Practicality"],
+                "budget_range": "Medium",
+                "customer_preferences": ["Comfort", "Value for money", "Regional character"]
             }
         }
     
     def _get_fallback_size_considerations(self) -> Dict[str, Dict[str, Any]]:
-        """폴백용 규모별 인테리어 고려사항"""
+        """Fallback: size-based considerations (EN)"""
         return {
             "small": {
-                "budget_constraint": "높음",
-                "space_efficiency": "매우 중요",
+                "budget_constraint": "High",
+                "space_efficiency": "Critical",
                 "cost_saving_tips": [
-                    "기존 구조 최대한 활용",
-                    "포인트 컬러로 변화 주기",
-                    "조명으로 분위기 연출",
-                    "식물로 자연스러운 장식"
+                    "Maximize existing structure",
+                    "Use accent colors for impact",
+                    "Shape ambience with lighting",
+                    "Decorate with plants"
                 ]
             },
             "medium": {
-                "budget_constraint": "보통",
-                "space_efficiency": "중요",
+                "budget_constraint": "Moderate",
+                "space_efficiency": "Important",
                 "investment_priorities": [
-                    "핵심 공간 집중 투자",
-                    "내구성 있는 소재 선택",
-                    "확장 가능한 구조",
-                    "에너지 효율성 고려"
+                    "Focus spend on core zones",
+                    "Choose durable materials",
+                    "Keep structures extensible",
+                    "Consider energy efficiency"
                 ]
             },
             "large": {
-                "budget_constraint": "낮음",
-                "space_efficiency": "보통",
+                "budget_constraint": "Low",
+                "space_efficiency": "Moderate",
                 "luxury_elements": [
-                    "고급 마감재 사용",
-                    "맞춤형 가구 제작",
-                    "스마트 시스템 도입",
-                    "아트워크 및 조각품 활용"
+                    "Use premium finishes",
+                    "Custom-made furniture",
+                    "Introduce smart systems",
+                    "Curated art and sculptures"
                 ]
             }
         }
     
     def execute(self, event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-        """Interior Agent 실행 로직"""
+        """Interior Agent execution logic"""
         try:
-            # 비동기 모드 확인
             headers = event.get('headers', {})
             is_async = headers.get('x-async-mode') == 'true'
             
-            # 요청 파싱
+            # Parse body
             if isinstance(event.get('body'), str):
                 body = json.loads(event['body'])
             else:
@@ -467,95 +453,66 @@ class InteriorAgent(BaseAgent):
             action = body.get('action', 'recommend')
             
             if not session_id:
-                return self.create_lambda_response(400, {
-                    "error": "sessionId is required"
-                })
+                return self.create_lambda_response(400, {"error": "sessionId is required"})
             
-            # 비동기 모드: 즉시 202 반환하고 별도 Lambda 호출로 백그라운드 실행
+            # Asynchronous mode: invoke self and return 202
             if is_async:
                 self.logger.info(f"Async mode enabled for session: {session_id}")
-                
-                # Lambda를 비동기로 재호출 (InvocationType='Event')
                 try:
                     import boto3
                     lambda_client = boto3.client('lambda')
-                    
-                    # 동기 모드로 재호출 (x-async-mode 헤더 제거)
                     sync_event = event.copy()
                     if 'headers' in sync_event:
                         sync_headers = sync_event['headers'].copy()
                         sync_headers.pop('x-async-mode', None)
                         sync_event['headers'] = sync_headers
-                    
-                    # 현재 Lambda 함수 이름 가져오기
                     function_name = os.getenv('AWS_LAMBDA_FUNCTION_NAME')
-                    
                     self.logger.info(f"Invoking Lambda asynchronously: {function_name}")
-                    
-                    # 비동기 호출 (Event 타입)
                     lambda_client.invoke(
                         FunctionName=function_name,
-                        InvocationType='Event',  # 비동기 호출
+                        InvocationType='Event',
                         Payload=json.dumps(sync_event)
                     )
-                    
                     self.logger.info(f"Async Lambda invocation successful for session: {session_id}")
-                    
                 except Exception as invoke_error:
                     self.logger.error(f"Failed to invoke Lambda asynchronously: {str(invoke_error)}")
-                    # 실패해도 202 반환 (폴링으로 확인 가능)
-                
-                # 즉시 202 반환
                 return self.create_lambda_response(202, {
                     "message": "Interior generation started",
                     "sessionId": session_id,
                     "status": "processing"
                 })
             
-            # 동기 모드: 기존 로직
-            # 실행 시작
+            # Sync flow
             self.start_execution(session_id, f"interior.{action}")
             
-            # 액션별 처리
             if action == 'select':
-                # 인테리어 스타일 선택 (BusinessInfo 불필요)
                 selected_style = body.get('selectedStyle')
                 if not selected_style:
                     self.end_execution("error", "selectedStyle is required")
                     return self.create_lambda_response(400, {
                         "error": "selectedStyle is required for select action"
                     })
-                
-                # 세션에 선택된 인테리어 저장
                 try:
                     self.update_session_data(session_id, {
                         "selected_interior": selected_style,
-                        "currentStep": 5  # 인테리어 선택 완료, 다음은 보고서 생성
+                        "currentStep": 5  # Interior selection complete; next step: report generation
                     })
-                    
                     result = {
                         "message": "Interior style selected",
                         "sessionId": session_id,
                         "selectedStyle": selected_style,
                         "success": True
                     }
-                    
                     self.end_execution("success", result=result)
                     return self.create_lambda_response(200, result)
-                    
                 except Exception as e:
                     error_msg = f"Failed to save selected interior: {str(e)}"
                     self.logger.error(error_msg)
                     self.end_execution("error", error_msg)
-                    return self.create_lambda_response(500, {
-                        "error": error_msg,
-                        "success": False
-                    })
+                    return self.create_lambda_response(500, {"error": error_msg, "success": False})
             
-            # 이하 recommend 액션만 실행됨
-            # 시작 상태 저장 (recommend 액션만)
+            # recommend action
             try:
-                from datetime import datetime
                 self.update_session_data(session_id, {
                     "interiorGenerationStatus": "in_progress",
                     "interiorGenerationStartedAt": datetime.utcnow().isoformat()
@@ -563,60 +520,44 @@ class InteriorAgent(BaseAgent):
             except Exception as status_error:
                 self.logger.warning(f"Failed to set initial status: {str(status_error)}")
             
-            # 비즈니스 정보 파싱 (recommend 액션만)
             if isinstance(business_info_data, str):
                 business_info_data = json.loads(business_info_data)
-            
             business_info = BusinessInfo(**business_info_data)
             
-            # 인테리어 추천 생성
             if action == 'recommend':
-                # Bedrock 사용 여부에 따라 분기
-                if self.use_bedrock and self.bedrock_client and self.reasoning_engine:
-                    # Bedrock Claude로 reasoning 기반 추천 생성
+                if self.use_bedrock and getattr(self, 'bedrock_client', None) and getattr(self, 'reasoning_engine', None):
                     result = self._generate_interior_recommendations_with_bedrock(
                         session_id, business_info, selected_signboard
                     )
                 else:
-                    # Fallback: 기존 로직 (이미지 포함)
                     result = self._generate_interior_recommendations_with_images_sync(
                         session_id, business_info, selected_signboard
                     )
             else:
                 raise ValueError(f"Unknown action: {action}")
             
-            # 실행 완료
             self.end_execution("success", result=result)
-            
             return self.create_lambda_response(200, result)
             
         except Exception as e:
             error_message = f"Interior Agent execution failed: {str(e)}"
             self.end_execution("error", error_message)
-            
             error_response = self.handle_error(e, "execute")
             return self.create_lambda_response(500, error_response)
     
-    def _generate_interior_recommendations_with_bedrock(self, session_id: str, business_info: BusinessInfo,
-                                                       selected_signboard: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Bedrock Claude를 사용한 인테리어 추천 생성 (Reasoning LLM)"""
+    def _generate_interior_recommendations_with_bedrock(
+        self, session_id: str, business_info: BusinessInfo,
+        selected_signboard: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Generate interior recommendations using Bedrock Claude (Reasoning LLM)"""
         try:
             self.logger.info(f"Generating interior recommendations with Bedrock for session {session_id}")
             
-            # 컨텍스트 구성
-            context = {
-                'business_info': {
-                    'industry': business_info.industry,
-                    'region': business_info.region,
-                    'size': business_info.size
-                },
-                'selected_signboard': selected_signboard,
-                'available_styles': list(self.interior_styles.keys())
-            }
-            
-            # 인테리어 스타일 추천을 위한 reasoning
+            # System prompt enforces ENGLISH ONLY
             system_prompt = """You are an expert interior design consultant specializing in commercial spaces.
 Your task is to recommend 3 interior design styles that best match the business requirements.
+
+IMPORTANT: ALL responses must be in ENGLISH ONLY.
 
 Consider:
 1. Industry characteristics and functional requirements
@@ -627,32 +568,20 @@ Consider:
 
 For each recommended style, provide:
 - Style name (from available options)
-- Detailed description in Korean
-- Color scheme (4-5 colors)
-- Materials (4-5 materials)
-- Furniture recommendations (4-5 items)
-- Estimated cost level (낮음/중간/높음)
-- Suitability score (0-100)
-- Pros (3-4 advantages)
-- Cons (2-3 disadvantages)
+- Detailed description (ENGLISH)
+- Color scheme (4–5 colors, ENGLISH)
+- Materials (4–5 items, ENGLISH)
+- Furniture recommendations (4–5 items, ENGLISH)
+- Estimated cost level (Low/Medium/High)
+- Suitability score (0–100)
+- Pros (3–4)
+- Cons (2–3)
 
-Respond in JSON format with:
+Respond in JSON:
 {
-    "recommendations": [
-        {
-            "style": "style_name",
-            "description": "detailed description in Korean",
-            "color_scheme": ["color1", "color2", ...],
-            "materials": ["material1", "material2", ...],
-            "furniture": ["furniture1", "furniture2", ...],
-            "estimated_cost": "낮음/중간/높음",
-            "suitability_score": 0-100,
-            "pros": ["pro1", "pro2", ...],
-            "cons": ["con1", "con2", ...]
-        }
-    ],
-    "reasoning": "overall reasoning for recommendations",
-    "confidence": 0.0-1.0
+  "recommendations": [{...}],
+  "reasoning": "overall reasoning (ENGLISH)",
+  "confidence": 0.0-1.0
 }"""
             
             prompt = f"""Business Context:
@@ -667,7 +596,6 @@ Available Interior Styles:
 
 Please recommend 3 interior design styles that best match this business, providing detailed reasoning for each recommendation."""
             
-            # Bedrock Claude 호출
             response = self.bedrock_client.invoke_claude(
                 prompt=prompt,
                 system_prompt=system_prompt,
@@ -675,10 +603,7 @@ Please recommend 3 interior design styles that best match this business, providi
                 temperature=0.7
             )
             
-            # JSON 응답 파싱
             response_text = response['text']
-            
-            # JSON 추출 시도
             try:
                 json_start = response_text.find('{')
                 json_end = response_text.rfind('}') + 1
@@ -691,8 +616,7 @@ Please recommend 3 interior design styles that best match this business, providi
                 self.logger.warning(f"Failed to parse Bedrock JSON response: {str(e)}, using fallback")
                 return self._generate_interior_recommendations(session_id, business_info, selected_signboard)
             
-            # Bedrock 응답을 InteriorRecommendation 객체로 변환
-            recommendations = []
+            recommendations: List[InteriorRecommendation] = []
             for rec_data in bedrock_data.get('recommendations', [])[:3]:
                 try:
                     recommendation = InteriorRecommendation(
@@ -701,7 +625,7 @@ Please recommend 3 interior design styles that best match this business, providi
                         color_scheme=rec_data.get('color_scheme', []),
                         materials=rec_data.get('materials', []),
                         furniture=rec_data.get('furniture', []),
-                        estimated_cost=rec_data.get('estimated_cost', '중간'),
+                        estimated_cost=rec_data.get('estimated_cost', 'Medium'),
                         suitability_score=float(rec_data.get('suitability_score', 70)),
                         pros=rec_data.get('pros', []),
                         cons=rec_data.get('cons', [])
@@ -711,27 +635,21 @@ Please recommend 3 interior design styles that best match this business, providi
                     self.logger.error(f"Failed to create recommendation object: {str(e)}")
                     continue
             
-            # 최소 1개 이상의 추천이 있어야 함
             if not recommendations:
                 self.logger.warning("No valid recommendations from Bedrock, using fallback")
                 return self._generate_interior_recommendations(session_id, business_info, selected_signboard)
             
-            # InteriorRecommendations 객체 생성
             interior_recommendations = InteriorRecommendations(recommendations=recommendations)
-            
-            # 세션에 저장
             self._save_interior_recommendations(session_id, interior_recommendations)
             
-            # 업종별 특성 가져오기 (추가 인사이트용)
             industry = business_info.industry.lower()
             region = business_info.region.lower()
             size = business_info.size.lower()
-            
             industry_info = self.industry_characteristics.get(industry, self.industry_characteristics.get("retail", {}))
             regional_info = self.regional_trends.get(region, self.regional_trends.get("seoul", {}))
             size_info = self.size_considerations.get(size, self.size_considerations.get("medium", {}))
             
-            # 이미지 생성 (Multi-provider: 2개 Bedrock SDXL + 1개 DALL-E)
+            # Try to generate images (Bedrock Titan + optional DALL·E fallback)
             self.logger.info(f"Generating interior images for {len(recommendations)} styles")
             recommendations_with_images = []
             enable_fallback = os.getenv('ENABLE_FALLBACK', 'false').lower() == 'true'
@@ -741,71 +659,44 @@ Please recommend 3 interior design styles that best match this business, providi
                 image_url = None
                 provider_used = None
                 
-                # 인테리어 이미지 프롬프트 생성
                 style_name = rec.style
-                prompt = self._create_interior_image_prompt(
-                    style_name,
-                    business_info.industry,
-                    rec.color_scheme,
-                    rec.materials
+                img_prompt = self._create_interior_image_prompt(
+                    style_name, business_info.industry, rec.color_scheme, rec.materials
                 )
                 
-                # 마지막 추천(3번째)은 항상 DALL-E 사용 (fallback 활성화 시)
                 use_dalle_first = (idx == len(recommendations) - 1) and enable_fallback
-                
                 if use_dalle_first:
-                    # DALL-E로 먼저 시도
                     try:
-                        self.logger.info(f"[{style_name}] Using DALL-E (designated provider for option {idx+1})...")
-                        
-                        # Import OpenAI
+                        self.logger.info(f"[{style_name}] Using DALL·E first (fallback enabled)")
                         from openai import OpenAI
                         client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-                        
-                        # Generate with DALL-E
-                        response = client.images.generate(
+                        resp = client.images.generate(
                             model="dall-e-3",
-                            prompt=prompt,
+                            prompt=img_prompt,
                             size="1024x1024",
                             quality="standard",
                             n=1
                         )
-                        
-                        dalle_url = response.data[0].url
-                        
-                        # Upload to S3
+                        dalle_url = resp.data[0].url
                         image_url = self._upload_image_to_s3(
                             dalle_url,
                             f"interiors/{session_id}-{style_name}-{int(time.time())}.png"
                         )
-                        
                         if image_url:
                             provider_used = "openai-dalle3"
-                            self.logger.info(f"[{style_name}] ✅ DALL-E succeeded")
-                        else:
-                            self.logger.warning(f"[{style_name}] ⚠️ DALL-E S3 upload failed")
-                            
                     except Exception as dalle_error:
-                        self.logger.error(f"[{style_name}] ❌ DALL-E failed: {str(dalle_error)}")
-                        # DALL-E 실패 시 Bedrock으로 fallback
+                        self.logger.error(f"[{style_name}] DALL·E failed: {str(dalle_error)}")
                         use_dalle_first = False
                 
-                # Bedrock SDXL 사용 (첫 2개 또는 DALL-E 실패 시)
                 if not use_dalle_first or not image_url:
                     try:
-                        self.logger.info(f"[{style_name}] Using Bedrock Titan Image Generator...")
-                        
-                        # Bedrock Titan Image Generator 직접 호출
-                        import boto3
-                        import base64
-                        
+                        self.logger.info(f"[{style_name}] Using Bedrock Titan Image Generator")
+                        import boto3, base64
                         bedrock_runtime = boto3.client('bedrock-runtime', region_name='us-west-2')
-                        
-                        # Titan Image Generator v2 요청
                         request_body = {
                             "taskType": "TEXT_IMAGE",
                             "textToImageParams": {
-                                "text": prompt[:512],  # Titan은 512자 제한
+                                "text": img_prompt[:512],
                                 "negativeText": "low quality, blurry, distorted"
                             },
                             "imageGenerationConfig": {
@@ -816,78 +707,50 @@ Please recommend 3 interior design styles that best match this business, providi
                                 "cfgScale": 8.0
                             }
                         }
-                        
-                        response = bedrock_runtime.invoke_model(
+                        resp = bedrock_runtime.invoke_model(
                             modelId="amazon.titan-image-generator-v2:0",
                             body=json.dumps(request_body)
                         )
-                        
-                        response_body = json.loads(response['body'].read())
-                        
-                        if 'images' in response_body and len(response_body['images']) > 0:
-                            # Base64 디코딩
-                            image_data = base64.b64decode(response_body['images'][0])
-                            
-                            # S3에 직접 업로드
-                            s3_client = boto3.client('s3')
-                            bucket_name = os.getenv('S3_BUCKET_NAME', 'ai-branding-chatbot-assets-908601828278')
-                            s3_key = f"interiors/{session_id}-{style_name}-{int(time.time())}.png"
-                            
-                            s3_client.put_object(
-                                Bucket=bucket_name,
-                                Key=s3_key,
-                                Body=image_data,
-                                ContentType='image/png'
-                            )
-                            
-                            # Generate presigned URL (valid for 7 days)
-                            image_url = s3_client.generate_presigned_url(
-                                'get_object',
-                                Params={'Bucket': bucket_name, 'Key': s3_key},
-                                ExpiresIn=604800  # 7 days
+                        body_json = json.loads(resp['body'].read())
+                        if 'images' in body_json and body_json['images']:
+                            image_data = base64.b64decode(body_json['images'][0])
+                            s3 = boto3.client('s3')
+                            bucket = os.getenv('S3_BUCKET_NAME', 'ai-branding-chatbot-assets-908601828278')
+                            key = f"interiors/{session_id}-{style_name}-{int(time.time())}.png"
+                            s3.put_object(Bucket=bucket, Key=key, Body=image_data, ContentType='image/png')
+                            image_url = s3.generate_presigned_url(
+                                'get_object', Params={'Bucket': bucket, 'Key': key}, ExpiresIn=604800
                             )
                             provider_used = "bedrock-titan"
-                            self.logger.info(f"[{style_name}] ✅ Bedrock Titan succeeded: {image_url}")
                         else:
-                            self.logger.warning(f"[{style_name}] ⚠️ Bedrock Titan returned no images")
-                            
+                            self.logger.warning(f"[{style_name}] Titan returned no images")
                     except Exception as bedrock_error:
-                        self.logger.warning(f"[{style_name}] ❌ Bedrock SDXL failed: {str(bedrock_error)}")
-                        
-                        # Bedrock 실패 시 DALL-E fallback (아직 시도 안했으면)
+                        self.logger.warning(f"[{style_name}] Bedrock image gen failed: {str(bedrock_error)}")
                         if not use_dalle_first and enable_fallback:
                             try:
-                                self.logger.info(f"[{style_name}] Attempting DALL-E fallback...")
-                                
                                 from openai import OpenAI
                                 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-                                
-                                response = client.images.generate(
+                                resp = client.images.generate(
                                     model="dall-e-3",
-                                    prompt=prompt,
+                                    prompt=img_prompt,
                                     size="1024x1024",
                                     quality="standard",
                                     n=1
                                 )
-                                
-                                dalle_url = response.data[0].url
+                                dalle_url = resp.data[0].url
                                 image_url = self._upload_image_to_s3(
                                     dalle_url,
                                     f"interiors/{session_id}-{style_name}-{int(time.time())}.png"
                                 )
-                                
                                 if image_url:
                                     provider_used = "openai-dalle3"
-                                    self.logger.info(f"[{style_name}] ✅ DALL-E fallback succeeded")
-                                    
                             except Exception as dalle_error:
-                                self.logger.error(f"[{style_name}] ❌ DALL-E fallback failed: {str(dalle_error)}")
+                                self.logger.error(f"[{style_name}] DALL·E fallback failed: {str(dalle_error)}")
                 
-                # Set result
                 if image_url:
                     rec_dict['imageUrl'] = image_url
                     rec_dict['isGenerated'] = True
-                    rec_dict['prompt'] = prompt
+                    rec_dict['prompt'] = img_prompt
                     rec_dict['provider'] = provider_used
                 else:
                     rec_dict['imageUrl'] = None
@@ -896,27 +759,23 @@ Please recommend 3 interior design styles that best match this business, providi
                 
                 recommendations_with_images.append(rec_dict)
             
-            # 생성된 이미지 수 계산
             generated_count = sum(1 for rec in recommendations_with_images if rec.get('isGenerated'))
             providers_used = [rec.get('provider') for rec in recommendations_with_images if rec.get('provider')]
             self.logger.info(f"Generated {generated_count}/{len(recommendations)} interior images. Providers: {providers_used}")
             
-            # DynamoDB에 저장 (Map 타입으로)
             try:
                 self._save_interior_to_dynamodb(session_id, recommendations_with_images)
             except Exception as save_error:
                 self.logger.error(f"DynamoDB save failed but continuing: {str(save_error)}")
             
-            # Provider 정보 생성
             providers_summary = "bedrock-claude"
             if providers_used:
-                unique_providers = list(set(providers_used))
-                if "bedrock-sdxl" in unique_providers:
+                unique = set(providers_used)
+                if "bedrock-sdxl" in unique:
                     providers_summary += "+sdxl"
-                if "openai-dalle3" in unique_providers:
+                if "openai-dalle3" in unique:
                     providers_summary += "+dalle3"
             
-            # 결과 구성
             result = {
                 "sessionId": session_id,
                 "recommendations": recommendations_with_images,
@@ -938,9 +797,9 @@ Please recommend 3 interior design styles that best match this business, providi
                 "budgetGuidance": self._generate_budget_guidance(size_info, recommendations),
                 "implementationGuide": self._generate_implementation_guide(size_info, recommendations),
                 "nextSteps": [
-                    "추천된 스타일 중 하나를 선택하세요",
-                    "선택한 스타일에 대한 상세 가이드를 확인하세요",
-                    "예산에 맞는 실행 계획을 수립하세요"
+                    "Choose one of the recommended styles",
+                    "Review the detailed guide for the chosen style",
+                    "Build an execution plan that fits your budget"
                 ],
                 "canProceed": len(recommendations) > 0,
                 "latency_ms": response.get('latency_ms', 0)
@@ -950,48 +809,38 @@ Please recommend 3 interior design styles that best match this business, providi
                 f"Bedrock interior recommendations generated: {len(recommendations)} styles, "
                 f"{generated_count} images, confidence={result['confidence']:.2f}, latency={result['latency_ms']}ms"
             )
-            
             return result
             
         except Exception as e:
             self.logger.error(f"Bedrock interior recommendation failed: {str(e)}, using fallback")
-            # Fallback to traditional method
             return self._generate_interior_recommendations(session_id, business_info, selected_signboard)
     
-    def _generate_interior_recommendations(self, session_id: str, business_info: BusinessInfo, 
-                                         selected_signboard: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """인테리어 추천 생성 (Fallback method)"""
+    def _generate_interior_recommendations(
+        self, session_id: str, business_info: BusinessInfo, 
+        selected_signboard: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Generate interior recommendations (fallback)"""
         try:
             industry = business_info.industry.lower()
             region = business_info.region.lower()
             size = business_info.size.lower()
             
-            # 업종별 특성 가져오기
             industry_info = self.industry_characteristics.get(industry, self.industry_characteristics["retail"])
-            
-            # 지역별 트렌드 가져오기
             regional_info = self.regional_trends.get(region, self.regional_trends["seoul"])
-            
-            # 규모별 고려사항 가져오기
             size_info = self.size_considerations.get(size, self.size_considerations["medium"])
             
-            # 추천 스타일 결정
             recommended_styles = self._determine_recommended_styles(
                 industry_info, regional_info, selected_signboard
             )
             
-            # 각 스타일별 추천 생성
-            recommendations = []
-            for style_name in recommended_styles[:3]:  # 최대 3개
+            recommendations: List[InteriorRecommendation] = []
+            for style_name in recommended_styles[:3]:
                 recommendation = self._create_style_recommendation(
                     style_name, business_info, industry_info, size_info, selected_signboard
                 )
                 recommendations.append(recommendation)
             
-            # InteriorRecommendations 객체 생성
             interior_recommendations = InteriorRecommendations(recommendations=recommendations)
-            
-            # 세션에 저장
             self._save_interior_recommendations(session_id, interior_recommendations)
             
             return {
@@ -1011,111 +860,77 @@ Please recommend 3 interior design styles that best match this business, providi
                 "budgetGuidance": self._generate_budget_guidance(size_info, recommendations),
                 "implementationGuide": self._generate_implementation_guide(size_info, recommendations),
                 "nextSteps": [
-                    "추천된 스타일 중 하나를 선택하세요",
-                    "선택한 스타일에 대한 상세 가이드를 확인하세요",
-                    "예산에 맞는 실행 계획을 수립하세요"
+                    "Choose one of the recommended styles",
+                    "Review the detailed guide for the chosen style",
+                    "Build an execution plan that fits your budget"
                 ],
                 "canProceed": len(recommendations) > 0
             }
-            
         except Exception as e:
             self.logger.error(f"Failed to generate interior recommendations: {str(e)}")
             raise
     
-    async def _generate_interior_recommendations_with_images(self, session_id: str, business_info: BusinessInfo, 
-                                                           selected_signboard: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """인테리어 추천 생성 (이미지 포함)"""
+    async def _generate_interior_recommendations_with_images(
+        self, session_id: str, business_info: BusinessInfo, 
+        selected_signboard: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Generate recommendations and images (async OpenAI path)"""
         try:
-            # 기본 텍스트 추천 생성
-            text_recommendations = self._generate_interior_recommendations(session_id, business_info, selected_signboard)
-            
-            # OpenAI API 키 확인
+            text_recs = self._generate_interior_recommendations(session_id, business_info, selected_signboard)
             from shared.env_loader import get_openai_api_key
             api_key = get_openai_api_key()
-            
             if not api_key:
                 self.logger.warning("OpenAI API key not available, returning text-only recommendations")
-                return text_recommendations
+                return text_recs
             
-            # 상호명 추출 (테스트에서 전달되는 경우)
-            business_name = getattr(business_info, 'name', None) or "모던 레스토랑"
-            
-            # 이미지 생성을 위한 스타일 정보
-            recommendations = text_recommendations.get('recommendations', [])
-            enhanced_recommendations = []
+            business_name = getattr(business_info, 'name', None) or "Modern Restaurant"
+            recommendations = text_recs.get('recommendations', [])
+            enhanced = []
             
             import openai
-            import aiohttp
-            import uuid
-            from datetime import datetime
-            
             client = openai.AsyncOpenAI(api_key=api_key)
             
             for rec in recommendations:
                 try:
                     style_name = rec.get('styleName', rec.get('style', 'modern'))
                     description = rec.get('description', '')
-                    
-                    # 인테리어 이미지 생성 프롬프트
                     prompt = self._create_interior_prompt(business_name, business_info, style_name, description)
-                    
-                    self.logger.info(f"Generating interior image for {style_name} style")
-                    
-                    # OpenAI DALL-E 이미지 생성
-                    response = await client.images.generate(
+                    self.logger.info(f"Generating interior image for {style_name}")
+                    resp = await client.images.generate(
                         model="dall-e-3",
                         prompt=prompt,
                         size="1024x1024",
                         quality="standard",
                         n=1
                     )
-                    
-                    if response.data:
-                        image_url = response.data[0].url
-                        
-                        # S3/MinIO에 저장
-                        stored_url = await self._store_interior_image(
-                            image_url, business_name, style_name, session_id
-                        )
-                        
-                        # 추천에 이미지 정보 추가
+                    if resp.data:
+                        image_url = resp.data[0].url
+                        stored_url = await self._store_interior_image(image_url, business_name, style_name, session_id)
                         rec['imageUrl'] = stored_url or image_url
                         rec['isGenerated'] = True
                         rec['prompt'] = prompt
-                        
-                        self.logger.info(f"Successfully generated {style_name} interior image")
                     else:
                         rec['imageUrl'] = None
                         rec['isGenerated'] = False
-                        
                 except Exception as img_error:
                     self.logger.error(f"Failed to generate image for {style_name}: {str(img_error)}")
                     rec['imageUrl'] = None
                     rec['isGenerated'] = False
-                
-                enhanced_recommendations.append(rec)
+                enhanced.append(rec)
             
-            # 결과 업데이트
-            text_recommendations['recommendations'] = enhanced_recommendations
-            
-            # 생성된 이미지 수 추가
-            generated_count = sum(1 for rec in enhanced_recommendations if rec.get('isGenerated'))
-            text_recommendations['generatedImages'] = generated_count
-            
-            return text_recommendations
-            
+            text_recs['recommendations'] = enhanced
+            text_recs['generatedImages'] = sum(1 for r in enhanced if r.get('isGenerated'))
+            return text_recs
         except Exception as e:
             self.logger.error(f"Error in interior image generation: {str(e)}")
-            # 폴백으로 텍스트 기반 추천 반환
             return self._generate_interior_recommendations(session_id, business_info, selected_signboard)
     
     def _create_interior_prompt(self, business_name: str, business_info: BusinessInfo, 
-                              style_name: str, description: str) -> str:
-        """인테리어 이미지 생성 프롬프트 생성"""
+                                style_name: str, description: str) -> str:
+        """Create an English image prompt for interiors"""
         industry = business_info.industry.lower()
         size = business_info.size.lower()
         
-        # 스타일별 키워드 매핑
         style_keywords = {
             'modern': 'modern minimalist interior, clean lines, neutral colors, sleek furniture',
             'cozy': 'cozy warm interior, comfortable seating, wood elements, soft lighting',
@@ -1123,63 +938,48 @@ Please recommend 3 interior design styles that best match this business, providi
             'scandinavian': 'scandinavian interior, light wood, white walls, natural lighting',
             'vintage': 'vintage interior, antique furniture, warm colors, classic elements'
         }
-        
-        # 업종별 키워드
         industry_keywords = {
-            'restaurant': 'restaurant dining area, tables and chairs, kitchen visible',
+            'restaurant': 'restaurant dining area, tables and chairs, kitchen sightline optional',
             'cafe': 'cafe interior, coffee bar, comfortable seating area',
             'retail': 'retail store interior, product displays, shopping area',
             'service': 'service office interior, reception area, professional setting'
         }
         
         style_desc = style_keywords.get(style_name.lower(), 'modern interior design')
-        industry_desc = industry_keywords.get(industry, 'business interior')
+        industry_desc = industry_keywords.get(industry, 'commercial interior')
         
         prompt = f"""
-        Interior design for '{business_name}', a {industry} business.
-        {style_desc}, {industry_desc}.
-        Professional interior photography, realistic lighting, high quality,
-        {size} space, Korean modern style, inviting atmosphere,
-        suitable for {industry} business, well-designed layout,
-        architectural photography style, wide angle view
-        """.strip()
-        
-        # 프롬프트 길이 제한
-        if len(prompt) > 1000:
-            prompt = prompt[:1000] + "..."
-        
+Interior design for '{business_name}', a {industry} business.
+{style_desc}, {industry_desc}.
+Professional interior photography, realistic lighting, high quality,
+{size} space, inviting atmosphere, well-designed layout,
+architectural photography, wide-angle view
+""".strip()
         return prompt
     
     async def _store_interior_image(self, image_url: str, business_name: str, 
-                                  style: str, session_id: str) -> str:
-        """인테리어 이미지를 S3/MinIO에 저장"""
+                                    style: str, session_id: str) -> str:
+        """Store generated image to S3/MinIO"""
         try:
             from shared.s3_client import get_s3_client
-            import aiohttp
-            import uuid
-            from datetime import datetime
-            
+            import aiohttp, uuid
             s3_client = get_s3_client()
             if not s3_client:
                 self.logger.warning("S3 client not available, returning original URL")
                 return image_url
             
-            # 이미지 다운로드
             async with aiohttp.ClientSession() as session:
-                async with session.get(image_url) as response:
-                    if response.status == 200:
-                        image_data = await response.read()
+                async with session.get(image_url) as resp:
+                    if resp.status == 200:
+                        image_data = await resp.read()
                     else:
-                        self.logger.error(f"Failed to download image: HTTP {response.status}")
+                        self.logger.error(f"Failed to download image: HTTP {resp.status}")
                         return image_url
             
-            # S3 키 생성
             timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
             unique_id = str(uuid.uuid4())[:8]
-            safe_business_name = ''.join(c for c in business_name if c.isalnum() or c in '-_').lower()
-            s3_key = f"interiors/{session_id}/{style}_{timestamp}_{unique_id}.png"
+            key = f"interiors/{session_id}/{style}_{timestamp}_{unique_id}.png"
             
-            # 메타데이터
             metadata = {
                 'business_name': business_name,
                 'style': style,
@@ -1188,141 +988,99 @@ Please recommend 3 interior design styles that best match this business, providi
                 'original_url': image_url
             }
             
-            # 업로드
             upload_result = s3_client.upload_file(
                 file_content=image_data,
-                key=s3_key,
+                key=key,
                 content_type='image/png',
                 metadata=metadata
             )
-            
             if upload_result.get('success'):
-                self.logger.info(f"Successfully stored interior image: {s3_key}")
+                self.logger.info(f"Stored interior image: {key}")
                 return upload_result.get('url')
             else:
                 self.logger.error(f"Failed to upload interior image: {upload_result}")
                 return image_url
-                
         except Exception as e:
             self.logger.error(f"Error storing interior image: {str(e)}")
             return image_url
     
-    def _generate_interior_recommendations_with_images_sync(self, session_id: str, business_info: BusinessInfo, 
-                                                          selected_signboard: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """인테리어 추천 생성 (동기적 이미지 생성)"""
+    def _generate_interior_recommendations_with_images_sync(
+        self, session_id: str, business_info: BusinessInfo, 
+        selected_signboard: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Generate recommendations and images (sync OpenAI path)"""
         try:
-            # 기본 텍스트 추천 생성
-            text_recommendations = self._generate_interior_recommendations(session_id, business_info, selected_signboard)
-            
-            # OpenAI API 키 확인
+            text_recs = self._generate_interior_recommendations(session_id, business_info, selected_signboard)
             from shared.env_loader import get_openai_api_key
             api_key = get_openai_api_key()
-            
             if not api_key:
                 self.logger.warning("OpenAI API key not available, returning text-only recommendations")
-                return text_recommendations
+                return text_recs
             
-            # 상호명 추출
-            business_name = getattr(business_info, 'name', None) or "모던 레스토랑"
+            business_name = getattr(business_info, 'name', None) or "Modern Restaurant"
+            recommendations = text_recs.get('recommendations', [])
+            enhanced = []
             
-            # 이미지 생성을 위한 스타일 정보
-            recommendations = text_recommendations.get('recommendations', [])
-            enhanced_recommendations = []
-            
-            import openai
-            import requests
-            import uuid
-            from datetime import datetime
-            
+            import openai, requests, uuid
             client = openai.OpenAI(api_key=api_key)
             
             for rec in recommendations:
                 try:
                     style_name = rec.get('styleName', rec.get('style', 'modern'))
                     description = rec.get('description', '')
-                    
-                    # 인테리어 이미지 생성 프롬프트
                     prompt = self._create_interior_prompt(business_name, business_info, style_name, description)
-                    
-                    self.logger.info(f"Generating interior image for {style_name} style")
-                    
-                    # OpenAI DALL-E 이미지 생성 (동기적)
-                    response = client.images.generate(
+                    self.logger.info(f"Generating interior image for {style_name}")
+                    resp = client.images.generate(
                         model="dall-e-3",
                         prompt=prompt,
                         size="1024x1024",
                         quality="standard",
                         n=1
                     )
-                    
-                    if response.data:
-                        image_url = response.data[0].url
-                        
-                        # S3/MinIO에 저장 (동기적)
-                        stored_url = self._store_interior_image_sync(
-                            image_url, business_name, style_name, session_id
-                        )
-                        
-                        # 추천에 이미지 정보 추가
+                    if resp.data:
+                        image_url = resp.data[0].url
+                        stored_url = self._store_interior_image_sync(image_url, business_name, style_name, session_id)
                         rec['imageUrl'] = stored_url or image_url
                         rec['isGenerated'] = True
                         rec['prompt'] = prompt
-                        
-                        self.logger.info(f"Successfully generated {style_name} interior image")
                     else:
                         rec['imageUrl'] = None
                         rec['isGenerated'] = False
-                        
                 except Exception as img_error:
                     self.logger.error(f"Failed to generate image for {style_name}: {str(img_error)}")
                     rec['imageUrl'] = None
                     rec['isGenerated'] = False
-                
-                enhanced_recommendations.append(rec)
+                enhanced.append(rec)
             
-            # 결과 업데이트
-            text_recommendations['recommendations'] = enhanced_recommendations
-            
-            # 생성된 이미지 수 추가
-            generated_count = sum(1 for rec in enhanced_recommendations if rec.get('isGenerated'))
-            text_recommendations['generatedImages'] = generated_count
-            
-            return text_recommendations
-            
+            text_recs['recommendations'] = enhanced
+            text_recs['generatedImages'] = sum(1 for r in enhanced if r.get('isGenerated'))
+            return text_recs
         except Exception as e:
             self.logger.error(f"Error in interior image generation: {str(e)}")
-            # 폴백으로 텍스트 기반 추천 반환
             return self._generate_interior_recommendations(session_id, business_info, selected_signboard)
     
     def _store_interior_image_sync(self, image_url: str, business_name: str, 
-                                 style: str, session_id: str) -> str:
-        """인테리어 이미지를 S3/MinIO에 저장 (동기적)"""
+                                   style: str, session_id: str) -> str:
+        """Store generated image to S3/MinIO (sync)"""
         try:
             from shared.s3_client import get_s3_client
-            import requests
-            import uuid
-            from datetime import datetime
-            
+            import requests, uuid
             s3_client = get_s3_client()
             if not s3_client:
                 self.logger.warning("S3 client not available, returning original URL")
                 return image_url
             
-            # 이미지 다운로드 (동기적)
-            response = requests.get(image_url, timeout=30)
-            if response.status_code == 200:
-                image_data = response.content
+            resp = requests.get(image_url, timeout=30)
+            if resp.status_code == 200:
+                image_data = resp.content
             else:
-                self.logger.error(f"Failed to download image: HTTP {response.status_code}")
+                self.logger.error(f"Failed to download image: HTTP {resp.status_code}")
                 return image_url
             
-            # S3 키 생성
             timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
             unique_id = str(uuid.uuid4())[:8]
-            safe_business_name = ''.join(c for c in business_name if c.isalnum() or c in '-_').lower()
-            s3_key = f"interiors/{session_id}/{style}_{timestamp}_{unique_id}.png"
+            key = f"interiors/{session_id}/{style}_{timestamp}_{unique_id}.png"
             
-            # 메타데이터
             metadata = {
                 'business_name': business_name,
                 'style': style,
@@ -1331,36 +1089,31 @@ Please recommend 3 interior design styles that best match this business, providi
                 'original_url': image_url
             }
             
-            # 업로드
             upload_result = s3_client.upload_file(
                 file_content=image_data,
-                key=s3_key,
+                key=key,
                 content_type='image/png',
                 metadata=metadata
             )
-            
             if upload_result.get('success'):
-                self.logger.info(f"Successfully stored interior image: {s3_key}")
+                self.logger.info(f"Stored interior image: {key}")
                 return upload_result.get('url')
             else:
                 self.logger.error(f"Failed to upload interior image: {upload_result}")
                 return image_url
-                
         except Exception as e:
             self.logger.error(f"Error storing interior image: {str(e)}")
             return image_url
     
-    def _determine_recommended_styles(self, industry_info: Dict[str, Any], 
-                                    regional_info: Dict[str, Any], 
-                                    selected_signboard: Optional[Dict[str, Any]] = None) -> List[str]:
-        """추천 스타일 결정"""
-        # 업종별 추천 스타일
+    def _determine_recommended_styles(
+        self, industry_info: Dict[str, Any], 
+        regional_info: Dict[str, Any], 
+        selected_signboard: Optional[Dict[str, Any]] = None
+    ) -> List[str]:
+        """Choose up to 3 styles based on industry, region, and signboard alignment"""
         industry_styles = set(industry_info["recommended_styles"])
-        
-        # 지역별 트렌드 스타일
         regional_styles = set(regional_info["trending_styles"])
         
-        # 간판 스타일과의 조화 고려
         signboard_compatible_styles = set()
         if selected_signboard:
             signboard_style = selected_signboard.get('style', '').lower()
@@ -1371,58 +1124,45 @@ Please recommend 3 interior design styles that best match this business, providi
             elif signboard_style == 'vibrant':
                 signboard_compatible_styles = {'industrial', 'cozy'}
         
-        # 우선순위 계산
-        style_scores = {}
+        style_scores: Dict[str, int] = {}
         for style in self.interior_styles.keys():
             score = 0
-            
-            # 업종 적합성 (가중치 40%)
             if style in industry_styles:
                 score += 40
             elif style in industry_info.get("avoid_styles", []):
                 score -= 20
-            
-            # 지역 트렌드 (가중치 30%)
             if style in regional_styles:
                 score += 30
-            
-            # 간판과의 조화 (가중치 20%)
             if style in signboard_compatible_styles:
                 score += 20
-            
-            # 기본 인기도 (가중치 10%)
             popularity_scores = {
                 'modern': 10, 'scandinavian': 9, 'cozy': 8, 
                 'industrial': 6, 'vintage': 5
             }
             score += popularity_scores.get(style, 5)
-            
             style_scores[style] = score
         
-        # 점수 순으로 정렬하여 상위 3개 반환
         sorted_styles = sorted(style_scores.items(), key=lambda x: x[1], reverse=True)
-        return [style for style, score in sorted_styles[:3]]
+        return [style for style, _ in sorted_styles[:3]]
     
-    def _create_style_recommendation(self, style_name: str, business_info: BusinessInfo,
-                                   industry_info: Dict[str, Any], size_info: Dict[str, Any],
-                                   selected_signboard: Optional[Dict[str, Any]] = None) -> InteriorRecommendation:
-        """스타일별 추천 생성"""
+    def _create_style_recommendation(
+        self, style_name: str, business_info: BusinessInfo,
+        industry_info: Dict[str, Any], size_info: Dict[str, Any],
+        selected_signboard: Optional[Dict[str, Any]] = None
+    ) -> InteriorRecommendation:
+        """Create a recommendation object for a given style"""
         style_data = self.interior_styles[style_name]
-        
-        # 적합성 점수 계산
         suitability_score = self._calculate_suitability_score(
             style_name, business_info, industry_info, size_info
         )
-        
-        # 규모별 맞춤 조언 추가
         customized_pros = style_data["pros"].copy()
         customized_cons = style_data["cons"].copy()
         
         if business_info.size == "small":
             if style_name in ["modern", "scandinavian"]:
-                customized_pros.append("작은 공간을 넓어 보이게 하는 효과")
+                customized_pros.append("Makes a small space feel larger")
             if style_name in ["industrial", "vintage"]:
-                customized_cons.append("작은 공간에서는 압박감을 줄 수 있음")
+                customized_cons.append("Can feel heavy in a compact space")
         
         return InteriorRecommendation(
             style=style_data["name"],
@@ -1436,18 +1176,17 @@ Please recommend 3 interior design styles that best match this business, providi
             cons=customized_cons
         )
     
-    def _calculate_suitability_score(self, style_name: str, business_info: BusinessInfo,
-                                   industry_info: Dict[str, Any], size_info: Dict[str, Any]) -> float:
-        """적합성 점수 계산 (0-100)"""
-        score = 50.0  # 기본 점수
-        
-        # 업종 적합성
+    def _calculate_suitability_score(
+        self, style_name: str, business_info: BusinessInfo,
+        industry_info: Dict[str, Any], size_info: Dict[str, Any]
+    ) -> float:
+        """Compute suitability score (0–100)"""
+        score = 50.0
         if style_name in industry_info["recommended_styles"]:
             score += 25
         elif style_name in industry_info.get("avoid_styles", []):
             score -= 20
         
-        # 규모 적합성
         if business_info.size == "small":
             if style_name in ["modern", "scandinavian"]:
                 score += 15
@@ -1457,263 +1196,196 @@ Please recommend 3 interior design styles that best match this business, providi
             if style_name in ["industrial", "vintage"]:
                 score += 10
         
-        # 지역 트렌드 반영
         regional_info = self.regional_trends.get(business_info.region.lower(), {})
         if style_name in regional_info.get("trending_styles", []):
             score += 10
         
         return max(0, min(100, round(score, 1)))
     
-    def _generate_budget_guidance(self, size_info: Dict[str, Any], 
-                                recommendations: List[InteriorRecommendation]) -> Dict[str, Any]:
-        """예산 가이드 생성"""
-        # 비용 레벨별 예상 금액 (평방미터당)
+    def _generate_budget_guidance(
+        self, size_info: Dict[str, Any], 
+        recommendations: List[InteriorRecommendation]
+    ) -> Dict[str, Any]:
+        """Create budget guidance (per m²)"""
         cost_estimates = {
-            "낮음": {"min": 300000, "max": 500000, "description": "기본적인 인테리어 비용"},
-            "중간": {"min": 500000, "max": 800000, "description": "중급 수준의 인테리어 비용"},
-            "높음": {"min": 800000, "max": 1200000, "description": "고급 인테리어 비용"}
+            "Low": {"min": 300000, "max": 500000, "description": "Basic interior scope"},
+            "Medium": {"min": 500000, "max": 800000, "description": "Mid-range interior scope"},
+            "High": {"min": 800000, "max": 1200000, "description": "Premium interior scope"}
         }
         
-        budget_guidance = {
-            "constraint_level": size_info["budget_constraint"],
+        guidance = {
+            "constraint_level": size_info.get("budget_constraint"),
             "recommendations_by_cost": {},
             "cost_saving_tips": size_info.get("cost_saving_tips", []),
             "investment_priorities": size_info.get("investment_priorities", []),
             "financing_options": self._generate_financing_options()
         }
         
-        # 추천별 예산 정보
         for rec in recommendations:
             cost_level = rec.estimated_cost
             if cost_level in cost_estimates:
-                cost_info = cost_estimates[cost_level]
-                budget_guidance["recommendations_by_cost"][rec.style] = {
+                info = cost_estimates[cost_level]
+                guidance["recommendations_by_cost"][rec.style] = {
                     "cost_level": cost_level,
                     "per_sqm_range": {
-                        "min": cost_info["min"],
-                        "max": cost_info["max"],
-                        "description": cost_info["description"]
+                        "min": info["min"],
+                        "max": info["max"],
+                        "description": info["description"]
                     }
                 }
-        
-        return budget_guidance
+        return guidance
     
     def _generate_financing_options(self) -> Dict[str, Any]:
-        """자금 조달 옵션 가이드"""
+        """Funding options guidance"""
         return {
             "payment_methods": {
                 "lump_sum": {
-                    "name": "일시불 결제",
-                    "pros": ["총 비용 절약", "빠른 완공", "업체 할인 혜택"],
-                    "cons": ["높은 초기 부담", "현금 흐름 압박"],
-                    "recommended_for": ["충분한 자금 보유", "빠른 오픈 필요"]
+                    "name": "Lump-sum payment",
+                    "pros": ["Lower total cost", "Faster completion", "Potential vendor discounts"],
+                    "cons": ["High upfront burden", "Cash-flow pressure"],
+                    "recommended_for": ["Sufficient cash on hand", "Need to open quickly"]
                 },
                 "installment": {
-                    "name": "분할 결제",
-                    "pros": ["현금 흐름 관리", "단계별 품질 확인", "리스크 분산"],
-                    "cons": ["총 비용 증가", "관리 복잡성"],
-                    "recommended_for": ["자금 여유 부족", "단계별 진행 선호"]
+                    "name": "Installments by phase",
+                    "pros": ["Cash-flow friendly", "Quality checks per phase", "Risk distribution"],
+                    "cons": ["Higher total cost", "More management overhead"],
+                    "recommended_for": ["Limited cash", "Prefer staged progress"]
                 }
             },
             "funding_sources": [
-                "정부 창업 지원금",
-                "소상공인 대출",
-                "인테리어 전용 대출",
-                "카드 무이자 할부"
+                "Government start-up grants",
+                "SMB loans",
+                "Interior-focused renovation loans",
+                "Credit card 0% installment plans"
             ]
         }
     
-    def _generate_implementation_guide(self, size_info: Dict[str, Any], 
-                                     recommendations: List[InteriorRecommendation]) -> Dict[str, Any]:
-        """실행 가이드 생성"""
+    def _generate_implementation_guide(
+        self, size_info: Dict[str, Any], 
+        recommendations: List[InteriorRecommendation]
+    ) -> Dict[str, Any]:
+        """Step-by-step implementation guide"""
         return {
             "step_by_step_process": {
                 "1": {
-                    "title": "스타일 선택 및 컨셉 확정",
-                    "duration": "1-2일",
+                    "title": "Select style & lock concept",
+                    "duration": "1–2 days",
                     "activities": [
-                        "추천 스타일 중 최종 선택",
-                        "세부 컨셉 및 테마 결정",
-                        "참고 이미지 수집",
-                        "우선순위 설정"
+                        "Pick the final style",
+                        "Decide detailed concept & theme",
+                        "Collect reference images",
+                        "Set priorities"
                     ]
                 },
                 "2": {
-                    "title": "예산 계획 및 자금 준비",
-                    "duration": "3-5일",
+                    "title": "Plan budget & prepare funds",
+                    "duration": "3–5 days",
                     "activities": [
-                        "상세 예산 계획 수립",
-                        "자금 조달 방법 결정",
-                        "예비비 확보",
-                        "결제 일정 계획"
+                        "Draft a detailed budget plan",
+                        "Decide funding method",
+                        "Secure contingency reserve",
+                        "Plan payment schedule"
                     ]
                 },
                 "3": {
-                    "title": "업체 선정 및 계약",
-                    "duration": "1주",
+                    "title": "Select contractor & sign",
+                    "duration": "~1 week",
                     "activities": [
-                        "인테리어 업체 리서치",
-                        "견적 비교 및 협상",
-                        "포트폴리오 검토",
-                        "계약서 작성 및 체결"
+                        "Research interior contractors",
+                        "Compare quotes & negotiate",
+                        "Review portfolios",
+                        "Draft & sign the contract"
                     ]
                 }
             },
             "success_factors": [
-                "명확한 컨셉과 목표 설정",
-                "충분한 사전 계획",
-                "신뢰할 수 있는 업체 선정",
-                "적극적인 소통과 관리"
+                "Clear concept and goals",
+                "Sufficient pre-planning",
+                "Reliable contractor selection",
+                "Active communication & oversight"
             ]
         }
     
-    def _save_interior_recommendations(self, session_id: str, 
-                                     interior_recommendations: InteriorRecommendations) -> None:
-        """InteriorRecommendations를 세션에 저장 (Legacy method - backward compatibility)"""
+    def _save_interior_recommendations(
+        self, session_id: str, interior_recommendations: InteriorRecommendations
+    ) -> None:
+        """Persist recommendations in the session (legacy compatibility)"""
         try:
             from decimal import Decimal
-            
-            # Decimal을 float로 변환하는 helper (JSON serialization용)
             def decimal_to_float(obj):
                 if isinstance(obj, Decimal):
                     return float(obj)
-                elif isinstance(obj, dict):
+                if isinstance(obj, dict):
                     return {k: decimal_to_float(v) for k, v in obj.items()}
-                elif isinstance(obj, list):
-                    return [decimal_to_float(item) for item in obj]
+                if isinstance(obj, list):
+                    return [decimal_to_float(i) for i in obj]
                 return obj
             
             recommendations_data = {
                 "recommendations": [self._recommendation_to_dict(rec) for rec in interior_recommendations.recommendations]
             }
-            
-            # Decimal을 float로 변환 (JSON serialization을 위해)
             recommendations_data = decimal_to_float(recommendations_data)
-            
-            updates = {
-                "interior_recommendations": json.dumps(recommendations_data)
-            }
-            
+            updates = {"interior_recommendations": json.dumps(recommendations_data)}
             success = self.update_session_data(session_id, updates)
             if not success:
                 raise Exception("Failed to update session data")
-                
         except Exception as e:
             self.logger.error(f"Failed to save interior recommendations: {str(e)}")
             raise
     
-    def _save_interior_to_dynamodb(self, session_id: str, 
-                                   recommendations: List[Dict[str, Any]]) -> None:
-        """
-        Save interior recommendations to DynamoDB as Map type (not JSON string)
-        
-        Args:
-            session_id: Session identifier
-            recommendations: List of recommendation dicts with imageUrl
-        
-        DynamoDB Structure:
-            {
-                "interiors": [  # List of Maps
-                    {
-                        "style": "cozy",
-                        "description": "...",
-                        "imageUrl": "https://s3.../xxx.png",
-                        "isGenerated": true,
-                        "provider": "bedrock-titan",
-                        ...
-                    }
-                ],
-                "interiorGenerationStatus": "completed",
-                "interiorGenerationCompletedAt": "2025-10-19T12:24:37.863Z"
-            }
-        """
+    def _save_interior_to_dynamodb(
+        self, session_id: str, recommendations: List[Dict[str, Any]]
+    ) -> None:
+        """Save interior recommendations to DynamoDB as Map type (not JSON string)"""
         try:
             from decimal import Decimal
-            from datetime import datetime
-            
-            # Convert float to Decimal for DynamoDB
             def float_to_decimal(obj):
                 if isinstance(obj, float):
                     return Decimal(str(obj))
-                elif isinstance(obj, dict):
+                if isinstance(obj, dict):
                     return {k: float_to_decimal(v) for k, v in obj.items()}
-                elif isinstance(obj, list):
-                    return [float_to_decimal(item) for item in obj]
+                if isinstance(obj, list):
+                    return [float_to_decimal(i) for i in obj]
                 return obj
             
-            # Convert to DynamoDB-friendly format (float -> Decimal)
             recommendations_clean = float_to_decimal(recommendations)
-            
-            # Prepare updates
             updates = {
-                "interiors": recommendations_clean,  # Map type, not JSON string!
+                "interiors": recommendations_clean,
                 "interiorGenerationStatus": "completed",
                 "interiorGenerationCompletedAt": datetime.utcnow().isoformat()
             }
-            
-            # Log the structure for debugging
             self.logger.info(f"Saving interior data to DynamoDB: {len(recommendations_clean)} recommendations")
-            
-            # Log field names for verification (without JSON serialization to avoid Decimal issues)
-            if recommendations_clean:
-                sample_fields = list(recommendations_clean[0].keys())
-                self.logger.info(f"Interior recommendation fields: {sample_fields}")
-                # Log sample values (convert Decimal to string for logging)
-                sample_data = {k: str(v) if isinstance(v, Decimal) else v for k, v in list(recommendations_clean[0].items())[:5]}
-                self.logger.info(f"Sample data (first 5 fields): {sample_data}")
-            
-            # Save to DynamoDB
             success = self.update_session_data(session_id, updates)
-            
             if not success:
                 raise Exception("Failed to update session data in DynamoDB")
-            
             self.logger.info(f"✅ Successfully saved {len(recommendations_clean)} interiors to DynamoDB as Map type")
-            
         except Exception as e:
             self.logger.error(f"❌ Failed to save interior data to DynamoDB: {str(e)}")
-            # Don't raise - allow Lambda to return response even if DynamoDB save fails
-            # Streamlit can still display from API response
     
     def _upload_image_to_s3(self, image_url: str, s3_key: str) -> Optional[str]:
-        """이미지를 S3에 업로드"""
+        """Upload an image to S3 and return a presigned URL"""
         try:
-            import requests
-            import boto3
+            import requests, boto3
+            resp = requests.get(image_url, timeout=30)
+            resp.raise_for_status()
+            image_data = resp.content
             
-            # Download image
-            response = requests.get(image_url, timeout=30)
-            response.raise_for_status()
-            image_data = response.content
-            
-            # Upload to S3
-            s3_client = boto3.client('s3')
-            bucket_name = os.getenv('S3_BUCKET_NAME', 'ai-branding-chatbot-assets-908601828278')
-            
-            s3_client.put_object(
-                Bucket=bucket_name,
-                Key=s3_key,
-                Body=image_data,
-                ContentType='image/png'
+            s3 = boto3.client('s3')
+            bucket = os.getenv('S3_BUCKET_NAME', 'ai-branding-chatbot-assets-908601828278')
+            s3.put_object(Bucket=bucket, Key=s3_key, Body=image_data, ContentType='image/png')
+            url = s3.generate_presigned_url(
+                'get_object', Params={'Bucket': bucket, 'Key': s3_key}, ExpiresIn=604800
             )
-            
-            # Generate presigned URL (valid for 7 days)
-            s3_url = s3_client.generate_presigned_url(
-                'get_object',
-                Params={'Bucket': bucket_name, 'Key': s3_key},
-                ExpiresIn=604800  # 7 days
-            )
-            self.logger.info(f"Image uploaded to S3: {s3_url}")
-            return s3_url
-            
+            self.logger.info(f"Image uploaded to S3: {url}")
+            return url
         except Exception as e:
             self.logger.error(f"Failed to upload image to S3: {str(e)}")
             return None
     
-    def _create_interior_image_prompt(self, style: str, industry: str, 
-                                      colors: List[str], materials: List[str]) -> str:
-        """인테리어 이미지 프롬프트 생성"""
-        # 스타일별 키워드
+    def _create_interior_image_prompt(
+        self, style: str, industry: str, colors: List[str], materials: List[str]
+    ) -> str:
+        """Create an English prompt for image generation"""
         style_keywords = {
             'modern': 'sleek, minimalist, contemporary',
             'cozy': 'warm, comfortable, inviting',
@@ -1721,38 +1393,32 @@ Please recommend 3 interior design styles that best match this business, providi
             'classic': 'elegant, timeless, refined',
             'scandinavian': 'bright, airy, natural'
         }
-        
         style_desc = style_keywords.get(style.lower(), 'stylish, professional')
         
-        # 업종별 키워드
         industry_keywords = {
             'restaurant': 'dining area, tables and chairs, welcoming atmosphere',
             'cafe': 'coffee shop, cozy seating, relaxed ambiance',
             'retail': 'store interior, display shelves, shopping space',
             'office': 'workspace, desks, professional environment'
         }
-        
         industry_desc = industry_keywords.get(industry.lower(), 'commercial space')
         
-        # 색상 및 소재 정보
         color_desc = ', '.join(colors[:3]) if colors else 'neutral tones'
         material_desc = ', '.join(materials[:3]) if materials else 'modern materials'
         
         prompt = f"""Professional interior design photograph of a {style} style {industry} space.
-        
+
 {style_desc}, {industry_desc}.
 
 Color palette: {color_desc}
 Materials: {material_desc}
 
-High-quality, realistic, well-lit, professional photography, 
-architectural digest style, wide angle view, 8k resolution, 
-no people, clean and organized space"""
-        
+High-quality, realistic, well-lit, architectural digest style,
+wide-angle view, 8k resolution, no people, clean and organized space"""
         return prompt
     
     def _recommendation_to_dict(self, recommendation: InteriorRecommendation) -> Dict[str, Any]:
-        """InteriorRecommendation을 딕셔너리로 변환"""
+        """Convert InteriorRecommendation to dict"""
         return {
             "style": recommendation.style,
             "description": recommendation.description,
@@ -1767,8 +1433,8 @@ no people, clean and organized space"""
         }
 
 
-# Lambda 핸들러
+# Lambda handler
 def lambda_handler(event, context):
-    """Lambda 핸들러 함수"""
+    """Lambda entrypoint"""
     agent = InteriorAgent()
     return agent.lambda_handler(event, context)

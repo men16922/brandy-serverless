@@ -1,0 +1,75 @@
+{
+  "restaurant": [
+    "taste",
+    "flavor",
+    "house",
+    "origin",
+    "den",
+    "house",
+    "kitchen",
+    "table"
+  ],
+  "retail": [
+    "shop",
+    "store",
+    "market",
+    "place",
+    "corner",
+    "gallery"
+  ],
+  "service": [
+    "center",
+    "studio",
+    "lab",
+    "clinic",
+    "office",
+    "room"
+  ],
+  "healthcare": [
+    "clinic",
+    "care",
+    "medi",
+    "health",
+    "well",
+    "life"
+  ],
+  "education": [
+    "academy",
+    "school",
+    "center",
+    "lab",
+    "studio",
+    "class"
+  ],
+  "technology": [
+    "tech",
+    "lab",
+    "system",
+    "solution",
+    "innovation"
+  ],
+  "manufacturing": [
+    "factory",
+    "works",
+    "industry",
+    "maker"
+  ],
+  "construction": [
+    "build",
+    "construction",
+    "housing",
+    "develop"
+  ],
+  "finance": [
+    "finance",
+    "capital",
+    "invest",
+    "fund"
+  ],
+  "other": [
+    "company",
+    "group",
+    "partners",
+    "solution"
+  ]
+}

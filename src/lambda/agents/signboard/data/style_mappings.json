@@ -1,0 +1,87 @@
+{
+  "modern": {
+    "fonts": [
+      "sans-serif",
+      "geometric",
+      "clean"
+    ],
+    "colors": [
+      "monochrome",
+      "minimal palette",
+      "bold contrast"
+    ],
+    "elements": [
+      "simple shapes",
+      "negative space",
+      "clean lines"
+    ]
+  },
+  "vintage": {
+    "fonts": [
+      "serif",
+      "script",
+      "decorative"
+    ],
+    "colors": [
+      "muted tones",
+      "warm palette",
+      "aged colors"
+    ],
+    "elements": [
+      "ornamental",
+      "classic motifs",
+      "textured"
+    ]
+  },
+  "minimalist": {
+    "fonts": [
+      "simple",
+      "thin",
+      "geometric"
+    ],
+    "colors": [
+      "monochrome",
+      "single accent",
+      "neutral"
+    ],
+    "elements": [
+      "minimal",
+      "whitespace",
+      "simple icon"
+    ]
+  },
+  "bold": {
+    "fonts": [
+      "heavy",
+      "impact",
+      "strong"
+    ],
+    "colors": [
+      "vibrant",
+      "high contrast",
+      "saturated"
+    ],
+    "elements": [
+      "large text",
+      "bold graphics",
+      "eye-catching"
+    ]
+  },
+  "elegant": {
+    "fonts": [
+      "refined",
+      "sophisticated",
+      "graceful"
+    ],
+    "colors": [
+      "sophisticated",
+      "harmonious",
+      "refined"
+    ],
+    "elements": [
+      "balanced",
+      "refined details",
+      "premium feel"
+    ]
+  }
+}

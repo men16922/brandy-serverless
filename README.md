@@ -1,34 +1,34 @@
-# AI 브랜딩 챗봇 🤖
+# AI Branding Chatbot 🤖
 
-업종, 지역, 규모만 입력하면 AI가 **상호명, 간판 디자인, 인테리어, PDF 보고서**를 자동으로 만들어주는 서버리스 시스템입니다.
+A serverless system that automatically generates **business names, signboard designs, interior recommendations, and PDF reports** by simply entering industry, region, and size.
 
-## 🎯 무엇을 하는 프로젝트인가요?
+## 🎯 What Does This Project Do?
 
 ```
-입력: "서울 강남에서 소규모 카페 운영 예정"
+Input: "Planning to operate a small cafe in Gangnam, Seoul"
 ↓
-AI가 자동 생성:
-✅ 상호명 3개 후보 (발음/검색 점수 포함)
-✅ 간판 디자인 3개 (DALL-E, SDXL, Gemini)
-✅ 인테리어 추천 3개 (간판 스타일 맞춤)
-✅ 종합 브랜딩 PDF 보고서
+AI automatically generates:
+✅ 3 business name candidates (with pronunciation/search scores)
+✅ 3 signboard designs (DALL-E, SDXL, Gemini)
+✅ 3 interior recommendations (matched to signboard style)
+✅ Comprehensive branding PDF report
 ```
 
-## 🏗️ 시스템 구조
+## 🏗️ System Architecture
 
-### 6개 AI 에이전트가 순서대로 작업
-1. **Supervisor** - 전체 작업 관리
-2. **Product Insight** - 비즈니스 분석  
-3. **Market Analyst** - 시장 동향 분석
-4. **Reporter** - 상호명 생성
-5. **Signboard** - 간판 디자인 (3개 AI 동시 사용)
-6. **Interior** - 인테리어 추천
+### 6 AI Agents Working Sequentially
+1. **Supervisor** - Overall workflow management
+2. **Product Insight** - Business analysis  
+3. **Market Analyst** - Market trend analysis
+4. **Reporter** - Business name generation
+5. **Signboard** - Signboard design (3 AIs simultaneously)
+6. **Interior** - Interior recommendations
 
-### 기술 스택
-- **AWS SAM** - 서버리스 배포
-- **Lambda + API Gateway** - 백엔드
-- **DynamoDB + S3** - 데이터 저장
-- **Step Functions** - 워크플로 관리
+### Technology Stack
+- **AWS SAM** - Serverless deployment
+- **Lambda + API Gateway** - Backend
+- **DynamoDB + S3** - Data storage
+- **Step Functions** - Workflow management
 
 ## 🚀 Quick Start (AWS-Only Architecture)
 
@@ -120,99 +120,97 @@ aws sts get-caller-identity
 
 # 4. Redeploy if needed
 ./safe_deploy.sh
-aws sts get-caller-identity
 
-# 4. Restart Streamlit with correct environment
+# 5. Restart Streamlit with correct environment
 source venv/bin/activate
-
 ```
 
-#### 세션 생성 오류 (`Session ID is required`)
+#### Session Creation Error (`Session ID is required`)
 ```bash
-# SAM Local 재시작 (코드 변경사항 반영)
-# 터미널에서 Ctrl+C로 중지 후 다시 시작
+# Restart SAM Local (to reflect code changes)
+# Stop with Ctrl+C in terminal, then restart
 ./scripts/dev.sh api
 ```
 
-#### 의존성 오류
+#### Dependency Errors
 ```bash
-# 개발환경 재설정
+# Reset development environment
 ./scripts/activate-dev.sh
 
-# 수동 설치
+# Manual installation
 source venv/bin/activate
 pip install -r src/streamlit/requirements.txt
 ```
 
-#### 포트 충돌
+#### Port Conflicts
 ```bash
-# 포트 사용 확인
+# Check port usage
 lsof -i :3000,8501,8000,9000
 
-# 프로세스 종료 후 재시작
+# Kill processes and restart
 ./scripts/dev.sh cleanup
 ./scripts/dev.sh setup
 ```
 
-## 🧪 테스트 (실제 DB 사용)
+## 🧪 Testing (Using Real Database)
 
 ```bash
-./scripts/dev.sh test      # 통합 테스트 실행 (Bedrock 검증 포함)
-./scripts/dev.sh validate  # 환경 및 Bedrock 검증
+./scripts/dev.sh test      # Run integration tests (includes Bedrock validation)
+./scripts/dev.sh validate  # Validate environment and Bedrock
 ```
 
-**특징**: Mock 사용 안함. 실제 DynamoDB, MinIO, Chroma 사용하여 신뢰할 수 있는 테스트
+**Feature**: No mocks used. Reliable testing with actual DynamoDB, MinIO, and Chroma
 
-### Bedrock 로컬 테스트
+### Bedrock Local Testing
 
-AWS Bedrock을 로컬에서 테스트하려면:
+To test AWS Bedrock locally:
 
 ```bash
-# 1. AWS 자격증명 설정
+# 1. Configure AWS credentials
 aws configure
-# 또는 환경 변수 설정
+# Or set environment variables
 export AWS_ACCESS_KEY_ID=your_key
 export AWS_SECRET_ACCESS_KEY=your_secret
 export AWS_DEFAULT_REGION=us-west-2
 
-# 2. Bedrock 설정 검증
+# 2. Verify Bedrock setup
 ./scripts/verify-bedrock-setup.sh
 
-# 3. 환경 변수 설정 (.env 파일)
+# 3. Configure environment variables (.env file)
 BEDROCK_REGION=us-west-2
 CLAUDE_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
 SDXL_MODEL_ID=stability.stable-diffusion-xl-v1
-ENABLE_FALLBACK=true  # 로컬 개발 시 true, 제출 시 false
+ENABLE_FALLBACK=true  # true for local dev, false for submission
 
-# 4. Bedrock 통합 테스트 실행
+# 4. Run Bedrock integration tests
 python -m pytest tests/integration/test_bedrock_integration.py -v
 ```
 
-**참고**: AWS 자격증명 없이도 로컬 개발 가능 (Fallback 모드)
+**Note**: Local development possible without AWS credentials (Fallback mode)
 
-## 🛠️ 개발 명령어
+## 🛠️ Development Commands
 
-### 통합 개발 스크립트 (권장)
+### Integrated Development Script (Recommended)
 ```bash
-./scripts/dev.sh setup     # 로컬 환경 설정
-./scripts/dev.sh validate  # 환경 검증
-./scripts/dev.sh test      # 통합 테스트 실행
-./scripts/dev.sh build     # SAM 애플리케이션 빌드
-./scripts/dev.sh api       # 로컬 API 서버 시작
-./scripts/dev.sh app       # Streamlit 앱 시작
-./scripts/dev.sh cleanup   # 환경 정리
-./scripts/dev.sh help      # 도움말
+./scripts/dev.sh setup     # Setup local environment
+./scripts/dev.sh validate  # Validate environment
+./scripts/dev.sh test      # Run integration tests
+./scripts/dev.sh build     # Build SAM application
+./scripts/dev.sh api       # Start local API server
+./scripts/dev.sh app       # Start Streamlit app
+./scripts/dev.sh cleanup   # Clean up environment
+./scripts/dev.sh help      # Show help
 ```
 
-### 개별 스크립트
+### Individual Scripts
 ```bash
-# 환경 관리
-./scripts/activate-dev.sh               # 개발환경 활성화
-./scripts/setup-local.sh                # Docker 서비스 시작
-python scripts/validate-environment.py  # 환경 전체 검증
+# Environment management
+./scripts/activate-dev.sh               # Activate development environment
+./scripts/setup-local.sh                # Start Docker services
+python scripts/validate-environment.py  # Validate entire environment
 
-# SAM 개발 워크플로
-./scripts/sam-build.sh                  # SAM application build
+# SAM development workflow
+./scripts/sam-build.sh                  # Build SAM application
 ./safe_deploy.sh                        # Safe AWS deployment
 sam logs --stack-name ai-branding-chatbot-dev --tail  # Real-time logs
 ```
@@ -270,20 +268,20 @@ ENABLE_FALLBACK=false  # Bedrock Only!
 DEV_PROFILE=false
 ENVIRONMENT=prod
 BEDROCK_REGION=us-west-2
-# AWS 자격증명 필수
+# AWS credentials required
 ```
 
-### 환경 변수 검증
+### Environment Variable Validation
 
 ```bash
-# 전체 환경 검증
+# Validate entire environment
 ./scripts/dev.sh validate
 
-# Bedrock 설정만 검증
+# Validate Bedrock configuration only
 ./scripts/verify-bedrock-setup.sh
 ```
 
-## 📁 프로젝트 구조
+## 📁 Project Structure
 
 ```
 ├── template.yaml                      # SAM template (all AWS resources)
@@ -329,7 +327,6 @@ aws dynamodb delete-table --table-name ai-branding-chatbot-sessions
 
 MIT License
 
-
 ## 🔧 Troubleshooting
 
 ### Signboard Generation Issues
@@ -337,7 +334,7 @@ MIT License
 #### Problem: Fallback images appearing instead of AI-generated images
 
 **Symptoms**:
-- "⚠️ 폴백 이미지 (AI 생성 실패 시 대체)" message
+- "⚠️ Fallback image (used when AI generation fails)" message
 - Placeholder images instead of actual designs
 
 **Solutions**:

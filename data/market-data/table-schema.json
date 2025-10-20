@@ -2,39 +2,38 @@
   "tables": [
     {
       "tableName": "MarketData",
-      "description": "시장 분석을 위한 기준 데이터",
+      "description": "Reference data for market analysis",
       "keySchema": [
-        {"attributeName": "dataType", "keyType": "HASH"},
-        {"attributeName": "dataKey", "keyType": "RANGE"}
-      ],
-      "attributeDefinitions": [
-        {"attributeName": "dataType", "attributeType": "S"},
-        {"attributeName": "dataKey", "attributeType": "S"}
-      ],
-      "globalSecondaryIndexes": [
         {
-          "indexName": "CategoryIndex",
-          "keySchema": [
-            {"attributeName": "category", "keyType": "HASH"},
-            {"attributeName": "dataKey", "keyType": "RANGE"}
-          ],
-          "attributeDefinitions": [
-            {"attributeName": "category", "attributeType": "S"}
-          ]
+          "attributeName": "dataType",
+          "keyType": "HASH"
+        },
+        {
+          "attributeName": "dataKey",
+          "keyType": "RANGE"
         }
       ],
-      "billingMode": "PAY_PER_REQUEST"
+      "attributeDefinitions": [
+        {
+          "attributeName": "dataType",
+          "attributeType": "S"
+        },
+        {
+          "attributeName": "dataKey",
+          "attributeType": "S"
+        }
+      ],
+      "provisionedThroughput": {
+        "readCapacityUnits": 5,
+        "writeCapacityUnits": 5
+      }
     }
   ],
   "dataTypes": {
-    "INDUSTRY_MARKET_SIZE": "업종별 시장 규모 데이터",
-    "REGIONAL_MULTIPLIER": "지역별 시장 조정 계수",
-    "INDUSTRY_COMPETITOR": "업종별 경쟁사 정보",
-    "INDUSTRY_TREND": "업종별 최신 트렌드",
-    "CONSUMER_PREFERENCE": "소비자 선호도 변화",
-    "MARKET_OPPORTUNITY": "시장 기회 요소",
-    "RISK_FACTOR": "위험 요소",
-    "ENTRY_BARRIER": "진입 장벽",
-    "TECH_OPPORTUNITY": "기술 기회"
+    "INDUSTRY_MARKET_SIZE": "Industry market size data",
+    "REGIONAL_MULTIPLIER": "Regional market adjustment coefficient",
+    "INDUSTRY_COMPETITOR": "Industry competitor information",
+    "INDUSTRY_TREND": "Latest industry trends",
+    "CONSUMER_PREFERENCE": "Consumer preference changes"
   }
 }
