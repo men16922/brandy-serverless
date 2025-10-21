@@ -642,20 +642,89 @@ class AlternativeReportGenerator:
         </table>
         """
 
+    def _convert_markdown_to_html(self, text: str) -> str:
+        """Convert basic Markdown formatting to HTML"""
+        import re
+        
+        # Convert headers (## Header -> <h3>)
+        text = re.sub(r'^## (.+)$', r'<h3 style="color: #2c3e50; margin: 20px 0 10px 0; font-size: 18px; font-weight: 600;">\1</h3>', text, flags=re.MULTILINE)
+        text = re.sub(r'^### (.+)$', r'<h4 style="color: #34495e; margin: 15px 0 8px 0; font-size: 16px; font-weight: 600;">\1</h4>', text, flags=re.MULTILINE)
+        
+        # Convert bold (**text** or __text__)
+        text = re.sub(r'\*\*(.+?)\*\*', r'<strong style="color: #2c3e50;">\1</strong>', text)
+        text = re.sub(r'__(.+?)__', r'<strong style="color: #2c3e50;">\1</strong>', text)
+        
+        # Convert italic (*text* or _text_)
+        text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', text)
+        text = re.sub(r'_(.+?)_', r'<em>\1</em>', text)
+        
+        # Convert bullet lists (- item or * item)
+        lines = text.split('\n')
+        in_list = False
+        result_lines = []
+        
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith('- ') or stripped.startswith('* '):
+                if not in_list:
+                    result_lines.append('<ul style="margin: 10px 0; padding-left: 25px;">')
+                    in_list = True
+                item_text = stripped[2:].strip()
+                result_lines.append(f'<li style="margin: 5px 0; line-height: 1.6;">{item_text}</li>')
+            else:
+                if in_list:
+                    result_lines.append('</ul>')
+                    in_list = False
+                if stripped:
+                    result_lines.append(line)
+        
+        if in_list:
+            result_lines.append('</ul>')
+        
+        return '\n'.join(result_lines)
+    
     def _generate_synthesized_insights_section_html(self, synthesized_insights: str) -> str:
         """Generate the Bedrock Claude synthesized insights section (HTML)"""
         if not synthesized_insights:
             return ""
 
-        # Split insights into paragraphs (by blank line)
-        paragraphs = [p.strip() for p in synthesized_insights.split('\n\n') if p.strip()]
-        insights_html = "".join([f"<p>{p}</p>" for p in paragraphs])
+        # Convert Markdown to HTML
+        html_content = self._convert_markdown_to_html(synthesized_insights)
+        
+        # Split into paragraphs and format
+        paragraphs = [p.strip() for p in html_content.split('\n\n') if p.strip()]
+        
+        # Format paragraphs with proper spacing and styling
+        insights_html = ""
+        for i, paragraph in enumerate(paragraphs):
+            # Skip if already HTML tag
+            if paragraph.startswith('<h') or paragraph.startswith('<ul'):
+                insights_html += paragraph + '\n'
+            elif paragraph.startswith('<li'):
+                insights_html += paragraph + '\n'
+            else:
+                # Regular paragraph with better spacing
+                margin_top = "15px" if i > 0 else "0"
+                insights_html += f'<p style="margin: {margin_top} 0 10px 0; line-height: 1.8; font-size: 15px; color: #2c3e50;">{paragraph}</p>'
 
         return f"""
         <h2>✨ AI Synthesized Insights</h2>
-        <div class="recommendations" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-left-color: #667eea;">
-            <p style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">🤖 Amazon Bedrock Claude — Summary & Recommendations</p>
-            {insights_html}
+        <div style="background: white; padding: 30px; border-radius: 12px; border: 2px solid #667eea; margin: 20px 0; box-shadow: 0 4px 6px rgba(102, 126, 234, 0.1);">
+            <div style="display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #e9ecef;">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 10px 20px; border-radius: 8px; margin-right: 15px;">
+                    <span style="font-size: 24px;">🤖</span>
+                </div>
+                <div>
+                    <h3 style="margin: 0; color: #2c3e50; font-size: 20px;">Amazon Bedrock Claude</h3>
+                    <p style="margin: 5px 0 0 0; color: #6c757d; font-size: 14px;">AI-Powered Analysis & Strategic Recommendations</p>
+                </div>
+            </div>
+            <div style="color: #2c3e50;">
+                {insights_html}
+            </div>
+            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #e9ecef; text-align: right;">
+                <span style="color: #6c757d; font-size: 13px; font-style: italic;">Powered by Amazon Bedrock</span>
+            </div>
         </div>
         """
 

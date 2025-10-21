@@ -274,11 +274,12 @@ class ReportGeneratorAgent(BaseAgent):
             session_data['budget_guide'] = budget_guide
             session_data['budget_guide_included'] = True
             
-            # Generate recommendations
+            # Generate AI-powered recommendations
             analysis_result = session_data.get("analysis_result", {})
             recommendations = self.business_utils.generate_recommendations(
                 business_info,
-                analysis_result
+                analysis_result,
+                bedrock_client=self.bedrock_integration.bedrock_client if hasattr(self.bedrock_integration, 'bedrock_client') else None
             )
             session_data['recommendations'] = recommendations
             

@@ -11,6 +11,10 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from PIL import Image
 import io
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -21,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration - AWS-only architecture
 # Streamlit runs locally, all backend services use AWS
-API_BASE_URL = os.getenv('API_BASE_URL', 'https://vd9s16odtc.execute-api.us-west-2.amazonaws.com/dev')
+API_BASE_URL = os.getenv('API_BASE_URL', 'https://67y0voa4yd.execute-api.us-west-2.amazonaws.com/dev')
 logger.info(f"API_BASE_URL configured: {API_BASE_URL}")
 
 # Workflow steps configuration
@@ -522,38 +526,51 @@ def display_analysis_results():
     analysis = results.get("analysis")
     
     if analysis:
-        
         st.markdown("### 📊 Business Analysis Results")
         
-        # Score display
+        # Compact score display
         score = analysis.get("score", 0)
-        st.metric("Overall Score", f"{score:.1f}/100")
+        if score >= 80:
+            score_color = "#10b981"
+            score_emoji = "🟢"
+        elif score >= 60:
+            score_color = "#f59e0b"
+            score_emoji = "🟡"
+        else:
+            score_color = "#ef4444"
+            score_emoji = "🔴"
         
-        # Summary
-        if analysis.get("summary"):
-            st.markdown("**analysis Summary**")
-            st.info(analysis["summary"])
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            st.metric("Score", f"{score:.0f}/100", delta=None)
+        with col2:
+            if analysis.get("summary"):
+                st.info(f"**Summary:** {analysis['summary']}")
         
-        # Insights
-        insights = analysis.get("insights", [])
-        if insights:
-            st.markdown("**Key Insights**")
-            for i, insight in enumerate(insights, 1):
-                st.markdown(f"{i}. {insight}")
+        # Compact sections with expanders
+        with st.expander("💡 AI Insights", expanded=True):
+            insights = analysis.get("insights", [])
+            if insights:
+                for insight in insights:
+                    st.markdown(f"• {insight}")
+            else:
+                st.write("No insights available")
         
-        # Market trends
-        trends = analysis.get("market_trends", [])
-        if trends:
-            st.markdown("**Market Trends**")
-            for trend in trends:
-                st.markdown(f"• {trend}")
+        with st.expander("📈 Market Trends"):
+            trends = analysis.get("market_trends", [])
+            if trends:
+                for trend in trends:
+                    st.markdown(f"• {trend}")
+            else:
+                st.write("No trends available")
         
-        # Recommendations
-        recommendations = analysis.get("recommendations", [])
-        if recommendations:
-            st.markdown("**Recommendations**")
-            for rec in recommendations:
-                st.markdown(f"• {rec}")
+        with st.expander("🎯 Recommendations"):
+            recommendations = analysis.get("recommendations", [])
+            if recommendations:
+                for rec in recommendations:
+                    st.markdown(f"• {rec}")
+            else:
+                st.write("No recommendations available")
         
         # Next step button
         st.markdown("---")
@@ -660,6 +677,7 @@ def display_analysis_results():
                             st.success("✅ Business name generation complete!")
                             time.sleep(1)
                             st.session_state.current_step = 2
+                            st.session_state.view_step = 2  # Auto-navigate to next page
                             st.rerun()
                             return
                         
@@ -936,6 +954,7 @@ def manual_refresh_interior_status():
             if interior_status == "completed" or generated_images == total_recommendations:
                 st.success(f"✅ Interior generation complete! ({generated_images}/{total_recommendations} images)")
                 st.session_state.current_step = 4
+                st.session_state.view_step = 4  # Auto-navigate to next page
                 st.session_state.interior_timeout = False
                 time.sleep(1)
                 st.rerun()
@@ -1099,40 +1118,35 @@ def display_report_download():
     report_data = results.get("report")
     
     if report_data:
+        st.markdown("### 📄 Final Branding Report")
         
-        st.markdown("### 📄 Branding Report")
-        
-        st.success("Branding Report has been generated!")
-        
-        # Report info
-        st.info("""
-        **Contents:**
-        - Business Analysis Results
-        - Selected business name and candidates
-        - Signboard designs (selected + all options)
-        - Interior recommendations (selected + all options)
-        - Color palette and budget guide
-        - Customized branding recommendations
-        """)
-        
-        # Download button
-        col1, col2, col3 = st.columns([1, 2, 1])
+        # Compact report info with metrics
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Status", "✅ Ready")
         with col2:
-            if st.button("📥 Download Report", type="primary", use_container_width=True):
-                download_report()
+            file_size = report_data.get("fileSize", 0)
+            size_mb = file_size / (1024 * 1024) if file_size > 0 else 0
+            st.metric("Size", f"{size_mb:.1f} MB")
+        with col3:
+            st.metric("Format", "HTML")
         
-        # Additional options
-        st.markdown("---")
-        st.markdown("**Additional Options:**")
+        # Simple download section
+        st.markdown("**📦 Package Includes:**")
+        st.markdown("Business Analysis • Brand Names • Signboard Designs • Interior Concepts • Color Palette • Budget Guide")
         
+        # Download button - prominent
+        if st.button("📥 Download Complete Report", type="primary", use_container_width=True):
+            download_report()
+        
+        # Compact additional options
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("🔄 Start New Workflow"):
+            if st.button("🔄 New Project", use_container_width=True):
                 start_new_workflow()
-        
         with col2:
-            if st.button("📧 Send via Email"):
-                st.info("Email sending feature will be implemented later.")
+            if st.button("📧 Email Report", use_container_width=True):
+                st.info("Email feature coming soon")
 
 def select_business_name(name: str):
     """Select a business name and trigger signboard generation"""
@@ -1261,6 +1275,7 @@ def select_business_name(name: str):
                                 st.success(f"✅ Signboard designs generation complete! ({len(images)}items)")
                                 time.sleep(1)
                                 st.session_state.current_step = 3
+                                st.session_state.view_step = 3  # Auto-navigate to next page
                                 st.rerun()
                                 return
                 
@@ -1439,6 +1454,7 @@ def start_interior_generation():
                         
                         st.success(f"✅ Interior recommendations complete! ({generated_images}items images generated)")
                         st.session_state.current_step = 4
+                        st.session_state.view_step = 4  # Auto-navigate to next page
                         time.sleep(1)
                         st.rerun()
                         return
@@ -1476,6 +1492,7 @@ def start_interior_generation():
                             if generated_images > 0:
                                 st.success(f"✅ Interior generation complete! ({generated_images} images)")
                                 st.session_state.current_step = 4
+                                st.session_state.view_step = 4  # Auto-navigate to next page
                                 st.session_state.interior_timeout = False
                                 time.sleep(1)
                                 st.rerun()
@@ -1529,16 +1546,29 @@ def select_interior_option(style: str):
         # Automatically trigger report generation (async mode)
         with st.spinner("📄 Starting report generation..."):
             try:
-                # Start async report generation
-                report_response = requests.post(
-                    f"{API_BASE_URL}/report/generate",
-                    json={
-                        "sessionId": st.session_state.session_id,
-                        "businessInfo": st.session_state.business_info
-                    },
-                    headers={"x-async-mode": "true"},  # Enable async mode
-                    timeout=30
-                )
+                # Start async report generation with retries
+                report_response = None
+                for attempt in range(3):
+                    try:
+                        report_response = requests.post(
+                            f"{API_BASE_URL}/report/generate",
+                            json={
+                                "sessionId": st.session_state.session_id,
+                                "businessInfo": st.session_state.business_info
+                            },
+                            headers={"x-async-mode": "true"},  # Enable async mode
+                            timeout=60  # Increased timeout: 30s → 60s
+                        )
+                        break
+                    except requests.Timeout:
+                        if attempt < 2:
+                            logger.warning(f"Report generation request timeout (attempt {attempt + 1}/3)")
+                            time.sleep(2)
+                        else:
+                            raise
+                
+                if not report_response:
+                    raise Exception("Failed to start report generation after 3 attempts")
                 
                 logger.info(f"Report API response: {report_response.status_code}")
                 
@@ -1581,6 +1611,7 @@ def select_interior_option(style: str):
                                         st.balloons()
                                         time.sleep(1)
                                         st.session_state.current_step = 5
+                                        st.session_state.view_step = 5  # Auto-navigate to next page
                                         st.rerun()
                                     break
                                     
@@ -1620,6 +1651,7 @@ def select_interior_option(style: str):
                     st.balloons()
                     time.sleep(1)
                     st.session_state.current_step = 5
+                    st.session_state.view_step = 5  # Auto-navigate to next page
                     st.rerun()
                     
                 else:
@@ -1699,9 +1731,31 @@ def main():
             st.session_state.current_step = status_data.get("currentStep", 1)
             logger.info(f"Session data loaded: currentStep={st.session_state.current_step}")
     
-    # Header
-    st.title("🎨 AI Branding Chatbot")
-    st.markdown("**Generate complete branding package with 5-step automated workflow**")
+    # Header with enhanced visual design
+    st.markdown("""
+    <div style="text-align: center; padding: 2rem 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 15px; margin-bottom: 2rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <h1 style="color: white; font-size: 3.5rem; margin: 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.2);">
+            🎨 Brandy
+        </h1>
+        <p style="color: #f0f0f0; font-size: 1.8rem; margin: 0.5rem 0; font-weight: 300;">
+            AI-Powered Branding Agent
+        </p>
+        <p style="color: white; font-size: 1.3rem; margin: 1rem 0 0.5rem 0; font-weight: 500;">
+            ✨ Transform Your Business Vision Into Reality ✨
+        </p>
+        <div style="display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;">
+            <span style="background: rgba(255,255,255,0.2); padding: 0.5rem 1rem; border-radius: 20px; color: white; font-size: 0.9rem;">
+                ⚡ Powered by Amazon Bedrock
+            </span>
+            <span style="background: rgba(255,255,255,0.2); padding: 0.5rem 1rem; border-radius: 20px; color: white; font-size: 0.9rem;">
+                🚀 5 Automated Steps
+            </span>
+            <span style="background: rgba(255,255,255,0.2); padding: 0.5rem 1rem; border-radius: 20px; color: white; font-size: 0.9rem;">
+                🎯 Complete Branding Package
+            </span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Sidebar with session info
     with st.sidebar:
@@ -1862,50 +1916,95 @@ def main():
             time.sleep(2)  # Optimized: 5s → 2s
             st.rerun()
         
-        # Display current step content
-        if st.session_state.current_step == 1:
-            display_analysis_results()
-            if not st.session_state.session_data or not st.session_state.session_data.get("results", {}).get("analysis"):
-                st.warning("⚠️ No business analysis results!")
-                st.info("💡 Click 'Force Execute Next Step' button in sidebar to start analysis.")
-        elif st.session_state.current_step == 2:
-            display_analysis_results()  # Keep showing analysis
-            st.markdown("---")
-            display_business_names()
-            if not st.session_state.session_data or not st.session_state.session_data.get("results", {}).get("names"):
-                st.info("🔄 Business name generation in progress...")
-        elif st.session_state.current_step == 3:
-            display_analysis_results()  # Keep showing analysis
-            st.markdown("---")
-            display_business_names()    # Keep showing selected name
-            st.markdown("---")
-            display_signboard_gallery()
-            if not st.session_state.session_data or not st.session_state.session_data.get("results", {}).get("signboards"):
-                st.info("🔄 Signboard designs generation in progress...")
-        elif st.session_state.current_step == 4:
-            display_analysis_results()
-            st.markdown("---")
-            display_business_names()
-            st.markdown("---")
-            display_signboard_gallery()
-            st.markdown("---")
-            display_interior_options()
-            if not st.session_state.session_data or not st.session_state.session_data.get("results", {}).get("interiors"):
-                st.info("🔄 Interior recommendations in progress...")
-        elif st.session_state.current_step == 5:
-            display_analysis_results()
-            st.markdown("---")
-            display_business_names()
-            st.markdown("---")
-            display_signboard_gallery()
-            st.markdown("---")
-            display_interior_options()
-            st.markdown("---")
-            display_report_download()
-            if not st.session_state.session_data or not st.session_state.session_data.get("results", {}).get("report"):
-                st.info("🔄 Report generation in progress...")
-        else:
-            st.info(f"Step {st.session_state.current_step}is not yet implemented.")
+        # Initialize view_step if not exists (which step to view)
+        if 'view_step' not in st.session_state:
+            st.session_state.view_step = st.session_state.current_step
+        
+        # Page navigation buttons
+        st.markdown("### 📑 Workflow Navigation")
+        nav_cols = st.columns(5)
+        
+        for i in range(1, 6):
+            with nav_cols[i-1]:
+                step_name = WORKFLOW_STEPS[i-1]["name"]
+                
+                # Determine button style and label
+                if i < st.session_state.current_step:
+                    label = f"✅ Step {i}"
+                    disabled = False
+                    button_type = "secondary"
+                elif i == st.session_state.current_step:
+                    label = f"🔄 Step {i}"
+                    disabled = False
+                    button_type = "primary"
+                else:
+                    label = f"⏳ Step {i}"
+                    disabled = True
+                    button_type = "secondary"
+                
+                # Navigation button
+                if st.button(label, key=f"nav_step_{i}", disabled=disabled, type=button_type, use_container_width=True):
+                    st.session_state.view_step = i
+                    st.rerun()
+                
+                # Step name below button
+                st.caption(step_name)
+        
+        st.markdown("---")
+        
+        # Display content based on view_step
+        current_view = st.session_state.view_step
+        
+        # Step 1: Business Analysis
+        if current_view == 1:
+            st.markdown("## 📊 Step 1: Business Analysis")
+            if st.session_state.current_step >= 1:
+                display_analysis_results()
+                if not st.session_state.session_data or not st.session_state.session_data.get("results", {}).get("analysis"):
+                    st.warning("⚠️ No business analysis results!")
+                    st.info("💡 Click 'Force Execute Next Step' button in sidebar to start analysis.")
+            else:
+                st.info("⏳ This step is not yet available.")
+        
+        # Step 2: Business Names
+        elif current_view == 2:
+            st.markdown("## 🏪 Step 2: Business Name Suggestions")
+            if st.session_state.current_step >= 2:
+                display_business_names()
+                if not st.session_state.session_data or not st.session_state.session_data.get("results", {}).get("names"):
+                    st.info("🔄 Business name generation in progress...")
+            else:
+                st.info("⏳ Complete previous steps first.")
+        
+        # Step 3: Signboard Design
+        elif current_view == 3:
+            st.markdown("## 🪧 Step 3: Signboard Design")
+            if st.session_state.current_step >= 3:
+                display_signboard_gallery()
+                if not st.session_state.session_data or not st.session_state.session_data.get("results", {}).get("signboards"):
+                    st.info("🔄 Signboard designs generation in progress...")
+            else:
+                st.info("⏳ Complete previous steps first.")
+        
+        # Step 4: Interior Design
+        elif current_view == 4:
+            st.markdown("## 🏠 Step 4: Interior Recommendations")
+            if st.session_state.current_step >= 4:
+                display_interior_options()
+                if not st.session_state.session_data or not st.session_state.session_data.get("results", {}).get("interiors"):
+                    st.info("🔄 Interior recommendations in progress...")
+            else:
+                st.info("⏳ Complete previous steps first.")
+        
+        # Step 5: Final Report
+        elif current_view == 5:
+            st.markdown("## 📄 Step 5: Final Report")
+            if st.session_state.current_step >= 5:
+                display_report_download()
+                if not st.session_state.session_data or not st.session_state.session_data.get("results", {}).get("report"):
+                    st.info("🔄 Report generation in progress...")
+            else:
+                st.info("⏳ Complete previous steps first.")
     else:
         # Step 1: Business information input
         step1_business_analysis()

@@ -53,8 +53,8 @@ Parameters:
 Globals:
   Function:
     Runtime: python3.9
-    Timeout: 180  # Increased for Bedrock API calls
-    MemorySize: 1024
+    Timeout: 180 # Increased for Bedrock API calls
+    MemorySize: 2048 # Increased for better performance (more CPU)
     Environment:
       Variables:
         ENVIRONMENT: !Ref Environment
@@ -201,7 +201,7 @@ Resources:
             BucketName: !Ref BrandingAssetsBucket
         - !Ref BedrockAccessPolicy
         # Allow Supervisor to invoke other Agent Lambda functions
-        - Version: '2012-10-17'
+        - Version: "2012-10-17"
           Statement:
             - Effect: Allow
               Action:
@@ -253,7 +253,7 @@ Resources:
       CodeUri: src/lambda/agents/reporter/
       Handler: index.lambda_handler
       Description: Reporter Agent - Business name suggestions
-      Timeout: 180  # Increased for Bedrock API throttling and retries
+      Timeout: 180 # Increased for Bedrock API throttling and retries
       Events:
         NamesApi:
           Type: HttpApi
@@ -292,7 +292,7 @@ Resources:
       Handler: index.lambda_handler
       Description: Signboard Agent - Signboard design generation
       Timeout: 60
-      MemorySize: 1024
+      MemorySize: 3008 # Max CPU allocation for parallel image generation
       Environment:
         Variables:
           OPENAI_API_KEY: "{{resolve:secretsmanager:openai-api-key:SecretString:api_key}}"
@@ -334,7 +334,7 @@ Resources:
     Properties:
       RoleName: !Sub "${ProjectName}-interior-agent-role-${Environment}"
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -346,7 +346,7 @@ Resources:
       Policies:
         - PolicyName: DynamoDBAccess
           PolicyDocument:
-            Version: '2012-10-17'
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
@@ -365,7 +365,7 @@ Resources:
                   - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/branding-chatbot-sessions-*"
         - PolicyName: S3Access
           PolicyDocument:
-            Version: '2012-10-17'
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
@@ -381,7 +381,7 @@ Resources:
                   - !GetAtt BrandingAssetsBucket.Arn
         - PolicyName: LambdaSelfInvoke
           PolicyDocument:
-            Version: '2012-10-17'
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
@@ -397,7 +397,7 @@ Resources:
       Handler: index.lambda_handler
       Description: Interior Agent - Interior design recommendations
       Timeout: 90
-      MemorySize: 1024
+      MemorySize: 3008 # Max CPU allocation for parallel image generation
       Role: !GetAtt InteriorAgentRole.Arn
       Events:
         InteriorsApi:
@@ -419,8 +419,8 @@ Resources:
       FunctionName: !Sub "${ProjectName}-report-generator-agent-${Environment}"
       CodeUri: src/lambda/agents/report-generator/
       Handler: index.lambda_handler
-      Description: Report Generator Agent - PDF report generation
-      Timeout: 120
+      Description: Report Generator Agent - HTML report generation with extended timeout
+      Timeout: 180
       MemorySize: 2048
       PackageType: Zip
       Events:
@@ -608,5 +608,3 @@ Outputs:
     Value: !Ref BrandingAssetsBucket
     Export:
       Name: !Sub "${ProjectName}-s3-bucket-${Environment}"
-
-

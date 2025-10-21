@@ -341,9 +341,12 @@ sam delete --stack-name ai-branding-chatbot-dev --region us-west-2
 
 - **[Streamlit Deployment Guide](docs/streamlit-deployment.md)** - Complete ECS Fargate deployment
 - **[Deployment Summary](docs/DEPLOYMENT_SUMMARY.md)** - Quick reference and commands
+- **[Performance Optimization](docs/PERFORMANCE_OPTIMIZATION.md)** - Speed improvement strategies
 - **[Hackathon Checklist](docs/hackathon-checklist.md)** - AWS AI Agent Hackathon requirements
 
 Access the UI at: http://YOUR-ALB-DNS (production) or http://localhost:8501 (local)
+
+**⚠️ Mobile Access**: Currently HTTP only. Mobile browsers may block or warn about insecure connections. For mobile access, enable HTTPS following [Mobile Access Guide](docs/MOBILE_ACCESS.md).
 
 ## 🎨 Regenerating Architecture Diagrams
 
