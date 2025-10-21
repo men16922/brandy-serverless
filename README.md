@@ -161,52 +161,81 @@ aws bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?c
 
 ## 🛠️ Installation & Deployment
 
-### 1. Clone Repository
+### Prerequisites
+
+- AWS CLI configured with appropriate credentials
+- Python 3.9+ installed
+- Docker installed and running
+- AWS SAM CLI installed
+
+### Quick Start (Development Environment)
 
 ```bash
+# 1. Clone repository
 git clone https://github.com/yourusername/ai-branding-chatbot.git
 cd ai-branding-chatbot
-```
 
-### 2. Install Dependencies
-
-```bash
-# Create virtual environment
+# 2. Install dependencies
 python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install Python dependencies
+source venv/bin/activate
 pip install -r requirements.txt
 
-# Install SAM CLI (if not installed)
-brew install aws-sam-cli  # macOS
-# Or follow: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html
+# 3. Deploy backend (SAM)
+sam build
+sam deploy --config-env dev
+
+# 4. Configure S3 bucket for public access (required for images)
+BUCKET_NAME=$(aws cloudformation describe-stacks \
+  --stack-name ai-branding-chatbot-dev \
+  --query 'Stacks[0].Outputs[?OutputKey==`S3BucketName`].OutputValue' \
+  --output text)
+
+# Remove public access block
+aws s3api delete-public-access-block --bucket $BUCKET_NAME
+
+# Add CORS configuration
+aws s3api put-bucket-cors --bucket $BUCKET_NAME --cors-configuration '{
+  "CORSRules": [{
+    "AllowedOrigins": ["*"],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "MaxAgeSeconds": 3000
+  }]
+}'
+
+# Add public read policy
+aws s3api put-bucket-policy --bucket $BUCKET_NAME --policy "{
+  \"Version\": \"2012-10-17\",
+  \"Statement\": [{
+    \"Effect\": \"Allow\",
+    \"Principal\": \"*\",
+    \"Action\": \"s3:GetObject\",
+    \"Resource\": \"arn:aws:s3:::$BUCKET_NAME/*\"
+  }]
+}"
+
+# 5. Deploy frontend (ECS Fargate)
+./scripts/deploy_ecs_fargate.sh
+
+# 6. Access the application
+# URL will be displayed after deployment completes
 ```
 
-### 3. Configure Environment
+### Detailed Deployment Steps
 
-```bash
-# Copy environment template
-cp .env.example .env
-
-# Edit .env with your settings
-# Required:
-# - AWS_REGION=us-west-2
-# - ENVIRONMENT=dev
-```
-
-### 4. Build and Deploy
+#### 1. Backend Deployment (AWS SAM)
 
 ```bash
 # Build SAM application
-sam build
+sam build --region us-west-2
 
-# Deploy (first time - interactive)
+# First-time deployment (interactive)
 sam deploy --guided
 
-# Follow prompts:
+# Configuration prompts:
 # - Stack Name: ai-branding-chatbot-dev
 # - AWS Region: us-west-2
+# - Parameter Environment: dev
 # - Confirm changes: Y
 # - Allow SAM CLI IAM role creation: Y
 # - Save arguments to config: Y
@@ -215,28 +244,106 @@ sam deploy --guided
 sam deploy --config-env dev
 ```
 
-### 5. Get API Endpoint
-
-After deployment, note the API endpoint:
+**Get deployed resources:**
 ```bash
+# API Gateway URL
 aws cloudformation describe-stacks \
   --stack-name ai-branding-chatbot-dev \
   --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' \
   --output text
+
+# DynamoDB Table
+aws cloudformation describe-stacks \
+  --stack-name ai-branding-chatbot-dev \
+  --query 'Stacks[0].Outputs[?OutputKey==`DynamoDBTableName`].OutputValue' \
+  --output text
+
+# S3 Bucket
+aws cloudformation describe-stacks \
+  --stack-name ai-branding-chatbot-dev \
+  --query 'Stacks[0].Outputs[?OutputKey==`S3BucketName`].OutputValue' \
+  --output text
 ```
 
-### 6. Run Streamlit UI
+#### 2. Frontend Deployment (ECS Fargate)
 
 ```bash
-# Update API endpoint in .env
-echo "API_BASE_URL=https://your-api-id.execute-api.us-west-2.amazonaws.com/dev" >> .env
+# Deploy Streamlit to ECS Fargate with ALB
+./scripts/deploy_ecs_fargate.sh
 
-# Run Streamlit
-cd src/streamlit
-streamlit run app.py
+# The script will:
+# 1. Build Docker image for linux/amd64
+# 2. Push to Amazon ECR
+# 3. Create ECS cluster (if not exists)
+# 4. Create Application Load Balancer
+# 5. Configure security groups
+# 6. Create ECS service with Fargate
+# 7. Wait for service to stabilize
+# 8. Display public URL
+
+# Monitor deployment
+aws ecs describe-services \
+  --cluster ai-branding-chatbot-cluster \
+  --services ai-branding-chatbot-streamlit \
+  --region us-west-2
+
+# View logs
+aws logs tail /ecs/ai-branding-chatbot-streamlit --follow --region us-west-2
 ```
 
-Access the UI at: http://localhost:8501
+#### 3. Local Development
+
+```bash
+# Run Streamlit locally (connects to AWS backend)
+export API_BASE_URL=https://YOUR_API_ID.execute-api.us-west-2.amazonaws.com/dev
+streamlit run src/streamlit/app.py --server.port 8501
+
+# Access at http://localhost:8501
+```
+
+### Cleanup
+
+```bash
+# Remove frontend (ECS Fargate)
+./scripts/cleanup_ecs.sh
+
+# Remove backend (SAM)
+sam delete --stack-name ai-branding-chatbot-dev --region us-west-2
+```
+
+### Deployment Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    AWS Cloud                            │
+│                                                         │
+│  ┌──────────────┐         ┌──────────────┐            │
+│  │     ALB      │────────▶│ ECS Fargate  │            │
+│  │  (Streamlit) │         │  (Streamlit) │            │
+│  └──────────────┘         └──────────────┘            │
+│         │                                               │
+│         ▼                                               │
+│  ┌──────────────┐         ┌──────────────┐            │
+│  │ API Gateway  │────────▶│   Lambda     │            │
+│  │  (HTTP API)  │         │  (7 Agents)  │            │
+│  └──────────────┘         └──────────────┘            │
+│         │                        │                      │
+│         ▼                        ▼                      │
+│  ┌──────────────┐         ┌──────────────┐            │
+│  │  DynamoDB    │         │      S3      │            │
+│  │  (Sessions)  │         │   (Assets)   │            │
+│  └──────────────┘         └──────────────┘            │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Documentation
+
+- **[Streamlit Deployment Guide](docs/streamlit-deployment.md)** - Complete ECS Fargate deployment
+- **[Deployment Summary](docs/DEPLOYMENT_SUMMARY.md)** - Quick reference and commands
+- **[Hackathon Checklist](docs/hackathon-checklist.md)** - AWS AI Agent Hackathon requirements
+
+Access the UI at: http://YOUR-ALB-DNS (production) or http://localhost:8501 (local)
 
 ## 🎨 Regenerating Architecture Diagrams
 

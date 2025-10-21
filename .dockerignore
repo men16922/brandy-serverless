@@ -1,0 +1,79 @@
+# .dockerignore for Streamlit App Runner deployment
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.pytest_cache/
+
+# Virtual environments
+venv/
+venv-diagram/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.kiro/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# AWS
+.aws-sam/
+samconfig.toml
+.env
+.env.*
+
+# Tests
+tests/
+*_test.py
+test_*.py
+
+# Documentation
+docs/
+*.md
+!requirements-streamlit.txt
+
+# Lambda code (not needed for Streamlit)
+src/lambda/
+
+# Scripts (except what's needed)
+scripts/
+start.sh
+
+# Config files
+template.yaml
+docker-compose*.yml
+apprunner.yaml
+
+# Local data
+data/
+
+# Generated files
+*.png
+*.jpg
+*.jpeg
+*.pdf
+generated*/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Build artifacts
+dist/
+build/
+*.egg-info/

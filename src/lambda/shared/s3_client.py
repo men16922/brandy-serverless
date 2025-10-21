@@ -160,16 +160,13 @@ class S3Client:
                 )
                 return url
             else:
-                # AWS S3는 CloudFront나 직접 URL 사용 가능
-                # 여기서는 presigned URL 사용
-                url = self.client.generate_presigned_url(
-                    'get_object',
-                    Params={'Bucket': self.bucket_name, 'Key': key},
-                    ExpiresIn=expires_in
-                )
-                return url
+                # AWS S3 - Public 버킷이므로 직접 URL 사용 (presigned URL 불필요)
+                region = os.getenv('AWS_REGION', 'us-west-2')
+                direct_url = f"https://{self.bucket_name}.s3.{region}.amazonaws.com/{key}"
+                logger.info(f"Generated direct S3 URL for {key}")
+                return direct_url
                 
-        except ClientError as e:
+        except Exception as e:
             logger.error(f"Failed to generate URL for {key}: {e}")
             # 폴백: 직접 URL 구성
             if self.environment == 'local':
@@ -230,13 +227,13 @@ class S3Client:
             logger.error(f"Failed to list objects in {self.bucket_name}: {e}")
             return []
     
-    def generate_presigned_url(self, key: str, expiration: int = 600, method: str = 'get_object') -> str:
+    def generate_presigned_url(self, key: str, expiration: int = 86400, method: str = 'get_object') -> str:
         """
-        Presigned URL 생성 (10분 기본 유효기간)
+        Presigned URL 생성 (24시간 기본 유효기간)
         
         Args:
             key: S3 객체 키
-            expiration: URL 만료 시간 (초, 기본 10분)
+            expiration: URL 만료 시간 (초, 기본 24시간)
             method: HTTP 메서드 ('get_object', 'put_object' 등)
             
         Returns:
