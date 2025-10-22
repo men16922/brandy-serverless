@@ -639,31 +639,77 @@ class SignboardAgent(BaseAgent):
             error_response = self.handle_error(e, "execute")
             return self.create_lambda_response(500, error_response)
     
+    def _generate_signboard_styles_with_bedrock(self, business_info: BusinessInfo, selected_name: str) -> List[str]:
+        """Bedrock Claude를 사용하여 간판 스타일 생성"""
+        try:
+            if not self.bedrock_client:
+                self.logger.warning("Bedrock not available, using fallback styles")
+                return ["modern", "classic", "vibrant"]
+            
+            prompt = f"""You are a signboard design expert. Generate 3 distinct signboard design styles for this business:
+
+Business Name: {selected_name}
+Industry: {business_info.industry}
+Region: {business_info.region}
+Size: {business_info.size}
+
+Generate 3 creative and appropriate signboard design styles. Each style should be:
+- Unique and distinct from each other
+- Appropriate for the industry and region
+- Visually appealing and professional
+- One word or short phrase (e.g., "modern", "vintage", "minimalist", "bold", "elegant")
+
+Return ONLY a JSON array of 3 style names (lowercase, no special characters):
+["style1", "style2", "style3"]
+
+Example: ["modern", "rustic", "elegant"]"""
+
+            response = self.bedrock_client.invoke_claude(
+                prompt=prompt,
+                max_tokens=200,
+                temperature=0.7
+            )
+            
+            # Parse response
+            response_text = response['text'].strip()
+            
+            # Extract JSON array
+            import json
+            import re
+            
+            # Find JSON array in response
+            json_match = re.search(r'\[.*?\]', response_text, re.DOTALL)
+            if json_match:
+                styles = json.loads(json_match.group())
+                if isinstance(styles, list) and len(styles) >= 3:
+                    # Clean and validate styles
+                    cleaned_styles = []
+                    for style in styles[:3]:
+                        if isinstance(style, str):
+                            # Clean: lowercase, remove special chars, max 20 chars
+                            clean_style = re.sub(r'[^a-z0-9]', '', style.lower())[:20]
+                            if clean_style:
+                                cleaned_styles.append(clean_style)
+                    
+                    if len(cleaned_styles) >= 3:
+                        self.logger.info(f"Bedrock generated styles: {cleaned_styles[:3]}")
+                        return cleaned_styles[:3]
+            
+            self.logger.warning("Failed to parse Bedrock styles, using fallback")
+            return ["modern", "classic", "vibrant"]
+            
+        except Exception as e:
+            self.logger.error(f"Bedrock style generation failed: {str(e)}")
+            return ["modern", "classic", "vibrant"]
+    
     def _generate_signboard_images(self, session_id: str, selected_name: str, 
                                  business_info: BusinessInfo) -> Dict[str, Any]:
         """간판 이미지 생성"""
         try:
-            # 업종별 선호 스타일 결정
-            industry = business_info.industry.lower()
-            industry_info = self.industry_characteristics.get(industry, self.industry_characteristics["retail"])
-            preferred_styles = industry_info["preferred_styles"]
+            # Bedrock Claude로 스타일 생성
+            styles_to_generate = self._generate_signboard_styles_with_bedrock(business_info, selected_name)
             
-            # 3가지 스타일로 생성 (선호 스타일 우선)
-            styles_to_generate = []
-            for style in preferred_styles:
-                if style not in styles_to_generate:
-                    styles_to_generate.append(style)
-            
-            # 부족한 경우 다른 스타일 추가
-            all_styles = list(self.signboard_styles.keys())
-            for style in all_styles:
-                if len(styles_to_generate) >= 3:
-                    break
-                if style not in styles_to_generate:
-                    styles_to_generate.append(style)
-            
-            # 최대 3개 스타일
-            styles_to_generate = styles_to_generate[:3]
+            self.logger.info(f"Generating signboards with styles: {styles_to_generate}")
             
             # 비동기로 이미지 생성
             try:
@@ -690,8 +736,16 @@ class SignboardAgent(BaseAgent):
             # SignboardImages 객체 생성
             signboard_images = SignboardImages(images=images)
             
-            # 세션에 저장
+            # 세션에 저장 (간판 이미지 + 선택된 비즈니스 이름)
             self._save_signboard_images(session_id, signboard_images)
+            
+            # Save selected business name to DynamoDB
+            self.update_session_data(session_id, {
+                "business_names": json.dumps({
+                    "selected_name": selected_name
+                })
+            })
+            self.logger.info(f"Saved selected business name to DynamoDB: {selected_name}")
             
             return {
                 "sessionId": session_id,
@@ -706,6 +760,14 @@ class SignboardAgent(BaseAgent):
             
             # 폴백 이미지 사용
             fallback_images = self._create_fallback_images(session_id, selected_name, business_info)
+            
+            # Save selected business name even with fallback images
+            self.update_session_data(session_id, {
+                "business_names": json.dumps({
+                    "selected_name": selected_name
+                })
+            })
+            self.logger.info(f"Saved selected business name to DynamoDB (fallback): {selected_name}")
             
             return {
                 "sessionId": session_id,
@@ -997,17 +1059,134 @@ class SignboardAgent(BaseAgent):
         else:
             return {}
     
+    def _sanitize_description(self, description: str) -> Optional[str]:
+        """
+        Sanitize business description for AI prompts
+        
+        Args:
+            description: Raw business description
+            
+        Returns:
+            Sanitized description or None if invalid
+        """
+        if not description:
+            return None
+        
+        # Trim whitespace
+        description = description.strip()
+        
+        if not description:
+            return None
+        
+        # Limit length (max 500 characters)
+        if len(description) > 500:
+            description = description[:500] + "..."
+            self.logger.warning(
+                f"Description truncated to 500 characters",
+                extra={
+                    "agent": "signboard",
+                    "original_length": len(description)
+                }
+            )
+        
+        # Remove potentially problematic characters for image generation
+        import re
+        description = re.sub(r'[^\w\s\-,.]', '', description)
+        
+        return description
+    
+    def _extract_visual_elements(self, description: str) -> str:
+        """
+        Extract visual elements from business description for image generation
+        
+        Args:
+            description: Business description (e.g., "Pokemon Concept Ramen")
+            
+        Returns:
+            Visual element suggestions for the prompt
+        """
+        if not description:
+            return ""
+        
+        # Convert to lowercase for matching
+        desc_lower = description.lower()
+        
+        # Theme-based visual element mapping
+        visual_mappings = {
+            "pokemon": "colorful Pokemon characters, Pikachu, Pokeball designs, anime style",
+            "anime": "anime art style, manga aesthetics, Japanese animation elements",
+            "retro": "vintage 80s/90s aesthetics, neon colors, nostalgic design",
+            "modern": "contemporary minimalist design, clean lines, sleek appearance",
+            "traditional": "classic heritage elements, cultural motifs, timeless design",
+            "eco": "natural green elements, sustainable imagery, earth tones",
+            "luxury": "premium gold accents, elegant typography, sophisticated design",
+            "tech": "futuristic digital elements, circuit patterns, modern technology",
+            "sports": "athletic imagery, dynamic movement, energetic design",
+            "music": "musical notes, instruments, rhythm-inspired patterns",
+            "art": "artistic brushstrokes, creative elements, gallery aesthetics",
+            "gaming": "video game aesthetics, pixel art, controller imagery",
+            "space": "cosmic elements, stars, planets, galaxy themes",
+            "ocean": "marine life, waves, nautical elements, blue tones",
+            "forest": "woodland elements, trees, natural green tones",
+            "urban": "city skyline, street art, metropolitan vibes",
+            "vintage": "antique design, aged textures, classic typography",
+            "minimalist": "simple clean design, negative space, essential elements only",
+            "industrial": "metal textures, exposed elements, raw materials",
+            "bohemian": "eclectic patterns, artistic freedom, colorful textiles"
+        }
+        
+        # Check for matching themes
+        for theme, visual_elements in visual_mappings.items():
+            if theme in desc_lower:
+                self.logger.info(
+                    f"Detected theme '{theme}' in description, adding visual elements",
+                    extra={
+                        "agent": "signboard",
+                        "theme": theme,
+                        "description": description[:50]
+                    }
+                )
+                return visual_elements
+        
+        # If no specific theme detected, use the description itself
+        # but limit to first 100 characters for prompt efficiency
+        visual_hint = description[:100]
+        self.logger.info(
+            f"No specific theme detected, using description directly",
+            extra={
+                "agent": "signboard",
+                "description": description[:50]
+            }
+        )
+        return visual_hint
+    
     def _create_image_prompt(self, business_name: str, business_info: BusinessInfo, style: str) -> str:
         """
         이미지 생성 프롬프트 생성 (영어 텍스트 강조)
         
         Enhanced to emphasize English text display in generated images
+        Now includes business description for themed signboards
         """
         industry = business_info.industry.lower()
         
         # Get location info (region already contains "city, country" format from Streamlit)
         location_context = f"in {business_info.region}" if business_info.region else ""
         self.logger.info(f"Using location: {business_info.region}")
+        
+        # Extract and sanitize description
+        description = self._sanitize_description(business_info.description)
+        
+        # Log description usage
+        self.logger.info(
+            f"Building image prompt with description",
+            extra={
+                "agent": "signboard",
+                "tool": "signboard.generate",
+                "has_description": bool(description),
+                "description_length": len(description) if description else 0,
+                "style": style
+            }
+        )
         
         # 영어 이름으로 변환 (한글 이름은 사용하지 않음)
         english_name = self._translate_to_english(business_name)
@@ -1019,52 +1198,70 @@ class SignboardAgent(BaseAgent):
         industry_info = self.industry_characteristics.get(industry, self.industry_characteristics["retail"])
         mood = industry_info["mood"]
         
-        # 스타일별 특성 추가
-        style_info = self.signboard_styles[style]
-        style_keywords = ", ".join(style_info["keywords"][:2])  # 처음 2개 키워드만
+        # 스타일별 특성 추가 (동적 스타일 지원)
+        if style in self.signboard_styles:
+            style_info = self.signboard_styles[style]
+            style_keywords = ", ".join(style_info["keywords"][:2])  # 처음 2개 키워드만
+        else:
+            # Bedrock이 생성한 새로운 스타일 - 스타일 이름을 직접 사용
+            style_keywords = style
+            self.logger.info(f"Using dynamic style: {style}")
         
-        # 최종 프롬프트 조합 (영어 텍스트 강조 - 이름을 여러 번 반복)
-        # 텍스트 표시를 최우선으로 강조
-        # Add location context if available
+        # Build base prompt with description emphasis
         location_part = f" {location_context}" if location_context else ""
-        prompt = (
-            f"Professional storefront signboard design{location_part}. "
-            f"Large bold text displaying '{english_name}' in English letters. "
-            f"The signboard prominently shows '{english_name}' as the main focal point. "
-            f"{style_keywords} style, {mood} atmosphere, business-appropriate design. "
-            f"Text: '{english_name}'"
-        )
+        
+        # Titan Image Generator v2 has a strict 512 character limit
+        MAX_PROMPT_LENGTH = 512
+        
+        if description:
+            # With description: emphasize the theme but keep it concise
+            description_visual = self._extract_visual_elements(description)
+            
+            # Build prompt in parts to control length
+            core_text = f"Signboard with '{english_name}' in bold English letters"
+            style_part = f"{style_keywords} style, {mood}"
+            theme_part = f"Theme: {description_visual[:80]}"  # Limit theme description
+            
+            # Assemble with priority: name > style > theme
+            prompt = f"{core_text}. {style_part}. {theme_part}."
+            
+            # If still too long, remove theme details
+            if len(prompt) > MAX_PROMPT_LENGTH:
+                prompt = f"{core_text}. {style_keywords} style, professional design."
+            
+            self.logger.info(f"Generated prompt with description theme: '{description[:50]}...'")
+        else:
+            # Without description: standard prompt
+            prompt = (
+                f"Signboard with '{english_name}' in bold English letters. "
+                f"{style_keywords} style, {mood}, professional design."
+            )
+            self.logger.info("Generated prompt without description (standard)")
         
         # 프롬프트 로깅 (디버깅용)
         original_length = len(prompt)
         self.logger.info(f"Generated prompt: length={original_length} chars")
         self.logger.info(f"Prompt preview: {prompt[:150]}...")
         
-        # 프롬프트 길이 제한
-        # Titan Image Generator v2: 512 characters max
-        # DALL-E 3: 4000 characters max
-        # Gemini: 1000 characters max
-        # Use the most restrictive limit for compatibility
-        MAX_PROMPT_LENGTH = 512
-        
+        # Final length check and truncation if needed
         if len(prompt) > MAX_PROMPT_LENGTH:
-            # Truncate intelligently - keep the most important parts
-            # Priority: business name (repeated), style, basic description
-            truncated_prompt = (
-                f"Signboard with '{english_name}' text in bold English letters. "
-                f"{style_keywords} style, professional design. "
-                f"Main text: '{english_name}'"
-            )
+            # Emergency truncation - keep the most essential parts
+            # Priority: business name > style > basic description
+            truncated_prompt = f"Signboard: '{english_name}' in bold letters. {style_keywords} style."
             
-            # If still too long, do hard truncation
+            # Hard truncation if still too long
             if len(truncated_prompt) > MAX_PROMPT_LENGTH:
-                # Keep at least the business name
-                truncated_prompt = f"Signboard: '{english_name}' in bold letters. {style_keywords} style."
-                if len(truncated_prompt) > MAX_PROMPT_LENGTH:
-                    truncated_prompt = truncated_prompt[:MAX_PROMPT_LENGTH-3] + "..."
+                truncated_prompt = truncated_prompt[:MAX_PROMPT_LENGTH-3] + "..."
             
             self.logger.warning(
-                f"Prompt truncated: {original_length} → {len(truncated_prompt)} chars"
+                f"Prompt truncated: {original_length} → {len(truncated_prompt)} chars",
+                extra={
+                    "agent": "signboard",
+                    "tool": "signboard.generate",
+                    "original_length": original_length,
+                    "truncated_length": len(truncated_prompt),
+                    "max_length": MAX_PROMPT_LENGTH
+                }
             )
             prompt = truncated_prompt
         
@@ -1322,18 +1519,36 @@ class SignboardAgent(BaseAgent):
             is_fallback=True
         )
     
-    def _handle_image_selection(self, session_id: str, selected_image_url: str) -> Dict[str, Any]:
+    def _handle_image_selection(self, session_id: str, selected_image_url: str, selected_name: str = None) -> Dict[str, Any]:
         """이미지 선택 처리"""
         if not selected_image_url:
             raise ValueError("Selected image URL is required")
         
+        # 기존 signboard_images 데이터 가져오기
+        session_data = self.get_session_data(session_id)
+        existing_signboard_data = session_data.get("signboard_images", {})
+        
+        # JSON 문자열이면 파싱
+        if isinstance(existing_signboard_data, str):
+            existing_signboard_data = json.loads(existing_signboard_data)
+        
+        # 기존 이미지 목록 유지하면서 선택된 URL 추가
+        existing_signboard_data["selected_image_url"] = selected_image_url
+        
         # 세션 데이터 업데이트
         updates = {
-            "signboard_images": json.dumps({
-                "selected_image_url": selected_image_url
-            }),
+            "signboard_images": json.dumps(existing_signboard_data),
             "currentStep": 4  # Interior step으로 진행
         }
+        
+        # If selected_name is provided, save it to business_names
+        if selected_name:
+            updates["business_names"] = json.dumps({
+                "selected_name": selected_name
+            })
+            self.logger.info(f"Saving selected business name to DynamoDB: {selected_name}")
+        
+        self.logger.info(f"Saving selected signboard image URL: {selected_image_url}")
         
         success = self.update_session_data(session_id, updates)
         if not success:

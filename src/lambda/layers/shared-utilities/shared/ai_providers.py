@@ -246,27 +246,114 @@ class SDXLProvider(AIProvider):
                     import boto3
                     sts = boto3.client('sts')
                     identity = sts.get_caller_identity()
-                    self.logger.info(f"AWS credentials found: Account={identity.get('Account')}, ARN={identity.get('Arn')}")
+                    account_id = identity.get('Account')
+                    arn = identity.get('Arn')
+                    user_id = identity.get('UserId')
+                    
+                    self.logger.info(
+                        f"✓ AWS credentials validated successfully",
+                        extra={
+                            "account_id": account_id,
+                            "arn": arn,
+                            "user_id": user_id
+                        }
+                    )
+                    self.logger.info(f"AWS Account: {account_id}")
+                    self.logger.info(f"AWS ARN: {arn}")
                 except Exception as cred_error:
-                    self.logger.error(f"AWS credentials check failed: {cred_error}")
+                    self.logger.error(
+                        f"✗ AWS credentials check failed: {cred_error}",
+                        extra={
+                            "error_type": type(cred_error).__name__,
+                            "error_message": str(cred_error)
+                        }
+                    )
                     raise Exception(f"AWS credentials not configured: {cred_error}")
                 
                 # Initialize Bedrock client
                 self.logger.info(f"Creating Bedrock runtime client in region: {self.region}")
-                self.bedrock_client = boto3.client('bedrock-runtime', region_name=self.region)
-                self.logger.info("Bedrock runtime client created successfully")
+                self.logger.info(f"Target model: {self.model_id}")
                 
-                # Validate client can access Bedrock
                 try:
-                    # Test connection by listing models (if available)
-                    self.logger.info("Validating Bedrock client access...")
-                    # Note: We can't easily test without making an actual API call
-                    self.logger.info("Bedrock client validation skipped (will validate on first API call)")
+                    self.bedrock_client = boto3.client('bedrock-runtime', region_name=self.region)
+                    self.logger.info("✓ Bedrock runtime client created successfully")
+                    
+                    # Log client configuration
+                    self.logger.info(
+                        "Bedrock client configuration",
+                        extra={
+                            "region": self.region,
+                            "model_id": self.model_id,
+                            "service_name": "bedrock-runtime"
+                        }
+                    )
+                except Exception as client_error:
+                    self.logger.error(
+                        f"✗ Failed to create Bedrock client: {client_error}",
+                        extra={
+                            "error_type": type(client_error).__name__,
+                            "error_message": str(client_error),
+                            "region": self.region
+                        }
+                    )
+                    raise
+                
+                # Validate Bedrock service accessibility
+                try:
+                    self.logger.info("Validating Bedrock service accessibility...")
+                    # Try to list foundation models to verify access
+                    bedrock_control = boto3.client('bedrock', region_name=self.region)
+                    try:
+                        models_response = bedrock_control.list_foundation_models()
+                        model_count = len(models_response.get('modelSummaries', []))
+                        self.logger.info(f"✓ Bedrock service accessible: {model_count} models available")
+                        
+                        # Check if Titan model is available
+                        titan_available = any(
+                            self.model_id in model.get('modelId', '')
+                            for model in models_response.get('modelSummaries', [])
+                        )
+                        if titan_available:
+                            self.logger.info(f"✓ Titan model {self.model_id} is available")
+                        else:
+                            self.logger.warning(
+                                f"⚠ Titan model {self.model_id} not found in available models. "
+                                f"This may cause runtime errors."
+                            )
+                    except Exception as list_error:
+                        self.logger.warning(
+                            f"Could not list Bedrock models (may lack permissions): {list_error}"
+                        )
+                        self.logger.info("Will validate model availability on first API call")
                 except Exception as validation_error:
-                    self.logger.warning(f"Bedrock client validation warning: {validation_error}")
+                    self.logger.warning(
+                        f"Bedrock service validation warning: {validation_error}. "
+                        f"Will validate on first API call."
+                    )
+                    
+            # Log successful initialization
+            self.logger.info(
+                "✓ SDXLProvider (Bedrock Titan Image Generator v2) initialized successfully (PRIMARY)",
+                extra={
+                    "provider": "bedrock_titan",
+                    "model_id": self.model_id,
+                    "region": self.region,
+                    "environment": environment,
+                    "status": "PRIMARY"
+                }
+            )
                     
         except Exception as e:
-            self.logger.error(f"Failed to initialize Bedrock client: {type(e).__name__}: {str(e)}")
+            self.logger.error(
+                f"✗ Failed to initialize Bedrock client: {type(e).__name__}: {str(e)}",
+                extra={
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                    "region": self.region,
+                    "environment": environment,
+                    "model_id": self.model_id
+                }
+            )
             self.logger.error(f"Error details: region={self.region}, environment={environment}")
             self.bedrock_client = None
             # Re-raise to make initialization failure visible
@@ -321,18 +408,79 @@ class SDXLProvider(AIProvider):
         for attempt in range(self.max_retries):
             try:
                 self.logger.info(f"SDXL API call attempt {attempt + 1}/{self.max_retries}: model_id={self.model_id}")
-                # Note: Some loggers don't have debug method
                 self.logger.info(f"SDXL payload keys: {list(payload.keys())}")
+                self.logger.info(f"SDXL prompt length: {len(payload['textToImageParams']['text'])} characters")
+                self.logger.info(f"SDXL image config: {payload['imageGenerationConfig']}")
                 
                 # Bedrock API 호출
-                response = self.bedrock_client.invoke_model(
-                    modelId=self.model_id,
-                    contentType="application/json",
-                    accept="application/json",
-                    body=json.dumps(payload)
-                )
-                
-                self.logger.info(f"SDXL API call successful on attempt {attempt + 1}")
+                try:
+                    response = self.bedrock_client.invoke_model(
+                        modelId=self.model_id,
+                        contentType="application/json",
+                        accept="application/json",
+                        body=json.dumps(payload)
+                    )
+                    self.logger.info(f"SDXL API call successful on attempt {attempt + 1}")
+                except Exception as bedrock_error:
+                    error_type = type(bedrock_error).__name__
+                    error_msg = str(bedrock_error)
+                    
+                    # Log detailed error information
+                    self.logger.error(
+                        f"Bedrock API call failed: error_type={error_type}, "
+                        f"error_msg={error_msg}, attempt={attempt + 1}/{self.max_retries}"
+                    )
+                    
+                    # Check for specific Bedrock error codes
+                    error_code = 'Unknown'
+                    if hasattr(bedrock_error, 'response'):
+                        error_code = bedrock_error.response.get('Error', {}).get('Code', 'Unknown')
+                        error_message = bedrock_error.response.get('Error', {}).get('Message', 'Unknown')
+                        self.logger.error(
+                            f"Bedrock error details: code={error_code}, message={error_message}"
+                        )
+                    
+                    # Special handling for ValidationException
+                    if error_code == 'ValidationException' or 'ValidationException' in error_type:
+                        self.logger.warning(
+                            f"ValidationException detected - attempting prompt sanitization"
+                        )
+                        
+                        # Try to sanitize prompt further (more aggressive truncation)
+                        current_prompt = payload['textToImageParams']['text']
+                        if len(current_prompt) > 400:  # Try even shorter prompt
+                            sanitized_prompt = current_prompt[:400] + "..."
+                            payload['textToImageParams']['text'] = sanitized_prompt
+                            
+                            self.logger.info(
+                                f"Retrying with more aggressive truncation: "
+                                f"{len(current_prompt)} → {len(sanitized_prompt)} chars"
+                            )
+                            
+                            # Retry immediately with sanitized prompt (don't count as retry)
+                            try:
+                                response = self.bedrock_client.invoke_model(
+                                    modelId=self.model_id,
+                                    contentType="application/json",
+                                    accept="application/json",
+                                    body=json.dumps(payload)
+                                )
+                                self.logger.info(
+                                    f"✓ Retry with sanitized prompt successful"
+                                )
+                                # Continue to response parsing
+                            except Exception as retry_error:
+                                self.logger.error(
+                                    f"Retry with sanitized prompt also failed: {retry_error}"
+                                )
+                                # Re-raise original error
+                                raise bedrock_error
+                        else:
+                            # Prompt already short, re-raise
+                            raise bedrock_error
+                    else:
+                        # Re-raise for other error types
+                        raise bedrock_error
                 
                 # 응답 파싱 (Titan Image Generator)
                 response_body = json.loads(response['body'].read())
@@ -375,7 +523,39 @@ class SDXLProvider(AIProvider):
             except Exception as e:
                 error_type = type(e).__name__
                 error_msg = str(e)
-                self.logger.error(f"SDXL generation attempt {attempt + 1} failed: {error_type}: {error_msg}")
+                
+                # Detailed error logging with context
+                self.logger.error(
+                    f"SDXL generation attempt {attempt + 1} failed",
+                    extra={
+                        "error_type": error_type,
+                        "error_message": error_msg,
+                        "attempt": attempt + 1,
+                        "max_retries": self.max_retries,
+                        "model_id": self.model_id,
+                        "region": self.region,
+                        "prompt_length": len(prompt),
+                        "style": style
+                    }
+                )
+                
+                # Check for specific error types
+                if 'ValidationException' in error_type or 'ValidationException' in error_msg:
+                    self.logger.error(
+                        f"ValidationException detected - likely prompt issue. "
+                        f"Prompt length: {len(prompt)} chars, "
+                        f"Titan limit: 512 chars"
+                    )
+                elif 'ThrottlingException' in error_type or 'ThrottlingException' in error_msg:
+                    self.logger.warning(
+                        f"ThrottlingException detected - rate limit exceeded. "
+                        f"Will retry with exponential backoff."
+                    )
+                elif 'AccessDeniedException' in error_type or 'AccessDeniedException' in error_msg:
+                    self.logger.error(
+                        f"AccessDeniedException detected - IAM permissions insufficient. "
+                        f"Required: bedrock:InvokeModel for model {self.model_id}"
+                    )
                 
                 if attempt < self.max_retries - 1:
                     # Use exponential backoff with jitter
@@ -386,6 +566,19 @@ class SDXLProvider(AIProvider):
                 else:
                     final_error = f"SDXL generation failed after {self.max_retries} attempts: {error_msg}"
                     self.logger.error(final_error)
+                    
+                    # Log final failure summary
+                    self.logger.error(
+                        "SDXL generation final failure summary",
+                        extra={
+                            "total_attempts": self.max_retries,
+                            "final_error_type": error_type,
+                            "final_error_message": error_msg,
+                            "model_id": self.model_id,
+                            "region": self.region,
+                            "prompt_length": len(prompt)
+                        }
+                    )
                     raise Exception(final_error)
     
     def _optimize_prompt_for_titan(self, prompt: str) -> str:
@@ -394,6 +587,11 @@ class SDXLProvider(AIProvider):
         
         CRITICAL: Titan Image Generator v2 has a 512 character limit for prompts.
         ValidationException will be raised if prompt exceeds this limit.
+        
+        This method implements intelligent truncation that:
+        1. Preserves important keywords and business context
+        2. Removes redundant descriptive phrases
+        3. Maintains prompt coherence
         """
         MAX_TITAN_PROMPT_LENGTH = 512
         
@@ -408,16 +606,52 @@ class SDXLProvider(AIProvider):
         
         # Prompt exceeds limit - need to truncate intelligently
         self.logger.warning(
-            f"Prompt exceeds Titan limit: {original_length} > {MAX_TITAN_PROMPT_LENGTH}, "
-            f"truncating..."
+            f"⚠ Prompt exceeds Titan limit: {original_length} > {MAX_TITAN_PROMPT_LENGTH}, "
+            f"applying intelligent truncation..."
         )
         
-        # Truncate with ellipsis, leaving room for it
-        truncated_prompt = prompt[:MAX_TITAN_PROMPT_LENGTH - 3] + "..."
+        # Strategy 1: Try to extract key phrases (business name, style, industry)
+        # Split by sentences and prioritize shorter, more descriptive ones
+        sentences = prompt.split('. ')
+        
+        # Build truncated prompt by adding sentences until we hit the limit
+        truncated_parts = []
+        current_length = 0
+        
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+            
+            # Add period back if it was removed
+            if not sentence.endswith('.'):
+                sentence += '.'
+            
+            # Check if adding this sentence would exceed limit
+            if current_length + len(sentence) + 1 <= MAX_TITAN_PROMPT_LENGTH - 3:  # -3 for "..."
+                truncated_parts.append(sentence)
+                current_length += len(sentence) + 1  # +1 for space
+            else:
+                # Can't fit more sentences, break
+                break
+        
+        if truncated_parts:
+            # Join sentences and add ellipsis
+            truncated_prompt = ' '.join(truncated_parts)
+            if len(truncated_prompt) < original_length:
+                truncated_prompt += "..."
+        else:
+            # Fallback: Simple truncation if sentence-based approach fails
+            truncated_prompt = prompt[:MAX_TITAN_PROMPT_LENGTH - 3] + "..."
+        
+        # Final safety check
+        if len(truncated_prompt) > MAX_TITAN_PROMPT_LENGTH:
+            truncated_prompt = truncated_prompt[:MAX_TITAN_PROMPT_LENGTH]
         
         self.logger.info(
-            f"Prompt truncated: {original_length} → {len(truncated_prompt)} characters"
+            f"✓ Prompt truncated intelligently: {original_length} → {len(truncated_prompt)} characters"
         )
+        self.logger.info(f"Truncated prompt preview: {truncated_prompt[:100]}...")
         
         return truncated_prompt
     

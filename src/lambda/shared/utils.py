@@ -295,3 +295,92 @@ def exponential_backoff(attempt: int, base_delay: float = 1.0, max_delay: float 
     total_delay = min(delay + jitter, max_delay)
     
     return total_delay
+
+
+def sanitize_description(description: str, logger: Optional[AgentLogger] = None, max_length: int = 500) -> Optional[str]:
+    """
+    Sanitize business description for AI prompts.
+    
+    Args:
+        description: Raw business description from user input
+        logger: Optional AgentLogger for warning logs
+        max_length: Maximum allowed length (default: 500 characters)
+        
+    Returns:
+        Sanitized description string or None if invalid
+        
+    Features:
+        - Trims whitespace
+        - Limits length to max_length characters
+        - Removes special characters (keeps alphanumeric, spaces, hyphens, commas, periods)
+        - Logs warnings for truncation
+        
+    Example:
+        >>> sanitize_description("Pokemon Concept Ramen")
+        'Pokemon Concept Ramen'
+        >>> sanitize_description("A" * 600)  # Truncated to 500
+        'AAA...AAA...'
+    """
+    import re
+    
+    # Return None for empty or None input
+    if not description:
+        return None
+    
+    # Ensure it's a string
+    if not isinstance(description, str):
+        if logger:
+            logger.warning(
+                f"Description is not a string type: {type(description)}",
+                extra={"description_type": str(type(description))}
+            )
+        return None
+    
+    # Trim whitespace
+    description = description.strip()
+    
+    # Check if empty after trimming
+    if not description:
+        return None
+    
+    # Check length and truncate if necessary
+    original_length = len(description)
+    was_truncated = False
+    
+    if original_length > max_length:
+        description = description[:max_length] + "..."
+        was_truncated = True
+        
+        if logger:
+            logger.warning(
+                f"Description truncated from {original_length} to {max_length} characters",
+                extra={
+                    "original_length": original_length,
+                    "max_length": max_length,
+                    "truncated": True
+                }
+            )
+    
+    # Remove potentially problematic characters
+    # Keep: alphanumeric (including Unicode), spaces, hyphens, commas, periods, apostrophes
+    # This allows for international characters (Korean, Japanese, etc.)
+    sanitized = re.sub(r'[^\w\s\-,.\']', '', description, flags=re.UNICODE)
+    
+    # Collapse multiple spaces into single space
+    sanitized = re.sub(r'\s+', ' ', sanitized)
+    
+    # Final trim
+    sanitized = sanitized.strip()
+    
+    # Log if characters were removed
+    if sanitized != description.rstrip('.') and logger and not was_truncated:
+        logger.warning(
+            "Special characters removed from description",
+            extra={
+                "original_length": len(description),
+                "sanitized_length": len(sanitized),
+                "characters_removed": True
+            }
+        )
+    
+    return sanitized if sanitized else None

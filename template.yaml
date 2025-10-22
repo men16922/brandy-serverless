@@ -449,6 +449,11 @@ Resources:
         - S3CrudPolicy:
             BucketName: !Ref BrandingAssetsBucket
         - !Ref BedrockAccessPolicy
+        - Statement:
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ProjectName}-report-generator-agent-${Environment}"
 
   # DynamoDB Table for session management
   WorkflowSessionsTable:

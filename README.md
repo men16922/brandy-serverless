@@ -125,7 +125,6 @@ Step 5: Report Generation
 - **Primary LLM**: Amazon Bedrock Claude 4 Sonnet for text generation and reasoning
 - **Image Generation**: Amazon Bedrock Titan Image Generator v2 for signboard designs
 - **Reasoning Engine**: Chain-of-Thought reasoning for autonomous decision-making
-- **AgentCore Memory**: Amazon Bedrock AgentCore for managed memory and state persistence
 
 ### Agent-Based Architecture
 - **6 Specialized Agents**: Each agent handles a specific task in the workflow
@@ -136,21 +135,6 @@ Step 5: Report Generation
   - Workflow orchestration with AgentCore Memory
   - Structured logging and monitoring
 - **Autonomous Execution**: Minimal user input required after initial setup
-
-### Amazon Bedrock AgentCore Integration
-- **AgentCore Memory**: Managed memory service for workflow state persistence
-  - Short-term memory for session-based conversations
-  - Long-term memory with automatic summarization strategies
-  - Semantic memory for fact extraction
-  - 24-hour automatic expiry aligned with session TTL
-- **Memory Strategies**:
-  - `WorkflowSummarizer`: Automatic session summaries
-  - `BrandingFactExtractor`: Key business insights extraction
-- **Benefits**:
-  - Managed infrastructure (no DynamoDB management)
-  - Built-in memory strategies and summarization
-  - Optimized for AI agent workflows
-  - Native Bedrock integration
 
 ### Serverless Infrastructure
 - **AWS SAM**: Infrastructure as Code for easy deployment
@@ -167,17 +151,6 @@ Step 5: Report Generation
 - Python 3.9+
 - Node.js 16+ (for Streamlit)
 
-### Required AWS Permissions
-
-Your IAM user/role needs:
-- `bedrock:InvokeModel` - For Claude and Titan Image Generator
-- `bedrock-agentcore:*` - For AgentCore Memory operations
-- `bedrock-agentcore-control:*` - For AgentCore Memory management
-- `lambda:*` - For Lambda functions
-- `dynamodb:*` - For session storage (fallback)
-- `s3:*` - For asset storage
-- `apigateway:*` - For API Gateway
-- `cloudformation:*` - For SAM deployment
 
 ### Bedrock Model Access
 
@@ -185,36 +158,6 @@ Enable these models in AWS Bedrock console (us-west-2):
 1. **Anthropic Claude 4 Sonnet** (`us.anthropic.claude-sonnet-4-20250514-v1:0`)
 2. **Amazon Titan Image Generator v2** (`amazon.titan-image-generator-v2:0`)
 
-Check model access:
-```bash
-aws bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?contains(modelId, `claude`) || contains(modelId, `titan-image`)].modelId'
-```
-
-### AgentCore Memory Setup (Optional but Recommended)
-
-Amazon Bedrock AgentCore provides managed memory for AI agents. To use AgentCore Memory:
-
-```bash
-# 1. Create AgentCore Memory
-python3 scripts/create_agentcore_memory.py
-
-# Output will show Memory ID:
-# Memory ID: abc123xyz
-
-# 2. Update samconfig.toml with Memory ID
-# Add to [dev.deploy.parameters]:
-# parameter_overrides = "... AgentCoreMemoryId=\"abc123xyz\" UseAgentCoreMemory=\"true\""
-
-# 3. Verify AgentCore availability
-python3 test_agentcore_availability.py
-```
-
-**AgentCore Memory Features:**
-- Automatic session summarization
-- Semantic fact extraction
-- 24-hour TTL (aligned with session expiry)
-- No infrastructure management required
-- Native Bedrock integration
 
 ## 🛠️ Installation & Deployment
 
@@ -288,14 +231,6 @@ sam build --region us-west-2
 
 # First-time deployment (interactive)
 sam deploy --guided
-
-# Configuration prompts:
-# - Stack Name: ai-branding-chatbot-dev
-# - AWS Region: us-west-2
-# - Parameter Environment: dev
-# - Confirm changes: Y
-# - Allow SAM CLI IAM role creation: Y
-# - Save arguments to config: Y
 
 # Subsequent deployments
 sam deploy --config-env dev
@@ -397,32 +332,9 @@ sam delete --stack-name ai-branding-chatbot-dev --region us-west-2
 ### Documentation
 
 - **[Streamlit Deployment Guide](docs/streamlit-deployment.md)** - Complete ECS Fargate deployment
-- **[Deployment Summary](docs/DEPLOYMENT_SUMMARY.md)** - Quick reference and commands
-- **[Performance Optimization](docs/PERFORMANCE_OPTIMIZATION.md)** - Speed improvement strategies
-- **[Hackathon Checklist](docs/hackathon-checklist.md)** - AWS AI Agent Hackathon requirements
 
 Access the UI at: http://YOUR-ALB-DNS (production) or http://localhost:8501 (local)
 
-**⚠️ Mobile Access**: Currently HTTP only. Mobile browsers may block or warn about insecure connections. For mobile access, enable HTTPS following [Mobile Access Guide](docs/MOBILE_ACCESS.md).
-
-## 🎨 Regenerating Architecture Diagrams
-
-To regenerate the architecture diagrams:
-
-```bash
-# Install diagram dependencies
-python3 -m venv venv-diagram
-source venv-diagram/bin/activate
-pip install diagrams graphviz
-
-# Generate diagrams
-python3 scripts/generate_architecture_diagram.py
-
-# Diagrams will be created in docs/ directory:
-# - aws_architecture_diagram.png
-# - workflow_sequence_diagram.png
-# - bedrock_integration_diagram.png
-```
 
 ## 📊 Project Structure
 
@@ -492,32 +404,6 @@ curl -X POST https://your-api-id.execute-api.us-west-2.amazonaws.com/dev/names/s
   }'
 ```
 
-## 🧪 Testing
-
-### Integration Tests
-
-```bash
-# Run all integration tests
-python -m pytest tests/integration/ -v
-
-# Run specific test
-python -m pytest tests/integration/test_workflow.py -v
-```
-
-### Manual Testing
-
-```bash
-# Test Bedrock access
-aws bedrock-runtime invoke-model \
-  --model-id us.anthropic.claude-sonnet-4-20250514-v1:0 \
-  --body '{"prompt":"Hello","max_tokens":100}' \
-  --region us-west-2 \
-  output.json
-
-# Test API endpoint
-curl https://your-api-id.execute-api.us-west-2.amazonaws.com/dev/
-```
-
 ## 📈 Monitoring
 
 ### CloudWatch Logs
@@ -529,36 +415,6 @@ aws logs tail /aws/lambda/ai-branding-chatbot-supervisor-agent-dev --follow
 # All agent logs
 aws logs tail /aws/lambda/ai-branding-chatbot --follow
 ```
-
-### DynamoDB Sessions
-
-```bash
-# List recent sessions
-aws dynamodb scan \
-  --table-name ai-branding-chatbot-sessions \
-  --max-items 5 \
-  --region us-west-2
-```
-
-### S3 Assets
-
-```bash
-# List generated assets
-aws s3 ls s3://ai-branding-chatbot-dev-brandingassetsbucket-xxxxx/ --recursive
-```
-
-## 💰 Cost Estimation
-
-Approximate costs per workflow execution:
-
-- **Bedrock Claude**: ~$0.015 per request (5 requests) = $0.075
-- **Bedrock Titan Image Generator**: ~$0.04 per image (3 images) = $0.12
-- **Lambda**: ~$0.0001 per invocation (7 invocations) = $0.0007
-- **DynamoDB**: ~$0.0001 per request = $0.0001
-- **S3**: ~$0.001 per GB = $0.001
-- **API Gateway**: ~$0.001 per request = $0.001
-
-**Total per workflow**: ~$0.20
 
 ## 🔧 Configuration
 
@@ -581,31 +437,6 @@ ENVIRONMENT: dev
 - **TTL**: Adjust DynamoDB TTL (default: 24 hours)
 - **Prompts**: Customize prompts in each agent's code
 
-## 🐛 Troubleshooting
-
-### Bedrock Access Denied
-
-```bash
-# Check IAM permissions
-aws iam get-user
-aws iam list-attached-user-policies --user-name your-username
-
-# Enable Bedrock models in console
-# https://console.aws.amazon.com/bedrock/home?region=us-west-2#/modelaccess
-```
-
-### Lambda Timeout
-
-- Increase timeout in `template.yaml`
-- Check CloudWatch logs for specific errors
-- Verify Bedrock API latency
-
-### DynamoDB Throttling
-
-- Check CloudWatch metrics
-- Consider increasing provisioned capacity
-- Use exponential backoff in code
-
 ## 📝 License
 
 MIT License - see [LICENSE](LICENSE) file for details
@@ -621,9 +452,8 @@ Contributions welcome! Please:
 ## 📧 Contact
 
 - **Project**: AI Branding Chatbot
-- **Author**: Your Name
-- **Email**: your.email@example.com
-- **GitHub**: https://github.com/yourusername/ai-branding-chatbot
+- **Author**: Paul Choi
+- **Email**: men16922@gmail.com
 
 ## 🏆 AWS AI Agent Global Hackathon
 

@@ -104,13 +104,24 @@ class ReportGeneratorAgent(BaseAgent):
             if action == 'generate':
                 # Async mode: return 202 immediately and process in background
                 if is_async:
-                    self.logger.info(f"Async mode enabled for report generation: {session_id}")
+                    self.logger.info(
+                        f"Async mode enabled for report generation",
+                        extra={
+                            "session_id": session_id,
+                            "agent": self.agent_name,
+                            "operation": "async_invocation",
+                            "async_mode": True
+                        }
+                    )
                     
                     # Invoke self asynchronously
                     try:
                         import boto3
                         lambda_client = boto3.client('lambda')
                         function_name = os.getenv('AWS_LAMBDA_FUNCTION_NAME')
+                        
+                        if not function_name:
+                            raise ValueError("AWS_LAMBDA_FUNCTION_NAME environment variable not set")
                         
                         # Remove async header for re-invocation
                         sync_event = event.copy()
@@ -120,20 +131,41 @@ class ReportGeneratorAgent(BaseAgent):
                             sync_event['headers'] = sync_headers
                         
                         # Async invocation
-                        lambda_client.invoke(
+                        response = lambda_client.invoke(
                             FunctionName=function_name,
                             InvocationType='Event',
                             Payload=json.dumps(sync_event)
                         )
                         
-                        self.logger.info(f"Async report generation started for session: {session_id}")
+                        # Log successful async invocation
+                        self.logger.info(
+                            f"Async invocation successful",
+                            extra={
+                                "session_id": session_id,
+                                "agent": self.agent_name,
+                                "operation": "async_invocation",
+                                "function_name": function_name,
+                                "status_code": response.get('StatusCode'),
+                                "async_mode": True
+                            }
+                        )
                         
-                        # Update session status
+                        # Update session status to in_progress
                         self.update_session_data(session_id, {
                             "reportGenerationStatus": "in_progress",
                             "reportGenerationStartedAt": datetime.utcnow().isoformat()
                         })
                         
+                        self.logger.info(
+                            f"DynamoDB updated with in_progress status",
+                            extra={
+                                "session_id": session_id,
+                                "agent": self.agent_name,
+                                "status": "in_progress"
+                            }
+                        )
+                        
+                        # Return 202 Accepted immediately
                         return self.create_lambda_response(202, {
                             "message": "Report generation started",
                             "sessionId": session_id,
@@ -141,10 +173,43 @@ class ReportGeneratorAgent(BaseAgent):
                         })
                         
                     except Exception as invoke_error:
-                        self.logger.error(f"Failed to invoke async: {str(invoke_error)}")
-                        # Fall through to sync processing
+                        self.logger.error(
+                            f"Async invocation failed",
+                            extra={
+                                "session_id": session_id,
+                                "agent": self.agent_name,
+                                "operation": "async_invocation",
+                                "error": str(invoke_error),
+                                "error_type": type(invoke_error).__name__
+                            },
+                            exc_info=True
+                        )
+                        
+                        # Update session with error status
+                        self.update_session_data(session_id, {
+                            "reportGenerationStatus": "failed",
+                            "reportGenerationError": str(invoke_error),
+                            "reportGenerationFailedAt": datetime.utcnow().isoformat()
+                        })
+                        
+                        # Fall through to sync processing as fallback
+                        self.logger.warning(
+                            f"Falling back to synchronous processing",
+                            extra={
+                                "session_id": session_id,
+                                "agent": self.agent_name
+                            }
+                        )
                 
                 # Sync mode: generate report immediately
+                self.logger.info(
+                    f"Starting synchronous report generation",
+                    extra={
+                        "session_id": session_id,
+                        "agent": self.agent_name,
+                        "async_mode": False
+                    }
+                )
                 result = self._generate_report(session_id)
             elif action == 'download':
                 result = self._get_download_url(session_id)
@@ -202,11 +267,30 @@ class ReportGeneratorAgent(BaseAgent):
             total_time = time.time() - start_time
             self.logger.info(f"Total report generation time: {total_time:.2f}s")
             
-            # 4. Update session with report info
+            # 4. Update session with report info and completion status
             self.storage_manager.update_session_with_report_info(
                 session_id=session_id,
                 storage_info=storage_info,
                 update_session_callback=self.update_session_data
+            )
+            
+            # Update session with completion status
+            self.update_session_data(session_id, {
+                "reportGenerationStatus": "completed",
+                "reportGenerationCompletedAt": datetime.utcnow().isoformat(),
+                "reportUrl": storage_info.get("presigned_url"),
+                "reportFileName": storage_info.get("file_name")
+            })
+            
+            self.logger.info(
+                f"Report generation completed successfully",
+                extra={
+                    "session_id": session_id,
+                    "agent": self.agent_name,
+                    "status": "completed",
+                    "processing_time": f"{total_time:.2f}s",
+                    "file_size": storage_info.get("file_size", 0)
+                }
             )
             
             # 5. Return result
@@ -236,7 +320,28 @@ class ReportGeneratorAgent(BaseAgent):
             
         except Exception as e:
             error_time = time.time() - start_time
-            self.logger.error(f"Failed to generate report after {error_time:.2f}s: {str(e)}")
+            self.logger.error(
+                f"Report generation failed",
+                extra={
+                    "session_id": session_id,
+                    "agent": self.agent_name,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "processing_time": f"{error_time:.2f}s"
+                },
+                exc_info=True
+            )
+            
+            # Update session with failure status
+            try:
+                self.update_session_data(session_id, {
+                    "reportGenerationStatus": "failed",
+                    "reportGenerationError": str(e),
+                    "reportGenerationFailedAt": datetime.utcnow().isoformat()
+                })
+            except Exception as update_error:
+                self.logger.error(f"Failed to update session with error status: {str(update_error)}")
+            
             raise
     
     def _collect_comprehensive_session_data(self, session_id: str) -> Dict[str, Any]:
@@ -262,15 +367,19 @@ class ReportGeneratorAgent(BaseAgent):
             self.logger.info(f"Successfully collected comprehensive session data for {session_id}")
             
             # Add business logic utilities
-            business_info = session_data.get("business_info", {})
+            # Try both camelCase (DynamoDB) and snake_case (legacy) for compatibility
+            business_info = session_data.get("businessInfo", session_data.get("business_info", {}))
             
             # Generate color palette
             color_palette = self.business_utils.generate_color_palette(business_info)
             session_data['color_palette'] = color_palette
             session_data['color_palette_included'] = True
             
-            # Generate budget guide
-            budget_guide = self.business_utils.generate_budget_guide(business_info)
+            # Generate budget guide with Bedrock AI
+            budget_guide = self.business_utils.generate_budget_guide(
+                business_info,
+                bedrock_client=self.bedrock_integration.bedrock_client if hasattr(self.bedrock_integration, 'bedrock_client') else None
+            )
             session_data['budget_guide'] = budget_guide
             session_data['budget_guide_included'] = True
             

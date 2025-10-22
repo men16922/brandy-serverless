@@ -1,6 +1,8 @@
 """
 Amazon Bedrock Integration Client
 Provides unified interface for Bedrock services: Claude, SDXL, Knowledge Base
+
+Version: 1.1.0 - Added score validation and fallback logic
 """
 
 import json
@@ -465,28 +467,94 @@ Return ONLY a valid JSON array with this exact format (no markdown, no code bloc
                     for name in names
                 ]
             
-            # Validate and ensure all names are present
-            evaluated_names = {e['name'] for e in evaluations if 'name' in e}
+            # Validate and fix scores
+            validated_evaluations = []
+            for evaluation in evaluations:
+                if 'name' not in evaluation:
+                    continue
+                
+                # Validate and fix each score
+                fixed_evaluation = {
+                    "name": evaluation.get("name"),
+                    "reasoning": evaluation.get("reasoning", "No reasoning provided")
+                }
+                
+                # Check and fix each score (must be 1-100, not 0)
+                score_fields = [
+                    "pronunciation_score",
+                    "memorability_score", 
+                    "relevance_score",
+                    "search_score",
+                    "overall_score"
+                ]
+                
+                has_invalid_scores = False
+                for field in score_fields:
+                    score = evaluation.get(field, 0.0)
+                    
+                    # Check if score is invalid (0.0 or out of range)
+                    if score <= 0.0 or score > 100.0:
+                        has_invalid_scores = True
+                        self.logger.warning(
+                            f"Invalid {field} for '{evaluation.get('name')}': {score}. "
+                            f"Using fallback score."
+                        )
+                        # Use fallback score based on field
+                        if field == "pronunciation_score":
+                            score = self._calculate_pronunciation_score(evaluation.get("name"))
+                        elif field == "memorability_score":
+                            score = self._calculate_memorability_score(evaluation.get("name"))
+                        elif field == "relevance_score":
+                            score = self._calculate_relevance_score(
+                                evaluation.get("name"), 
+                                business_info
+                            )
+                        elif field == "search_score":
+                            score = self._calculate_search_score(evaluation.get("name"))
+                        else:  # overall_score
+                            # Calculate from other scores
+                            score = (
+                                fixed_evaluation.get("pronunciation_score", 70.0) * 0.2 +
+                                fixed_evaluation.get("memorability_score", 70.0) * 0.3 +
+                                fixed_evaluation.get("relevance_score", 70.0) * 0.3 +
+                                fixed_evaluation.get("search_score", 70.0) * 0.2
+                            )
+                    
+                    fixed_evaluation[field] = float(score)
+                
+                if has_invalid_scores:
+                    self.logger.info(
+                        f"Fixed scores for '{evaluation.get('name')}': "
+                        f"pronunciation={fixed_evaluation['pronunciation_score']:.1f}, "
+                        f"memorability={fixed_evaluation['memorability_score']:.1f}, "
+                        f"relevance={fixed_evaluation['relevance_score']:.1f}, "
+                        f"search={fixed_evaluation['search_score']:.1f}"
+                    )
+                
+                validated_evaluations.append(fixed_evaluation)
+            
+            # Ensure all names are present
+            evaluated_names = {e['name'] for e in validated_evaluations}
             for name in names:
                 if name not in evaluated_names:
-                    self.logger.warning(f"Name '{name}' missing from evaluation, adding default scores")
-                    evaluations.append({
+                    self.logger.warning(f"Name '{name}' missing from evaluation, adding fallback scores")
+                    validated_evaluations.append({
                         "name": name,
-                        "pronunciation_score": 70.0,
-                        "memorability_score": 70.0,
-                        "relevance_score": 70.0,
-                        "search_score": 70.0,
+                        "pronunciation_score": self._calculate_pronunciation_score(name),
+                        "memorability_score": self._calculate_memorability_score(name),
+                        "relevance_score": self._calculate_relevance_score(name, business_info),
+                        "search_score": self._calculate_search_score(name),
                         "overall_score": 70.0,
-                        "reasoning": "Default scores - not evaluated"
+                        "reasoning": "Fallback scores - not evaluated by Claude"
                     })
             
             latency_ms = int((time.time() - start_time) * 1000)
             
             self.logger.info(
-                f"Batch evaluation complete: {len(evaluations)} names evaluated in {latency_ms}ms"
+                f"Batch evaluation complete: {len(validated_evaluations)} names evaluated in {latency_ms}ms"
             )
             
-            return evaluations
+            return validated_evaluations
             
         except Exception as e:
             latency_ms = int((time.time() - start_time) * 1000)
@@ -505,6 +573,160 @@ Return ONLY a valid JSON array with this exact format (no markdown, no code bloc
                 }
                 for name in names
             ]
+    
+    def _calculate_pronunciation_score(self, name: str) -> float:
+        """
+        Calculate pronunciation score based on name characteristics.
+        
+        Factors:
+        - Length (shorter is easier)
+        - Syllable count (fewer is easier)
+        - Common letters (more common is easier)
+        
+        Returns:
+            Score between 1-100
+        """
+        if not name:
+            return 50.0
+        
+        score = 100.0
+        
+        # Length penalty (optimal: 6-12 characters)
+        length = len(name)
+        if length < 4:
+            score -= 10
+        elif length > 15:
+            score -= (length - 15) * 2
+        
+        # Complexity penalty (mixed case, numbers, special chars)
+        if any(c.isupper() for c in name[1:]):  # CamelCase
+            score -= 5
+        if any(c.isdigit() for c in name):
+            score -= 5
+        if any(not c.isalnum() for c in name):
+            score -= 10
+        
+        # Ensure score is in valid range
+        return max(60.0, min(95.0, score))
+    
+    def _calculate_memorability_score(self, name: str) -> float:
+        """
+        Calculate memorability score based on name characteristics.
+        
+        Factors:
+        - Uniqueness (uncommon words are more memorable)
+        - Rhythm (alternating consonants/vowels)
+        - Length (medium length is most memorable)
+        
+        Returns:
+            Score between 1-100
+        """
+        if not name:
+            return 50.0
+        
+        score = 70.0
+        
+        # Length factor (optimal: 6-10 characters)
+        length = len(name)
+        if 6 <= length <= 10:
+            score += 15
+        elif 4 <= length <= 12:
+            score += 10
+        else:
+            score -= 5
+        
+        # Vowel/consonant balance
+        vowels = sum(1 for c in name.lower() if c in 'aeiou')
+        consonants = sum(1 for c in name.lower() if c.isalpha() and c not in 'aeiou')
+        if vowels > 0 and consonants > 0:
+            ratio = min(vowels, consonants) / max(vowels, consonants)
+            if ratio > 0.4:  # Good balance
+                score += 10
+        
+        # Ensure score is in valid range
+        return max(60.0, min(95.0, score))
+    
+    def _calculate_relevance_score(self, name: str, business_info: Dict[str, Any]) -> float:
+        """
+        Calculate relevance score based on business context.
+        
+        Factors:
+        - Industry keywords in name
+        - Regional appropriateness
+        - Business size match
+        
+        Returns:
+            Score between 1-100
+        """
+        if not name:
+            return 50.0
+        
+        score = 70.0
+        name_lower = name.lower()
+        
+        # Industry relevance
+        industry = business_info.get('industry', '').lower()
+        industry_keywords = {
+            'restaurant': ['cafe', 'kitchen', 'table', 'food', 'eat', 'dine', 'bistro', 'grill'],
+            'retail': ['shop', 'store', 'mart', 'market', 'boutique', 'emporium'],
+            'service': ['pro', 'expert', 'solutions', 'services', 'consulting'],
+            'healthcare': ['health', 'care', 'medical', 'clinic', 'wellness'],
+            'education': ['academy', 'school', 'learning', 'education', 'institute'],
+            'technology': ['tech', 'digital', 'cyber', 'smart', 'innovation']
+        }
+        
+        keywords = industry_keywords.get(industry, [])
+        if any(keyword in name_lower for keyword in keywords):
+            score += 15
+        
+        # Description relevance
+        description = business_info.get('description', '').lower()
+        if description:
+            # Check if name relates to description themes
+            description_words = description.split()
+            if any(word in name_lower for word in description_words if len(word) > 4):
+                score += 10
+        
+        # Ensure score is in valid range
+        return max(60.0, min(95.0, score))
+    
+    def _calculate_search_score(self, name: str) -> float:
+        """
+        Calculate search/SEO score based on name characteristics.
+        
+        Factors:
+        - Uniqueness (less common = better SEO)
+        - Length (medium length is optimal)
+        - Keyword potential
+        
+        Returns:
+            Score between 1-100
+        """
+        if not name:
+            return 50.0
+        
+        score = 70.0
+        
+        # Length factor (optimal: 8-15 characters for SEO)
+        length = len(name)
+        if 8 <= length <= 15:
+            score += 15
+        elif 6 <= length <= 18:
+            score += 10
+        else:
+            score -= 5
+        
+        # Uniqueness (avoid common words)
+        common_words = ['the', 'good', 'best', 'new', 'great', 'super', 'mega']
+        if not any(word in name.lower() for word in common_words):
+            score += 10
+        
+        # No special characters (better for URLs)
+        if name.replace(' ', '').isalnum():
+            score += 5
+        
+        # Ensure score is in valid range
+        return max(60.0, min(95.0, score))
     
     def query_knowledge_base(
         self,

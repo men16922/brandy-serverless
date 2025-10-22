@@ -437,6 +437,34 @@ class InteriorAgent(BaseAgent):
             }
         }
     
+    def _sanitize_description(self, description: Optional[str]) -> Optional[str]:
+        """Sanitize description for AI prompts"""
+        if not description:
+            return None
+        
+        # Trim whitespace
+        description = description.strip()
+        
+        if not description:
+            return None
+        
+        # Limit length (max 500 characters)
+        if len(description) > 500:
+            description = description[:500] + "..."
+            self.logger.warning(
+                "Description truncated to 500 characters",
+                extra={
+                    "agent": "interior",
+                    "original_length": len(description)
+                }
+            )
+        
+        # Remove potentially problematic characters (keep alphanumeric, spaces, and basic punctuation)
+        import re
+        description = re.sub(r'[^\w\s\-,.]', '', description)
+        
+        return description
+    
     def execute(self, event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         """Interior Agent execution logic"""
         try:
@@ -553,13 +581,31 @@ class InteriorAgent(BaseAgent):
     ) -> Dict[str, Any]:
         """Generate interior recommendations using Bedrock Claude (Reasoning LLM)"""
         try:
-            self.logger.info(f"Generating interior recommendations with Bedrock for session {session_id}")
+            # Extract and sanitize description
+            description = self._sanitize_description(getattr(business_info, 'description', None))
             
-            # System prompt enforces ENGLISH ONLY
+            # Structured logging for description usage
+            self.logger.info(
+                f"Generating interior recommendations with Bedrock for session {session_id}",
+                extra={
+                    "agent": "interior",
+                    "tool": "interior.recommend",
+                    "session_id": session_id,
+                    "has_description": bool(description),
+                    "description_length": len(description) if description else 0
+                }
+            )
+            
+            # System prompt enforces ENGLISH ONLY and emphasizes description theme
             system_prompt = """You are an expert interior design consultant specializing in commercial spaces.
-Your task is to recommend 3 interior design styles that best match the business requirements.
+Your task is to recommend 3 CREATIVE and UNIQUE interior design styles that best match the business requirements.
 
-IMPORTANT: ALL responses must be in ENGLISH ONLY.
+IMPORTANT: 
+- ALL responses must be in ENGLISH ONLY
+- Generate CREATIVE style names (not limited to common styles like "modern" or "industrial")
+- Each style should be DISTINCT and APPROPRIATE for the business
+- Consider the business's unique characteristics and target customers
+- If a business concept/description is provided, ALL interior recommendations MUST reflect and incorporate that theme
 
 Consider:
 1. Industry characteristics and functional requirements
@@ -567,10 +613,11 @@ Consider:
 3. Business size and budget constraints
 4. Brand identity alignment (if signboard design is provided)
 5. Customer experience and atmosphere
+6. Business concept theme (if provided) - this should be the PRIMARY influence on design
 
 For each recommended style, provide:
-- Style name (from available options)
-- Detailed description (ENGLISH)
+- Style name (creative, unique, 1-2 words, ENGLISH - e.g., "Urban Chic", "Rustic Warmth", "Minimalist Zen")
+- Detailed description (ENGLISH, 2-3 sentences)
 - Color scheme (4–5 colors, ENGLISH)
 - Materials (4–5 items, ENGLISH)
 - Furniture recommendations (4–5 items, ENGLISH)
@@ -581,22 +628,35 @@ For each recommended style, provide:
 
 Respond in JSON:
 {
-  "recommendations": [{...}],
+  "recommendations": [{
+    "style": "Creative Style Name",
+    "description": "...",
+    "color_scheme": ["color1", "color2", ...],
+    "materials": ["material1", ...],
+    "furniture": ["item1", ...],
+    "estimated_cost": "Medium",
+    "suitability_score": 85,
+    "pros": ["pro1", ...],
+    "cons": ["con1", ...]
+  }],
   "reasoning": "overall reasoning (ENGLISH)",
   "confidence": 0.0-1.0
 }"""
             
+            # Build prompt with description emphasis
             prompt = f"""Business Context:
 - Industry: {business_info.industry}
 - Region: {business_info.region}
 - Size: {business_info.size}
-
-Available Interior Styles:
-{json.dumps(list(self.interior_styles.keys()), indent=2)}
+- Business Concept: {description or 'Standard business'}
 
 {f"Selected Signboard Design: {json.dumps(selected_signboard, indent=2)}" if selected_signboard else "No signboard design selected yet"}
 
-Please recommend 3 interior design styles that best match this business, providing detailed reasoning for each recommendation."""
+{f"IMPORTANT: This business has a unique concept: '{description}'. Interior recommendations should reflect this theme and create an immersive experience that brings the concept to life. All design elements (colors, materials, furniture, decor) should support and enhance this theme." if description else ""}
+
+Generate 3 CREATIVE and UNIQUE interior design styles that perfectly match this business. 
+Each style should be distinct, memorable, and appropriate for the business type and location.
+Do NOT limit yourself to common style names - be creative and specific to this business!"""
             
             response = self.bedrock_client.invoke_claude(
                 prompt=prompt,

@@ -792,20 +792,8 @@ def display_business_names():
                             select_business_name(suggestion.get("name"))
             
             # Regeneration option
+            # Regenerate functionality removed for simplicity
             st.markdown("---")
-            col1, col2 = st.columns([3, 1])
-            
-            with col1:
-                st.write(f"Regenerations: {regen_count}/{max_regens}")
-                if regen_count < max_regens:
-                    st.info("If you don't like any business names, you can regenerate.")
-                else:
-                    st.warning("All regeneration attempts used.")
-            
-            with col2:
-                if regen_count < max_regens:
-                    if st.button("Regenerate", type="secondary"):
-                        regenerate_business_names()
 
 def display_signboard_gallery():
     """Display signboard image gallery with selection interface"""
@@ -1240,14 +1228,9 @@ def display_report_download():
         if st.button("📥 Download Complete Report", type="primary", use_container_width=True):
             download_report()
         
-        # Compact additional options
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🔄 New Project", use_container_width=True):
-                start_new_workflow()
-        with col2:
-            if st.button("📧 Email Report", use_container_width=True):
-                st.info("Email feature coming soon")
+        # New project button
+        if st.button("🔄 New Project", use_container_width=True):
+            start_new_workflow()
 
 def select_business_name(name: str):
     """Select a business name and trigger signboard generation"""
@@ -1285,7 +1268,7 @@ def select_business_name(name: str):
                                 "selectedName": name,
                                 "businessInfo": st.session_state.business_info
                             },
-                            timeout=10  # Short timeout (async start only)
+                            timeout=30  # Increased timeout for Bedrock Titan image generation
                         )
                         
                         if start_response.status_code == 202:
@@ -1463,24 +1446,135 @@ def select_business_name(name: str):
         st.error(error_msg)
 
 def regenerate_business_names():
-    """Regenerate business name suggestions"""
+    """Regenerate business name suggestions with async polling"""
     try:
-        response = requests.post(
-            f"{API_BASE_URL}/names/regenerate",
-            json={"session_id": st.session_state.session_id},
-            timeout=15
-        )
+        # Get required data from session
+        if not st.session_state.session_data:
+            st.error("❌ Session data not found. Please start over.")
+            return
         
-        if response.status_code == 200:
-            st.success("Generating new business name ...")
-            st.session_state.polling_active = True
-            poll_session_status()
-            st.rerun()
-        else:
-            st.error("Business name regeneration failed.")
+        results = st.session_state.session_data.get('results', {})
+        analysis = results.get('analysis', {})
+        business_names = results.get('business_names', {})
+        
+        if not st.session_state.business_info:
+            st.error("❌ Business information not found. Please start over.")
+            return
+        
+        logger.info(f"Regenerating names for session: {st.session_state.session_id}")
+        
+        # 1. Start async regeneration request
+        with st.spinner("🚀 Requesting name regeneration..."):
+            start_success = False
+            for start_attempt in range(3):
+                try:
+                    logger.info(f"Async regeneration request attempt {start_attempt + 1}/3")
+                    start_response = requests.post(
+                        f"{API_BASE_URL}/names/suggest",
+                        headers={'x-async-mode': 'true'},
+                        json={
+                            "sessionId": st.session_state.session_id,
+                            "action": "regenerate",
+                            "businessInfo": st.session_state.business_info,
+                            "analysisResult": analysis,
+                            "business_names": business_names
+                        },
+                        timeout=30  # Increased timeout for Bedrock API calls
+                    )
+                    
+                    if start_response.status_code == 202:
+                        logger.info("Name regeneration started successfully")
+                        start_success = True
+                        st.success("✅ Name regeneration started!")
+                        break
+                    else:
+                        error_msg = f"Failed to start regeneration: {start_response.status_code}"
+                        logger.error(error_msg)
+                        logger.error(f"Response: {start_response.text}")
+                        if start_attempt >= 2:
+                            st.error(f"❌ {error_msg}")
+                            return
+                except Exception as e:
+                    logger.error(f"Regeneration request error (attempt {start_attempt + 1}): {str(e)}")
+                    if start_attempt >= 2:
+                        st.error(f"❌ Request failed: {str(e)}")
+                        return
+                
+                time.sleep(1)
+        
+        if not start_success:
+            st.error("Cannot start name regeneration.")
+            return
+        
+        # 2. Poll for completion
+        st.info("💡 AI is regenerating business names...")
+        
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        max_attempts = 90  # 90 attempts * 2s = 180s max
+        for attempt in range(max_attempts):
+            time.sleep(2)
+            progress = min((attempt + 1) / max_attempts * 100, 95)
+            progress_bar.progress(int(progress))
+            elapsed = (attempt + 1) * 2
+            status_text.text(f"🔄 Regenerating business names... ({elapsed}s elapsed / Maximum 180s)")
             
+            # Check status
+            try:
+                status_response = requests.get(
+                    f"{API_BASE_URL}/names/status?session_id={st.session_state.session_id}",
+                    timeout=15  # Increased timeout for status check
+                )
+                
+                if status_response.status_code == 200:
+                    status_data = status_response.json()
+                    body_status_code = status_data.get('statusCode', status_response.status_code)
+                    
+                    if body_status_code == 200:
+                        # Success
+                        result = status_data.get('result', {})
+                        suggestions = result.get('suggestions', [])
+                        
+                        if suggestions:
+                            progress_bar.progress(100)
+                            status_text.success("✅ Name regeneration complete!")
+                            
+                            # Update session state
+                            if 'results' not in st.session_state.session_data:
+                                st.session_state.session_data['results'] = {}
+                            st.session_state.session_data['results']['names'] = result
+                            
+                            time.sleep(1)
+                            st.rerun()
+                            return
+                    
+                    elif body_status_code == 500:
+                        # Failed
+                        error_msg = f"Name regeneration failed: {status_data.get('error', 'Unknown error')}"
+                        logger.error(error_msg)
+                        st.error(error_msg)
+                        return
+            
+            except Exception as poll_error:
+                logger.warning(f"Polling error (attempt {attempt + 1}): {str(poll_error)}")
+                continue
+        
+        # Timeout
+        st.warning("⏱️ Name regeneration is taking longer than expected.")
+        st.info("💡 Please refresh the page to check if names were generated.")
+            
+    except requests.exceptions.Timeout:
+        st.error("⏱️ Request timeout. The server is taking too long to respond.")
+        st.info("💡 This may be due to high load. Please try again in a moment.")
+        logger.error("Regeneration timeout")
     except requests.exceptions.RequestException as e:
-        st.error(f"API call error: {str(e)}")
+        st.error(f"❌ Network error: {str(e)}")
+        st.info("💡 Please check your internet connection and try again.")
+        logger.error(f"Regeneration network error: {str(e)}")
+    except Exception as e:
+        st.error(f"❌ Unexpected error: {str(e)}")
+        logger.error(f"Regeneration unexpected error: {str(e)}", exc_info=True)
 
 def select_signboard_image(image_url: str):
     """Select a signboard image and start interior generation"""
@@ -1771,29 +1865,113 @@ def select_interior_option(style: str):
         # Automatically trigger report generation (async mode)
         with st.spinner("📄 Starting report generation..."):
             try:
+                # Get all required data from session
+                results = st.session_state.session_data.get('results', {})
+                
+                # Debug: Log the entire results structure
+                logger.info(f"DEBUG: results keys = {list(results.keys())}")
+                logger.info(f"DEBUG: full results = {json.dumps(results, indent=2, default=str)}")
+                
+                # Extract all required fields
+                analysis = results.get('analysis')
+                
+                # Try multiple possible locations for selected name
+                names_data = results.get('names', {}) or results.get('business_names', {})
+                selected_name = names_data.get('selected_name')
+                
+                # If not found, try direct access
+                if not selected_name:
+                    # Check if it's stored directly in results
+                    selected_name = results.get('selected_name')
+                    logger.info(f"DEBUG: Trying direct access, selected_name = {selected_name}")
+                
+                # Check session_data top level
+                if not selected_name and st.session_state.session_data:
+                    selected_name = st.session_state.session_data.get('selected_name')
+                    logger.info(f"DEBUG: Trying session_data top level, selected_name = {selected_name}")
+                
+                signboard_data = results.get('signboard', {})
+                selected_signboard = signboard_data.get('selected_image_url')
+                interior_data = results.get('interiors', {})
+                selected_interior = interior_data.get('selected_style', style)
+                
+                logger.info(f"Report generation data check: analysis={bool(analysis)}, "
+                           f"name={bool(selected_name)}, signboard={bool(selected_signboard)}, "
+                           f"interior={bool(selected_interior)}")
+                logger.info(f"DEBUG: selected_name value = '{selected_name}'")
+                
+                # Validate required data
+                if not all([st.session_state.session_id, st.session_state.business_info, selected_name]):
+                    missing = []
+                    if not st.session_state.session_id:
+                        missing.append("session ID")
+                    if not st.session_state.business_info:
+                        missing.append("business info")
+                    if not selected_name:
+                        missing.append("business name")
+                    
+                    error_msg = f"Missing required data: {', '.join(missing)}"
+                    logger.error(error_msg)
+                    st.error(f"❌ {error_msg}")
+                    st.info("💡 Please complete all previous steps before generating the report.")
+                    return
+                
                 # Start async report generation with retries
                 report_response = None
                 for attempt in range(3):
                     try:
+                        logger.info(f"Report generation attempt {attempt + 1}/3")
+                        logger.info(f"API URL: {API_BASE_URL}/report/generate")
+                        logger.info(f"Session ID: {st.session_state.session_id}")
+                        
                         report_response = requests.post(
                             f"{API_BASE_URL}/report/generate",
                             json={
                                 "sessionId": st.session_state.session_id,
-                                "businessInfo": st.session_state.business_info
+                                "businessInfo": st.session_state.business_info,
+                                "analysis": analysis,
+                                "selectedName": selected_name,
+                                "selectedSignboard": selected_signboard,
+                                "selectedInterior": selected_interior
                             },
                             headers={"x-async-mode": "true"},  # Enable async mode
-                            timeout=60  # Increased timeout: 30s → 60s
+                            timeout=60  # Increased timeout for Lambda cold start
                         )
+                        logger.info(f"Report request sent successfully (attempt {attempt + 1})")
+                        logger.info(f"Response status: {report_response.status_code}")
+                        logger.info(f"Response body: {report_response.text[:500]}")  # First 500 chars
                         break
                     except requests.Timeout:
                         if attempt < 2:
-                            logger.warning(f"Report generation request timeout (attempt {attempt + 1}/3)")
-                            time.sleep(2)
+                            wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s
+                            logger.warning(f"Report generation request timeout (attempt {attempt + 1}/3), "
+                                         f"retrying in {wait_time}s...")
+                            time.sleep(wait_time)
                         else:
+                            logger.error("Report generation timeout after 3 attempts")
+                            raise
+                    except Exception as e:
+                        logger.error(f"Report generation error (attempt {attempt + 1}/3): {str(e)}")
+                        logger.error(f"Error type: {type(e).__name__}")
+                        import traceback
+                        logger.error(f"Traceback: {traceback.format_exc()}")
+                        
+                        if attempt < 2:
+                            wait_time = 2 ** attempt
+                            logger.warning(f"Retrying in {wait_time}s...")
+                            time.sleep(wait_time)
+                        else:
+                            logger.error(f"Report generation failed after 3 attempts")
+                            st.error(f"❌ Report generation error: {str(e)}")
+                            st.info("💡 Please check the logs for more details.")
                             raise
                 
                 if not report_response:
-                    raise Exception("Failed to start report generation after 3 attempts")
+                    error_msg = "Failed to start report generation after 3 attempts"
+                    logger.error(error_msg)
+                    st.error(f"❌ {error_msg}")
+                    st.info("💡 The server may be experiencing high load. Please try again in a moment.")
+                    return
                 
                 logger.info(f"Report API response: {report_response.status_code}")
                 
@@ -1879,11 +2057,42 @@ def select_interior_option(style: str):
                     st.session_state.view_step = 5  # Auto-navigate to next page
                     st.rerun()
                     
+                elif report_response.status_code == 400:
+                    # Bad request - missing or invalid data
+                    try:
+                        error_data = report_response.json()
+                        error_msg = error_data.get('error', 'Invalid request')
+                        logger.error(f"Report generation 400 error: {error_data}")
+                        st.error(f"❌ Invalid request: {error_msg}")
+                        
+                        # Show what data was received by server
+                        if 'received' in error_data:
+                            st.info(f"💡 Server received: {error_data['received']}")
+                        if 'required' in error_data:
+                            st.info(f"💡 Required fields: {error_data['required']}")
+                    except:
+                        st.error(f"❌ Invalid request: HTTP 400")
+                        logger.error(f"Report 400 response: {report_response.text}")
+                    
+                elif report_response.status_code == 500:
+                    # Server error
+                    try:
+                        error_data = report_response.json()
+                        error_msg = error_data.get('error', 'Server error')
+                        logger.error(f"Report generation 500 error: {error_data}")
+                        st.error(f"❌ Server error: {error_msg}")
+                        st.info("💡 The server encountered an error. Please try again in a moment.")
+                    except:
+                        st.error(f"❌ Server error: HTTP 500")
+                        logger.error(f"Report 500 response: {report_response.text}")
+                    
                 else:
-                    error_msg = f"Report generation failed: {report_response.status_code}"
+                    # Unexpected status code
+                    error_msg = f"Unexpected response: HTTP {report_response.status_code}"
                     logger.error(error_msg)
-                    logger.error(f"Response: {report_response.text}")
-                    st.error(error_msg)
+                    logger.error(f"Response body: {report_response.text}")
+                    st.error(f"❌ {error_msg}")
+                    st.info("💡 Please try again or contact support if the issue persists.")
                     
             except requests.Timeout:
                 st.error("⏱️ Request timeout. Report may still be processing in background.")

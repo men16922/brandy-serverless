@@ -57,24 +57,132 @@ class BusinessUtils:
         self.logger.info(f"Generated color palette for industry: {industry}")
         return palette
 
-    def generate_budget_guide(self, business_info: Dict[str, Any]) -> Dict[str, Any]:
+    def generate_budget_guide(self, business_info: Dict[str, Any], bedrock_client=None) -> Dict[str, Any]:
         """
-        Generate estimated budgets based on business size and industry
+        Generate estimated budgets based on business size, industry, and region
+        Uses Bedrock Claude to calculate budgets in local currency
 
         Args:
-            business_info: Business information including size and industry
+            business_info: Business information including size, industry, region, and country
+            bedrock_client: Optional Bedrock client for AI-powered budget calculation
 
         Returns:
             Dict with budget ranges for signboard, interior, branding, marketing, and total
+            Includes currency symbol and region-specific pricing
         """
         size = business_info.get('size', 'small')
         industry = business_info.get('industry', '')
+        region = business_info.get('region', 'Seoul').lower()
+        country = business_info.get('country', 'South Korea')
+        
+        # Try AI-powered budget calculation first
+        if bedrock_client:
+            try:
+                ai_budget = self._generate_ai_budget_guide(
+                    business_info,
+                    bedrock_client
+                )
+                if ai_budget:
+                    self.logger.info(f"Generated AI-powered budget guide for {region}, {country}")
+                    return ai_budget
+            except Exception as e:
+                self.logger.warning(f"AI budget generation failed, using fallback: {str(e)}")
+        
+        # Fallback to rule-based calculation
+        return self._generate_fallback_budget_guide(business_info)
+    
+    def _generate_fallback_budget_guide(self, business_info: Dict[str, Any]) -> Dict[str, Any]:
+        """Fallback rule-based budget calculation"""
+        size = business_info.get('size', 'small')
+        industry = business_info.get('industry', '')
+        region = business_info.get('region', 'Seoul')
+        country = business_info.get('country', 'South Korea')
+        
+        # Extract city from "City, Country" format if needed
+        if ',' in region:
+            city = region.split(',')[0].strip().lower()
+        else:
+            city = region.lower()
 
         # Size multipliers
         multipliers = {'small': 1.0, 'medium': 1.8, 'large': 3.0}
         multiplier = multipliers.get(size, 1.0)
 
-        # Industry-specific base costs
+        # Region/Country configuration (base: South Korea KRW)
+        region_config = {
+            # South Korea
+            'seoul': {'currency': '₩', 'rate': 1.0, 'country': 'South Korea'},
+            'busan': {'currency': '₩', 'rate': 0.85, 'country': 'South Korea'},
+            'incheon': {'currency': '₩', 'rate': 0.9, 'country': 'South Korea'},
+            'daegu': {'currency': '₩', 'rate': 0.8, 'country': 'South Korea'},
+            'gwangju': {'currency': '₩', 'rate': 0.75, 'country': 'South Korea'},
+            'daejeon': {'currency': '₩', 'rate': 0.8, 'country': 'South Korea'},
+            'ulsan': {'currency': '₩', 'rate': 0.85, 'country': 'South Korea'},
+            'jeju': {'currency': '₩', 'rate': 0.95, 'country': 'South Korea'},
+            
+            # USA
+            'new york': {'currency': '$', 'rate': 0.00075, 'country': 'USA'},
+            'los angeles': {'currency': '$', 'rate': 0.00070, 'country': 'USA'},
+            'chicago': {'currency': '$', 'rate': 0.00065, 'country': 'USA'},
+            'san francisco': {'currency': '$', 'rate': 0.00080, 'country': 'USA'},
+            
+            # Japan
+            'tokyo': {'currency': '¥', 'rate': 0.11, 'country': 'Japan'},
+            'osaka': {'currency': '¥', 'rate': 0.10, 'country': 'Japan'},
+            'kyoto': {'currency': '¥', 'rate': 0.09, 'country': 'Japan'},
+            
+            # China
+            'beijing': {'currency': '¥', 'rate': 0.0052, 'country': 'China'},
+            'shanghai': {'currency': '¥', 'rate': 0.0055, 'country': 'China'},
+            'guangzhou': {'currency': '¥', 'rate': 0.0050, 'country': 'China'},
+            
+            # Europe
+            'london': {'currency': '£', 'rate': 0.00060, 'country': 'UK'},
+            'paris': {'currency': '€', 'rate': 0.00070, 'country': 'France'},
+            'berlin': {'currency': '€', 'rate': 0.00065, 'country': 'Germany'},
+            
+            # Southeast Asia
+            'singapore': {'currency': 'S$', 'rate': 0.0010, 'country': 'Singapore'},
+            'bangkok': {'currency': '฿', 'rate': 0.025, 'country': 'Thailand'},
+            'hanoi': {'currency': '₫', 'rate': 18.5, 'country': 'Vietnam'},
+            'manila': {'currency': '₱', 'rate': 0.042, 'country': 'Philippines'},
+            
+            # India
+            'mumbai': {'currency': '₹', 'rate': 0.063, 'country': 'India'},
+            'delhi': {'currency': '₹', 'rate': 0.062, 'country': 'India'},
+            'bangalore': {'currency': '₹', 'rate': 0.065, 'country': 'India'},
+            'kolkata': {'currency': '₹', 'rate': 0.058, 'country': 'India'},
+            'chennai': {'currency': '₹', 'rate': 0.060, 'country': 'India'},
+            'hyderabad': {'currency': '₹', 'rate': 0.061, 'country': 'India'},
+            'pune': {'currency': '₹', 'rate': 0.064, 'country': 'India'},
+        }
+
+        # Get region configuration (try city first, then fallback to country-based defaults)
+        config = region_config.get(city, None)
+        
+        # If city not found, try to match by country
+        if not config:
+            country_defaults = {
+                'France': {'currency': '€', 'rate': 0.00070, 'country': 'France'},
+                'United States': {'currency': '$', 'rate': 0.00075, 'country': 'United States'},
+                'UK': {'currency': '£', 'rate': 0.00060, 'country': 'UK'},
+                'Japan': {'currency': '¥', 'rate': 0.11, 'country': 'Japan'},
+                'China': {'currency': '¥', 'rate': 0.0052, 'country': 'China'},
+                'Germany': {'currency': '€', 'rate': 0.00065, 'country': 'Germany'},
+                'Singapore': {'currency': 'S$', 'rate': 0.0010, 'country': 'Singapore'},
+                'Thailand': {'currency': '฿', 'rate': 0.025, 'country': 'Thailand'},
+                'Vietnam': {'currency': '₫', 'rate': 18.5, 'country': 'Vietnam'},
+                'Philippines': {'currency': '₱', 'rate': 0.042, 'country': 'Philippines'},
+                'India': {'currency': '₹', 'rate': 0.063, 'country': 'India'},
+                'South Korea': {'currency': '₩', 'rate': 1.0, 'country': 'South Korea'},
+            }
+            config = country_defaults.get(country, region_config['seoul'])
+        
+        currency = config['currency']
+        rate = config['rate']
+        country = config['country']
+
+        # Industry-specific base costs (in KRW)
         industry_base_costs = {
             'cafe': {
                 'signboard': {'min': 800000, 'recommended': 1500000, 'max': 3000000},
@@ -106,13 +214,13 @@ class BusinessUtils:
 
         base_costs = industry_base_costs.get(industry, default_costs)
 
-        # Apply size multiplier
+        # Apply size multiplier and currency conversion
         budget_guide = {}
         for category, costs in base_costs.items():
             budget_guide[category] = {
-                'min': int(costs['min'] * multiplier),
-                'recommended': int(costs['recommended'] * multiplier),
-                'max': int(costs['max'] * multiplier)
+                'min': int(costs['min'] * multiplier * rate),
+                'recommended': int(costs['recommended'] * multiplier * rate),
+                'max': int(costs['max'] * multiplier * rate)
             }
 
         # Calculate total budget
@@ -126,8 +234,150 @@ class BusinessUtils:
             'max': total_max
         }
 
-        self.logger.info(f"Generated budget guide for {industry} ({size}): {total_recommended:,}₩ recommended")
+        # Add currency and region info
+        budget_guide['currency'] = currency
+        budget_guide['region'] = region.title()
+        budget_guide['country'] = country
+
+        self.logger.info(f"Generated budget guide for {industry} ({size}) in {region}: {currency}{total_recommended:,} recommended")
         return budget_guide
+    
+    def _generate_ai_budget_guide(self, business_info: Dict[str, Any], bedrock_client) -> Dict[str, Any]:
+        """
+        Generate budget guide using Bedrock Claude with local currency calculation
+        
+        Args:
+            business_info: Business information
+            bedrock_client: Bedrock client instance
+            
+        Returns:
+            Budget guide dict with local currency amounts
+        """
+        size = business_info.get('size', 'small')
+        industry = business_info.get('industry', 'restaurant')
+        region = business_info.get('region', 'Seoul')
+        country = business_info.get('country', 'South Korea')
+        description = business_info.get('description', '')
+        
+        # Get currency for the country
+        currency_map = {
+            'United States': '$',
+            'South Korea': '₩',
+            'India': '₹',
+            'France': '€',
+            'UK': '£',
+            'Japan': '¥',
+            'China': '¥',
+            'Singapore': 'S$',
+            'Thailand': '฿',
+            'Vietnam': '₫',
+            'Philippines': '₱',
+        }
+        currency = currency_map.get(country, '$')
+        
+        system_prompt = """You are a business budget consultant with expertise in local market pricing across different countries and cities.
+
+Your task is to provide realistic budget estimates in the LOCAL CURRENCY for the given location.
+
+IMPORTANT RULES:
+1. Calculate budgets in the LOCAL CURRENCY of the country/city (not converted from another currency)
+2. Consider local market conditions, labor costs, and material prices
+3. Account for city-specific cost variations (e.g., New York is more expensive than other US cities)
+4. Provide min, recommended, and max ranges for each category
+5. All amounts must be realistic for the local market
+
+Return ONLY a valid JSON object with this exact structure:
+{
+    "signboard": {"min": 1000, "recommended": 2000, "max": 4000},
+    "interior": {"min": 10000, "recommended": 25000, "max": 50000},
+    "branding": {"min": 800, "recommended": 1800, "max": 3500},
+    "marketing": {"min": 500, "recommended": 1200, "max": 2500}
+}
+
+Do not include currency symbols in the numbers. Only return the JSON object."""
+
+        prompt = f"""Calculate realistic budget estimates for a {size} {industry} business in {region}, {country}.
+
+Business Details:
+- Industry: {industry}
+- Size: {size}
+- Location: {region}, {country}
+- Currency: {currency}
+{f"- Description: {description}" if description else ""}
+
+Provide budget ranges (min, recommended, max) in LOCAL {currency} for:
+1. Signboard (exterior signage, lighting, installation)
+2. Interior (furniture, fixtures, decoration, renovation)
+3. Branding (logo design, business cards, packaging, brand guidelines)
+4. Marketing (initial marketing campaigns, social media, advertising)
+
+Consider:
+- Local labor and material costs in {region}, {country}
+- {size.capitalize()} business scale
+- {industry.capitalize()} industry standards
+- City-specific cost variations
+
+Return the budget estimates as a JSON object."""
+
+        try:
+            response = bedrock_client.invoke_claude(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                max_tokens=1024,
+                temperature=0.3  # Lower temperature for more consistent numbers
+            )
+            
+            # Parse response
+            response_text = response.get('content', [{}])[0].get('text', '')
+            
+            # Extract JSON from response
+            import json
+            import re
+            
+            # Find JSON object in response
+            json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', response_text, re.DOTALL)
+            if json_match:
+                budget_data = json.loads(json_match.group())
+                
+                # Validate structure
+                required_categories = ['signboard', 'interior', 'branding', 'marketing']
+                if all(cat in budget_data for cat in required_categories):
+                    # Calculate totals
+                    total_min = sum(budget_data[cat]['min'] for cat in required_categories)
+                    total_recommended = sum(budget_data[cat]['recommended'] for cat in required_categories)
+                    total_max = sum(budget_data[cat]['max'] for cat in required_categories)
+                    
+                    budget_data['total'] = {
+                        'min': total_min,
+                        'recommended': total_recommended,
+                        'max': total_max
+                    }
+                    
+                    # Add metadata
+                    budget_data['currency'] = currency
+                    budget_data['region'] = region.title()
+                    budget_data['country'] = country
+                    
+                    self.logger.info(
+                        f"AI-generated budget for {region}, {country}: {currency}{total_recommended:,}",
+                        extra={
+                            "agent": "report_generator",
+                            "tool": "budget.generate",
+                            "provider": "bedrock_claude",
+                            "currency": currency,
+                            "country": country,
+                            "region": region
+                        }
+                    )
+                    
+                    return budget_data
+            
+            self.logger.warning("Failed to parse AI budget response, using fallback")
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"AI budget generation failed: {str(e)}")
+            return None
 
     def generate_recommendations(
         self,
@@ -204,19 +454,10 @@ Example:
 Your 5 recommendations:"""
 
         try:
-            response = bedrock_client.invoke_model(
-                modelId='us.anthropic.claude-sonnet-4-20250514-v1:0',
-                body={
-                    "anthropic_version": "bedrock-2023-05-31",
-                    "max_tokens": 1000,
-                    "temperature": 0.7,
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ]
-                }
+            response = bedrock_client.invoke_claude(
+                prompt=prompt,
+                max_tokens=1000,
+                temperature=0.7
             )
             
             # Parse response

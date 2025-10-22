@@ -28,9 +28,6 @@ class DataCollector:
             # 데이터 정제
             session_data = sanitizer.sanitize_session_data(session_data)
             
-            # 이미지 데이터 수집
-            signboard_images, interior_images = self._collect_images(session_id, s3_client)
-            
             # 비즈니스 정보 추출
             business_info = session_data.get("businessInfo") or session_data.get("business_info", {})
             
@@ -42,10 +39,36 @@ class DataCollector:
             
             # 선택된 항목들
             selected_name = session_data.get("selected_name", "")
-            selected_signboard = session_data.get("selected_signboard", "")
-            selected_interior = session_data.get("selected_interior", "")
+            
+            # 간판 이미지 데이터 (세션에 저장된 메타데이터 사용)
+            signboard_data = session_data.get("signboard_images")
+            signboard_images = []
+            selected_signboard = ""
+            
+            if signboard_data:
+                if isinstance(signboard_data, str):
+                    signboard_data = json.loads(signboard_data)
+                
+                # 저장된 이미지 목록 사용 (style 정보 포함)
+                signboard_images = signboard_data.get("images", [])
+                selected_signboard = signboard_data.get("selected_image_url", "")
+                
+                # S3 presigned URL 추가
+                signboard_images = self._add_presigned_urls_to_saved_images(s3_client, signboard_images)
+            
+            # 인테리어 이미지 데이터
+            interior_images = self._collect_interior_images(session_id, s3_client)
+            
+            # 선택된 인테리어 스타일 추출
+            selected_interior = ""
+            interior_data = session_data.get("interior_recommendations")
+            if interior_data:
+                if isinstance(interior_data, str):
+                    interior_data = json.loads(interior_data)
+                selected_interior = interior_data.get("selected_style", "")
             
             self.logger.info(f"Selected items - name: {selected_name}, signboard: {selected_signboard}, interior: {selected_interior}")
+            self.logger.info(f"Signboard images count: {len(signboard_images)}, Interior images count: {len(interior_images)}")
             
             return {
                 "session": session_data,
@@ -65,20 +88,53 @@ class DataCollector:
             self.logger.error(f"Failed to collect comprehensive session data: {str(e)}")
             return None
 
-    def _collect_images(self, session_id: str, s3_client) -> tuple:
-        """이미지 데이터 수집"""
-        # 간판 이미지
-        signboard_images = s3_client.list_objects(prefix=f"signboards/{session_id}/")
+    def _add_presigned_urls_to_saved_images(self, s3_client, saved_images: List[Dict]) -> List[Dict]:
+        """세션에 저장된 이미지 목록에 presigned URL 추가"""
+        enhanced_images = []
+        for img in saved_images:
+            enhanced_img = img.copy()
+            url = img.get('url', '')
+            
+            # S3 URL인 경우 presigned URL 생성
+            if url.startswith('s3://') or 's3.amazonaws.com' in url or 's3-' in url:
+                try:
+                    # Extract bucket and key from URL
+                    if url.startswith('s3://'):
+                        parts = url.replace('s3://', '').split('/', 1)
+                        bucket = parts[0]
+                        key = parts[1] if len(parts) > 1 else ''
+                    else:
+                        # Parse https://bucket.s3.region.amazonaws.com/key format
+                        import re
+                        match = re.search(r'https://([^.]+)\.s3[.-]([^.]+)\.amazonaws\.com/(.+)', url)
+                        if match:
+                            bucket = match.group(1)
+                            key = match.group(3)
+                        else:
+                            bucket = None
+                            key = None
+                    
+                    if bucket and key:
+                        presigned_url = s3_client.generate_presigned_url(bucket, key)
+                        enhanced_img['presigned_url'] = presigned_url
+                        enhanced_img['key'] = key
+                except Exception as e:
+                    self.logger.warning(f"Failed to generate presigned URL for {url}: {e}")
+            
+            enhanced_images.append(enhanced_img)
         
+        return enhanced_images
+    
+    def _collect_interior_images(self, session_id: str, s3_client) -> List[Dict]:
+        """인테리어 이미지 수집"""
         # 인테리어 이미지 (세션 ID가 파일명에 포함)
         all_interior_images = s3_client.list_objects(prefix="interiors/")
         interior_images = [img for img in all_interior_images if session_id in img.get('key', '')]
         
         # presigned URL 추가
-        signboard_images = self._add_presigned_urls(s3_client, signboard_images)
         interior_images = self._add_presigned_urls(s3_client, interior_images)
         
-        return signboard_images, interior_images
+        return interior_images
     
     def _add_presigned_urls(self, s3_client, images: List[Dict]) -> List[Dict]:
         """이미지 리스트에 presigned URL 추가"""

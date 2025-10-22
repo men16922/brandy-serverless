@@ -714,6 +714,38 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'totalSteps': 5
             }
             
+            # Parse business_names (JSON string to dict)
+            business_names_data = None
+            if 'business_names' in session_data:
+                try:
+                    business_names_json = session_data.get('business_names')
+                    if isinstance(business_names_json, str):
+                        business_names_data = json.loads(business_names_json)
+                    else:
+                        business_names_data = business_names_json
+                except (json.JSONDecodeError, TypeError) as e:
+                    logger.warning(f"Failed to parse business_names: {str(e)}")
+            
+            # Fallback to namesResult if business_names not found
+            if not business_names_data:
+                business_names_data = session_data.get('namesResult')
+            
+            # Parse signboard_images (JSON string to dict)
+            signboard_data = None
+            if 'signboard_images' in session_data:
+                try:
+                    signboard_json = session_data.get('signboard_images')
+                    if isinstance(signboard_json, str):
+                        signboard_data = json.loads(signboard_json)
+                    else:
+                        signboard_data = signboard_json
+                except (json.JSONDecodeError, TypeError) as e:
+                    logger.warning(f"Failed to parse signboard_images: {str(e)}")
+            
+            # Fallback to signboardsResult if signboard_images not found
+            if not signboard_data:
+                signboard_data = session_data.get('signboardsResult')
+            
             # Parse interior data (check both new 'interiors' and old 'interior_recommendations')
             interior_data = None
             
@@ -745,10 +777,15 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'businessInfo': session_data.get('businessInfo', {}),
                 'createdAt': session_data.get('createdAt'),
                 'updatedAt': session_data.get('updatedAt'),
+                # Report generation status fields
+                'reportGenerationStatus': session_data.get('reportGenerationStatus'),
+                'reportUrl': session_data.get('reportUrl'),
+                'reportFileName': session_data.get('reportFileName'),
+                'reportGenerationError': session_data.get('reportGenerationError'),
                 'results': {
                     'analysis': session_data.get('analysisResult'),
-                    'names': session_data.get('business_names') or session_data.get('namesResult'),  # Check business_names first
-                    'signboards': session_data.get('signboard_images') or session_data.get('signboardsResult'),  # Check signboard_images first
+                    'names': business_names_data,  # Parsed business_names
+                    'signboards': signboard_data,  # Parsed signboard_images
                     'interiors': interior_data or session_data.get('interiorsResult'),  # Use parsed interior_recommendations
                     'report': session_data.get('reportResult')
                 }

@@ -123,7 +123,7 @@ class ReporterAgent(BaseAgent):
                 return self.create_lambda_response(400, {"error": "sessionId is required"})
             
             # 비동기 모드 처리
-            if async_mode and action == 'suggest':
+            if async_mode and action in ['suggest', 'regenerate']:
                 return self._handle_async_request(session_id, body, context)
             
             # 실행 시작
@@ -342,12 +342,59 @@ class ReporterAgent(BaseAgent):
         # 기존 알고리즘 사용 (Fallback)
         return self._generate_names_with_traditional_algorithm(business_info, business_names)
     
+    def _sanitize_description(self, description: str) -> Optional[str]:
+        """
+        Sanitize business description for AI prompts.
+        
+        Implements Requirements 3.1, 3.4:
+        - Limit length to 500 characters
+        - Remove potentially problematic characters
+        - Log warnings for truncation
+        
+        Args:
+            description: Raw business description
+        
+        Returns:
+            Sanitized description or None if invalid
+        """
+        if not description:
+            return None
+        
+        # Trim whitespace
+        description = description.strip()
+        
+        if not description:
+            return None
+        
+        # Limit length (max 500 characters)
+        if len(description) > 500:
+            description = description[:500]
+            self.logger.warning(
+                "Description truncated to 500 characters",
+                extra={
+                    "agent": "reporter",
+                    "tool": "name.generate",
+                    "original_length": len(description),
+                    "truncated_length": 500
+                }
+            )
+        
+        # Remove potentially problematic characters (keep alphanumeric, spaces, basic punctuation)
+        description = re.sub(r'[^\w\s\-,.\'\"]', '', description)
+        
+        return description
+    
     def _generate_names_with_bedrock(self, business_info: Dict[str, Any], 
                                     business_names: BusinessNames) -> List[NameSuggestion]:
         """
         Bedrock Claude를 사용한 상호명 생성 및 평가
         
         60초 이상 걸리면 fallback names 사용
+        
+        Implements Requirements 1.2, 2.1, 2.3, 3.2:
+        - Extract and include business description in prompts
+        - Emphasize description theme in name generation
+        - Add structured logging for description usage
         """
         import time
         from decimal import Decimal
@@ -355,6 +402,23 @@ class ReporterAgent(BaseAgent):
         industry = business_info.get('industry', '').lower()
         region = business_info.get('region', '').lower()
         size = business_info.get('size', '').lower()
+        
+        # Extract and sanitize description (Requirement 1.2, 3.1)
+        raw_description = business_info.get('description')
+        description = self._sanitize_description(raw_description)
+        
+        # Log description usage (Requirement 3.2)
+        self.logger.info(
+            f"Generating names with description: '{description[:50] if description else 'None'}...'",
+            extra={
+                "agent": "reporter",
+                "tool": "name.generate",
+                "has_description": bool(description),
+                "description_length": len(description) if description else 0,
+                "industry": industry,
+                "region": region
+            }
+        )
         
         start_time = time.time()
         max_bedrock_time = 60.0  # 60초 제한
@@ -386,10 +450,14 @@ Respond in JSON format with exactly 3 name suggestions:
     ]
 }"""
         
+        # Build prompt with description emphasis (Requirement 2.1, 2.3)
         prompt = f"""Business Context:
 - Industry: {industry}
 - Region: {region}
 - Size: {size}
+- Description: {description or 'Not provided'}
+
+{f"IMPORTANT: This business has a unique concept: '{description}'. Generate names that reflect this theme and create strong brand association with this concept." if description else ""}
 
 Existing names to avoid:
 {json.dumps(existing_names, ensure_ascii=False)}

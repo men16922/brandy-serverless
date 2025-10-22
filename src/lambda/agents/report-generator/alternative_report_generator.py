@@ -407,25 +407,38 @@ class AlternativeReportGenerator:
         if not signboard_images:
             return ""
 
-        # Find selected image
+        # Find selected image by URL or key
         selected_image = None
         for img in signboard_images:
-            filename = img.get('key', '').split('/')[-1]
-            if filename == selected_signboard:
+            # Try matching by URL (selected_signboard is the full URL)
+            if selected_signboard and (
+                img.get('url') == selected_signboard or 
+                img.get('presigned_url') == selected_signboard or
+                img.get('key', '').endswith(selected_signboard.split('/')[-1])
+            ):
                 selected_image = img
                 break
 
         # Fallback to first image if nothing selected
         if not selected_image and signboard_images:
             selected_image = signboard_images[0]
+            self.logger.warning(f"No signboard image matched selected URL: {selected_signboard}, using first image")
 
         if not selected_image:
             return ""
 
         # Selected image details
-        filename = selected_image.get('key', '').split('/')[-1]
+        filename = selected_image.get('key', '').split('/')[-1] if selected_image.get('key') else 'signboard.png'
         size_mb = selected_image.get('size', 0) / (1024 * 1024)
-        style = self._extract_style_from_filename(filename)
+        
+        # Use saved style from metadata, fallback to filename extraction
+        style = selected_image.get('style', '')
+        if not style:
+            style = self._extract_style_from_filename(filename)
+        
+        # Capitalize style for display
+        if style:
+            style = ' '.join(word.capitalize() for word in style.replace('_', ' ').replace('-', ' ').split())
 
         # Resolve image URLs
         image_url = selected_image.get('url', '')
@@ -472,13 +485,19 @@ class AlternativeReportGenerator:
                 filename = img.get('key', '').split('/')[-1]
                 style = self._extract_style_from_filename(filename)
 
-                if selected_interior and (style.lower() == selected_interior.lower() or filename == selected_interior):
+                # Match by style name (case-insensitive)
+                if selected_interior and (
+                    style.lower() == selected_interior.lower() or 
+                    filename == selected_interior or
+                    selected_interior.lower() in style.lower()
+                ):
                     selected_image = img
                     break
 
             # Fallback to first image if no explicit match
             if not selected_image and interior_images:
                 selected_image = interior_images[0]
+                self.logger.warning(f"No interior image matched selected style: {selected_interior}, using first image")
 
         # Render either image+details or style-only placeholder
         if selected_image:
@@ -583,12 +602,19 @@ class AlternativeReportGenerator:
         if not budget_guide:
             return ""
 
+        # Get currency and region info
+        currency = budget_guide.get('currency', '₩')
+        region = budget_guide.get('region', 'Seoul')
+        country = budget_guide.get('country', 'South Korea')
+
         budget_rows = ""
         total_data = None
 
         for category, costs in budget_guide.items():
-            if category == 'total':
-                total_data = costs
+            # Skip metadata fields
+            if category in ['total', 'currency', 'region', 'country']:
+                if category == 'total':
+                    total_data = costs
                 continue
 
             if isinstance(costs, dict):
@@ -597,11 +623,11 @@ class AlternativeReportGenerator:
                     'interior': 'Interior',
                     'branding': 'Branding',
                     'marketing': 'Marketing'
-                }.get(category, category)
+                }.get(category, category.title())
 
-                min_cost = f"{costs.get('min', 0):,} KRW"
-                recommended_cost = f"{costs.get('recommended', 0):,} KRW"
-                max_cost = f"{costs.get('max', 0):,} KRW"
+                min_cost = f"{currency}{costs.get('min', 0):,}"
+                recommended_cost = f"{currency}{costs.get('recommended', 0):,}"
+                max_cost = f"{currency}{costs.get('max', 0):,}"
 
                 budget_rows += f"""
                 <tr>
@@ -617,15 +643,15 @@ class AlternativeReportGenerator:
             total_row = f"""
             <tr class="total-row">
                 <td><strong>Total</strong></td>
-                <td><strong>{total_data.get('min', 0):,} KRW</strong></td>
-                <td><strong>{total_data.get('recommended', 0):,} KRW</strong></td>
-                <td><strong>{total_data.get('max', 0):,} KRW</strong></td>
+                <td><strong>{currency}{total_data.get('min', 0):,}</strong></td>
+                <td><strong>{currency}{total_data.get('recommended', 0):,}</strong></td>
+                <td><strong>{currency}{total_data.get('max', 0):,}</strong></td>
             </tr>
             """
 
         return f"""
         <h2>💰 Budget Guide</h2>
-        <p>Budget ranges considering scale and industry.</p>
+        <p>Budget ranges for <strong>{region}, {country}</strong> considering scale and industry.</p>
         <table class="budget-table">
             <thead>
                 <tr>
@@ -744,24 +770,48 @@ class AlternativeReportGenerator:
 
     def _extract_style_from_filename(self, filename: str) -> str:
         """Extract a style name from the filename"""
+        # Remove file extension
+        name_without_ext = filename.rsplit('.', 1)[0]
+        
+        # Try to extract style from filename pattern: {session_id}_{style}.png
+        parts = name_without_ext.split('_')
+        if len(parts) >= 2:
+            # Last part is usually the style
+            style = parts[-1]
+            # Capitalize first letter of each word
+            return ' '.join(word.capitalize() for word in style.split('-'))
+        
+        # Fallback: check for common style keywords
         filename_lower = filename.lower()
-
-        if 'modern' in filename_lower or '모던' in filename_lower:
-            return 'Modern'
-        elif 'classic' in filename_lower or '클래식' in filename_lower:
-            return 'Classic'
-        elif 'minimal' in filename_lower or '미니멀' in filename_lower:
-            return 'Minimal'
-        elif 'vibrant' in filename_lower or '활기찬' in filename_lower:
-            return 'Vibrant'
-        elif 'cozy' in filename_lower or '아늑한' in filename_lower:
-            return 'Cozy'
-        elif 'professional' in filename_lower or '전문적' in filename_lower:
-            return 'Professional'
-        elif 'scandinavian' in filename_lower or '스칸디나비안' in filename_lower:
-            return 'Scandinavian'
-        else:
-            return 'Style'
+        
+        style_keywords = {
+            'modern': 'Modern',
+            'classic': 'Classic',
+            'minimal': 'Minimal',
+            'vibrant': 'Vibrant',
+            'cozy': 'Cozy',
+            'professional': 'Professional',
+            'scandinavian': 'Scandinavian',
+            'industrial': 'Industrial',
+            'vintage': 'Vintage',
+            'elegant': 'Elegant',
+            'rustic': 'Rustic',
+            'contemporary': 'Contemporary',
+            'traditional': 'Traditional',
+            'anime': 'Anime',
+            'playful': 'Playful',
+            'urban': 'Urban'
+        }
+        
+        for keyword, display_name in style_keywords.items():
+            if keyword in filename_lower:
+                return display_name
+        
+        # If no match, return the last part of filename (before extension)
+        if parts:
+            return parts[-1].capitalize()
+        
+        return 'Custom Style'
 
     def generate_json_report(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Generate a JSON-format report"""
