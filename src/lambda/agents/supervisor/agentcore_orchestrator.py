@@ -13,20 +13,19 @@ from datetime import datetime
 import sys
 import os
 
-# Add shared module to path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-shared_dir = os.path.join(os.path.dirname(os.path.dirname(current_dir)), 'shared')
-if shared_dir not in sys.path:
-    sys.path.insert(0, shared_dir)
+# Lambda Layer path for shared modules
+sys.path.insert(0, '/opt/python/shared')
+sys.path.insert(0, '/opt/python')
 
+# Import from shared layer with error handling
 try:
-    from bedrock_client import BedrockClient, BedrockException
-    from models import WorkflowStep, AgentType
-except ImportError:
-    # Fallback for Lambda environment
-    sys.path.append('/opt/python')
-    from bedrock_client import BedrockClient, BedrockException
-    from models import WorkflowStep, AgentType
+    from shared.bedrock_client import BedrockClient, BedrockException
+    from shared.models import WorkflowStep, AgentType
+except ImportError as e:
+    # Log import error but don't fail - will be caught by Supervisor
+    import logging
+    logging.warning(f"Failed to import shared modules in agentcore_orchestrator: {e}")
+    raise
 
 
 class AgentCoreOrchestrator:
@@ -251,14 +250,8 @@ class AgentCoreOrchestrator:
                 f"agent={agent_name}, session={session_id}"
             )
             
-            # Import AgentCommunication for Tool Use
-            try:
-                from agent_communication import get_agent_communication
-            except ImportError:
-                # Fallback for Lambda environment
-                import sys
-                sys.path.append('/opt/python')
-                from agent_communication import get_agent_communication
+            # Import AgentCommunication for Tool Use from shared layer
+            from shared.agent_communication import get_agent_communication
             
             # Get AgentCommunication instance
             agent_comm = get_agent_communication()

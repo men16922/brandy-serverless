@@ -112,16 +112,32 @@ Step 5: Report Generation
 - **Primary LLM**: Amazon Bedrock Claude 4 Sonnet for text generation and reasoning
 - **Image Generation**: Amazon Bedrock SDXL (Titan Image Generator v2) for signboard designs
 - **Reasoning Engine**: Chain-of-Thought reasoning for autonomous decision-making
+- **AgentCore Memory**: Amazon Bedrock AgentCore for managed memory and state persistence
 
 ### Agent-Based Architecture
 - **6 Specialized Agents**: Each agent handles a specific task in the workflow
 - **Supervisor Agent**: 
-  - Session management (create, read, update sessions in DynamoDB)
+  - Session management (create, read, update sessions)
   - API Gateway request routing and response handling
   - Autonomous error recovery with Reasoning LLM
-  - Workflow orchestration via AgentCore (when enabled)
+  - Workflow orchestration with AgentCore Memory
   - Structured logging and monitoring
 - **Autonomous Execution**: Minimal user input required after initial setup
+
+### Amazon Bedrock AgentCore Integration
+- **AgentCore Memory**: Managed memory service for workflow state persistence
+  - Short-term memory for session-based conversations
+  - Long-term memory with automatic summarization strategies
+  - Semantic memory for fact extraction
+  - 24-hour automatic expiry aligned with session TTL
+- **Memory Strategies**:
+  - `WorkflowSummarizer`: Automatic session summaries
+  - `BrandingFactExtractor`: Key business insights extraction
+- **Benefits**:
+  - Managed infrastructure (no DynamoDB management)
+  - Built-in memory strategies and summarization
+  - Optimized for AI agent workflows
+  - Native Bedrock integration
 
 ### Serverless Infrastructure
 - **AWS SAM**: Infrastructure as Code for easy deployment
@@ -142,8 +158,10 @@ Step 5: Report Generation
 
 Your IAM user/role needs:
 - `bedrock:InvokeModel` - For Claude and SDXL
+- `bedrock-agentcore:*` - For AgentCore Memory operations
+- `bedrock-agentcore-control:*` - For AgentCore Memory management
 - `lambda:*` - For Lambda functions
-- `dynamodb:*` - For session storage
+- `dynamodb:*` - For session storage (fallback)
 - `s3:*` - For asset storage
 - `apigateway:*` - For API Gateway
 - `cloudformation:*` - For SAM deployment
@@ -158,6 +176,32 @@ Check model access:
 ```bash
 aws bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?contains(modelId, `claude`) || contains(modelId, `titan-image`)].modelId'
 ```
+
+### AgentCore Memory Setup (Optional but Recommended)
+
+Amazon Bedrock AgentCore provides managed memory for AI agents. To use AgentCore Memory:
+
+```bash
+# 1. Create AgentCore Memory
+python3 scripts/create_agentcore_memory.py
+
+# Output will show Memory ID:
+# Memory ID: abc123xyz
+
+# 2. Update samconfig.toml with Memory ID
+# Add to [dev.deploy.parameters]:
+# parameter_overrides = "... AgentCoreMemoryId=\"abc123xyz\" UseAgentCoreMemory=\"true\""
+
+# 3. Verify AgentCore availability
+python3 test_agentcore_availability.py
+```
+
+**AgentCore Memory Features:**
+- Automatic session summarization
+- Semantic fact extraction
+- 24-hour TTL (aligned with session expiry)
+- No infrastructure management required
+- Native Bedrock integration
 
 ## 🛠️ Installation & Deployment
 

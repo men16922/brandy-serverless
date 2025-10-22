@@ -1801,7 +1801,7 @@ def select_interior_option(style: str):
                         try:
                             # Check session status
                             status_response = requests.get(
-                                f"{API_BASE_URL}/session/{st.session_state.session_id}",
+                                f"{API_BASE_URL}/status/{st.session_state.session_id}",
                                 timeout=10
                             )
                             

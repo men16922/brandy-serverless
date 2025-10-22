@@ -30,18 +30,31 @@ def decimal_default(obj):
     raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
 # Import AgentCore orchestrator
-try:
-    from agentcore_orchestrator import AgentCoreOrchestrator
-    AGENTCORE_AVAILABLE = True
-    logger.info("AgentCore orchestrator imported successfully")
-except ImportError as e:
-    AGENTCORE_AVAILABLE = False
-    logger.warning(f"AgentCore orchestrator not available: {str(e)}")
+# Lazy import AgentCore to avoid initialization issues
+AGENTCORE_AVAILABLE = False
+AgentCoreOrchestrator = None
+
+def _import_agentcore():
+    """Lazy import AgentCore orchestrator to avoid initialization issues"""
+    global AGENTCORE_AVAILABLE, AgentCoreOrchestrator
+    try:
+        from agentcore_orchestrator import AgentCoreOrchestrator as ACO
+        AgentCoreOrchestrator = ACO
+        AGENTCORE_AVAILABLE = True
+        logger.info("✅ AgentCore orchestrator imported successfully")
+        return True
+    except ImportError as e:
+        AGENTCORE_AVAILABLE = False
+        logger.warning(f"⚠️ AgentCore orchestrator not available: {str(e)}")
+        return False
 
 class SupervisorAgent:
     def __init__(self):
+        logger.info("🚀 Initializing Supervisor Agent...")
+        
         # 환경 설정 (dev 환경만 사용)
         self.environment = os.getenv('ENVIRONMENT', 'dev')
+        logger.info(f"Environment: {self.environment}")
         
         # AWS DynamoDB 연결 (로컬 엔드포인트 제거)
         region = os.getenv('AWS_REGION', 'us-west-2')
@@ -57,32 +70,40 @@ class SupervisorAgent:
             logger.error(f"Failed to connect to DynamoDB: {str(e)}")
             raise
         
-        # AgentCore 설정
-        self.use_agentcore = os.getenv('USE_AGENTCORE', 'false').lower() == 'true'
+        # AgentCore 설정 (lazy loading)
+        use_agentcore_env = os.getenv('USE_AGENTCORE', 'false')
+        self.use_agentcore = use_agentcore_env.lower() == 'true'
         self.agentcore_orchestrator = None
         
-        if self.use_agentcore and AGENTCORE_AVAILABLE:
-            try:
-                self.agentcore_orchestrator = AgentCoreOrchestrator(logger=logger)
-                logger.info("AgentCore orchestrator initialized")
-            except Exception as e:
-                logger.error(f"Failed to initialize AgentCore orchestrator: {str(e)}")
+        logger.info(f"AgentCore configuration: USE_AGENTCORE={use_agentcore_env}, enabled={self.use_agentcore}")
+        
+        if self.use_agentcore:
+            logger.info("Attempting to import AgentCore orchestrator...")
+            # Try to import AgentCore
+            if _import_agentcore():
+                try:
+                    self.agentcore_orchestrator = AgentCoreOrchestrator(logger=logger)
+                    logger.info("✅ AgentCore orchestrator initialized successfully")
+                except Exception as e:
+                    logger.error(f"❌ Failed to initialize AgentCore orchestrator: {str(e)}")
+                    self.use_agentcore = False
+            else:
+                logger.warning("⚠️ USE_AGENTCORE=true but AgentCore not available, falling back to manual orchestration")
                 self.use_agentcore = False
-        elif self.use_agentcore and not AGENTCORE_AVAILABLE:
-            logger.warning("USE_AGENTCORE=true but AgentCore not available, falling back to Step Functions")
-            self.use_agentcore = False
+        else:
+            logger.info("AgentCore disabled, using direct agent invocation")
         
         # Reasoning Engine 초기화 (자율 의사결정용)
         self.reasoning_engine = None
         try:
-            from bedrock_client import BedrockClient
-            from reasoning_engine import ReasoningEngine
+            from shared.bedrock_client import BedrockClient
+            from shared.reasoning_engine import ReasoningEngine
             
             bedrock_client = BedrockClient(logger=logger)
             self.reasoning_engine = ReasoningEngine(bedrock_client=bedrock_client, logger=logger)
-            logger.info("Reasoning Engine initialized for autonomous decision-making")
+            logger.info("✅ Reasoning Engine initialized for autonomous decision-making")
         except Exception as e:
-            logger.warning(f"Reasoning Engine not available: {str(e)}")
+            logger.warning(f"⚠️ Reasoning Engine not available: {str(e)}")
         
         logger.info(f"Supervisor Agent initialized: environment={self.environment}, use_agentcore={self.use_agentcore}")
     
