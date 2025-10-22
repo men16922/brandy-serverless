@@ -1146,9 +1146,6 @@ Size: {size}
 Industry Characteristics:
 {json.dumps(industry_data['characteristics'], ensure_ascii=False, indent=2)}
 
-Market Trends:
-{json.dumps(industry_data['market_trends'], ensure_ascii=False, indent=2)}
-
 Regional Market Environment:
 - Market size: {region_data['market_size']}
 - Competition level: {region_data['competition_level']}
@@ -1165,11 +1162,14 @@ Based on the above, analyze and respond in JSON with:
     "score": 0-100,
     "reasoning": "Basis for the score",
     "insights": ["Insight 1", "Insight 2", "Insight 3"],
+    "market_trends": ["Current market trend 1", "Current market trend 2", "Current market trend 3"],
     "recommendations": ["Recommendation 1", "Recommendation 2", "Recommendation 3"],
     "risk_factors": ["Risk 1", "Risk 2"],
     "growth_opportunities": ["Opportunity 1", "Opportunity 2"],
     "confidence": 0.0-1.0
-}}"""
+}}
+
+IMPORTANT: Generate market_trends based on current real-world trends for the {industry} industry in {region}. Do not use generic or outdated trends."""
             
             self.logger.info(
                 f"Invoking Bedrock Claude for business analysis: "
@@ -1307,6 +1307,7 @@ Based on the above, analyze and respond in JSON with:
             final_score = baseline_score
             final_insights = baseline_insights
             final_recommendations = industry_data["success_factors"][:3]
+            final_market_trends = industry_data["market_trends"]  # Fallback to hardcoded
             bedrock_reasoning = None
             bedrock_confidence = None
             analysis_provider = "baseline"
@@ -1331,6 +1332,11 @@ Based on the above, analyze and respond in JSON with:
                     
                     if bedrock_analysis.get('recommendations'):
                         final_recommendations = bedrock_analysis['recommendations']
+                    
+                    # Use Bedrock-generated market trends
+                    if bedrock_analysis.get('market_trends'):
+                        final_market_trends = bedrock_analysis['market_trends']
+                        self.logger.info(f"Using Bedrock-generated market trends: {final_market_trends}")
                     
                     bedrock_reasoning = bedrock_analysis.get('reasoning', bedrock_result.get('reasoning_text'))
                     bedrock_confidence = bedrock_analysis.get('confidence')
@@ -1358,7 +1364,7 @@ Based on the above, analyze and respond in JSON with:
                 summary=f"Business analysis for {industry} in {region} at {size} scale: Overall score evaluated at {final_score}.",
                 score=final_score,
                 insights=final_insights,
-                market_trends=industry_data["market_trends"],
+                market_trends=final_market_trends,  # Use Bedrock-generated or fallback
                 recommendations=final_recommendations
             )
             

@@ -784,8 +784,7 @@ class AlternativeReportGenerator:
                 },
                 "assets": {
                     "signboard_images": data.get("signboard_images", []),
-                    "interior_images": data.get("interior_images", []),
-                    "uploaded_images": data.get("uploaded_images", [])
+                    "interior_images": data.get("interior_images", [])
                 },
                 "design_elements": {
                     "color_palette": data.get("color_palette", {}),

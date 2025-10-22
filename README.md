@@ -8,7 +8,7 @@ This project automates the entire business branding process, from market analysi
 
 - **Business Analysis** - Industry, region, and market insights
 - **Business Names** - 3 AI-generated name suggestions with scoring
-- **Signboard Designs** - AI-generated visual designs using Bedrock SDXL
+- **Signboard Designs** - AI-generated visual designs using Bedrock Titan Image Generator v2
 - **Interior Recommendations** - 3 interior style options
 - **Comprehensive Report** - HTML report with all branding materials
 
@@ -73,7 +73,7 @@ This project automates the entire business branding process, from market analysi
 ┌──────────┐  ┌──────────┐  ┌──────────┐
 │ Bedrock  │  │ DynamoDB │  │    S3    │
 │Claude/   │  │ Sessions │  │  Assets  │
-│  SDXL    │  │          │  │          │
+│  Titan   │  │          │  │          │
 └──────────┘  └──────────┘  └──────────┘
 
 PI=Product Insight, MA=Market Analyst, REP=Reporter
@@ -93,7 +93,7 @@ Step 2: Name Generation
    ↓
 Step 3: Signboard Design
    ↓ (Signboard Agent)
-   ↓ Uses: Bedrock SDXL for image generation
+   ↓ Uses: Bedrock Titan Image Generator v2 for image generation
    ↓
 Step 4: Interior Recommendations
    ↓ (Interior Agent)
@@ -110,7 +110,7 @@ Step 5: Report Generation
 
 ### AWS Bedrock Integration
 - **Primary LLM**: Amazon Bedrock Claude 4 Sonnet for text generation and reasoning
-- **Image Generation**: Amazon Bedrock SDXL (Titan Image Generator v2) for signboard designs
+- **Image Generation**: Amazon Bedrock Titan Image Generator v2 for signboard designs
 - **Reasoning Engine**: Chain-of-Thought reasoning for autonomous decision-making
 - **AgentCore Memory**: Amazon Bedrock AgentCore for managed memory and state persistence
 
@@ -157,7 +157,7 @@ Step 5: Report Generation
 ### Required AWS Permissions
 
 Your IAM user/role needs:
-- `bedrock:InvokeModel` - For Claude and SDXL
+- `bedrock:InvokeModel` - For Claude and Titan Image Generator
 - `bedrock-agentcore:*` - For AgentCore Memory operations
 - `bedrock-agentcore-control:*` - For AgentCore Memory management
 - `lambda:*` - For Lambda functions
@@ -539,7 +539,7 @@ aws s3 ls s3://ai-branding-chatbot-dev-brandingassetsbucket-xxxxx/ --recursive
 Approximate costs per workflow execution:
 
 - **Bedrock Claude**: ~$0.015 per request (5 requests) = $0.075
-- **Bedrock SDXL**: ~$0.04 per image (3 images) = $0.12
+- **Bedrock Titan Image Generator**: ~$0.04 per image (3 images) = $0.12
 - **Lambda**: ~$0.0001 per invocation (7 invocations) = $0.0007
 - **DynamoDB**: ~$0.0001 per request = $0.0001
 - **S3**: ~$0.001 per GB = $0.001
@@ -556,7 +556,7 @@ Key environment variables in `template.yaml`:
 ```yaml
 BEDROCK_REGION: us-west-2
 CLAUDE_MODEL_ID: us.anthropic.claude-sonnet-4-20250514-v1:0
-SDXL_MODEL_ID: amazon.titan-image-generator-v2:0
+IMAGE_MODEL_ID: amazon.titan-image-generator-v2:0
 ENABLE_FALLBACK: false  # Bedrock-only mode
 ENVIRONMENT: dev
 ```
@@ -617,7 +617,7 @@ Contributions welcome! Please:
 This project was built for the AWS AI Agent Global Hackathon 2025.
 
 ### Key Technologies
-- Amazon Bedrock (Claude 4 Sonnet, SDXL)
+- Amazon Bedrock (Claude 4 Sonnet, Titan Image Generator v2)
 - AWS Lambda (Serverless)
 - AWS SAM (Infrastructure as Code)
 - DynamoDB (Session Management)

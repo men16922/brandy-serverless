@@ -32,19 +32,27 @@ logger.info(f"API_BASE_URL configured: {API_BASE_URL}")
 WORKFLOW_STEPS = [
     {"id": 1, "name": "Business Analysis", "agent": "product_insight", "description": "Industry/Region/Size Analysis"},
     {"id": 2, "name": "Name Suggestions", "agent": "reporter", "description": "Generate 3 Business Names"},
-    {"id": 3, "name": "Signboard Design", "agent": "signboard", "description": "AI Signboard Image Generation"},
+    {"id": 3, "name": "Signboard Design", "agent": "signboard", "description": "Bedrock Titan Image Generation"},
     {"id": 4, "name": "Interior Recommendations", "agent": "interior", "description": "Customized Interior Design"},
     {"id": 5, "name": "Report Generation", "agent": "report_generator", "description": "Comprehensive Branding Report"}
 ]
 
 # Industry and region options
 INDUSTRIES = [
-    "restaurant", "retail", "service", "healthcare", "education",
+    "restaurant", "cafe", "retail", "service", "healthcare", "education",
     "technology", "manufacturing", "construction", "finance", "other"
 ]
 
 # Countries and their major cities (OrderedDict to maintain order)
 from collections import OrderedDict
+
+# Country flags mapping
+COUNTRY_FLAGS = {
+    "United States": "🇺🇸",
+    "South Korea": "🇰🇷",
+    "India": "🇮🇳",
+    "France": "🇫🇷"
+}
 
 COUNTRIES_CITIES = OrderedDict([
     ("United States", [
@@ -381,6 +389,7 @@ def step1_business_analysis():
         country = st.selectbox(
             "Select Country",
             options=list(COUNTRIES_CITIES.keys()),
+            format_func=lambda x: f"{COUNTRY_FLAGS.get(x, '🌍')} {x}",
             index=list(COUNTRIES_CITIES.keys()).index(st.session_state.selected_country),
             key="country_selector"
         )
@@ -409,7 +418,8 @@ def step1_business_analysis():
                 "Select Industry",
                 options=INDUSTRIES,
                 format_func=lambda x: {
-                    "restaurant": "Restaurant/Cafe",
+                    "restaurant": "Restaurant",
+                    "cafe": "Cafe",
                     "retail": "Retail",
                     "service": "Service",
                     "healthcare": "Healthcare",
@@ -439,13 +449,6 @@ def step1_business_analysis():
             height=100
         )
         
-        # Image upload
-        uploaded_file = st.file_uploader(
-            "Upload Reference Image (Optional)",
-            type=['png', 'jpg', 'jpeg'],
-            help="Upload an image for branding reference"
-        )
-        
         submitted = st.form_submit_button("Start Analysis", type="primary")
         
         if submitted:
@@ -456,16 +459,8 @@ def step1_business_analysis():
                 "city": city,
                 "region": f"{city}, {country}",  # Combined for backward compatibility
                 "size": size,
-                "description": description if description else None,
-                "uploaded_image_url": None  # Will be handled later for image upload
+                "description": description if description else None
             }
-            
-            # Handle image upload if provided
-            if uploaded_file:
-                # For now, we'll store the image info in session state
-                # In production, this would be uploaded to S3
-                st.session_state.uploaded_image = uploaded_file
-                st.info("Image uploaded. (Actual S3 upload is handled by backend)")
             
             # Create session
             with st.spinner("Creating session and starting analysis..."):
@@ -1118,7 +1113,7 @@ def display_interior_options():
                             # Provider badge
                             provider_label = ""
                             if provider == "bedrock-sdxl":
-                                provider_label = "🎨 Amazon Bedrock SDXL"
+                                provider_label = "🎨 Amazon Bedrock Titan Image Generator"
                             elif provider == "openai-dalle3":
                                 provider_label = "🤖 OpenAI DALL-E 3"
                             else:

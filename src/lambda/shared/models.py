@@ -82,7 +82,6 @@ class BusinessInfo:
     industry: str
     region: str
     size: str
-    uploaded_image_url: Optional[str] = None
     description: Optional[str] = None
     country: Optional[str] = None  # New field for country
     city: Optional[str] = None     # New field for city

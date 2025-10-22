@@ -29,7 +29,7 @@ class DataCollector:
             session_data = sanitizer.sanitize_session_data(session_data)
             
             # 이미지 데이터 수집
-            signboard_images, interior_images, uploaded_images = self._collect_images(session_id, s3_client)
+            signboard_images, interior_images = self._collect_images(session_id, s3_client)
             
             # 비즈니스 정보 추출
             business_info = session_data.get("businessInfo") or session_data.get("business_info", {})
@@ -58,7 +58,6 @@ class DataCollector:
                 "selected_interior": selected_interior,
                 "signboard_images": signboard_images,
                 "interior_images": interior_images,
-                "uploaded_images": uploaded_images,
                 "generated_at": datetime.utcnow().isoformat()
             }
             
@@ -75,15 +74,11 @@ class DataCollector:
         all_interior_images = s3_client.list_objects(prefix="interiors/")
         interior_images = [img for img in all_interior_images if session_id in img.get('key', '')]
         
-        # 업로드된 이미지
-        uploaded_images = s3_client.list_objects(prefix=f"uploads/{session_id}/")
-        
         # presigned URL 추가
         signboard_images = self._add_presigned_urls(s3_client, signboard_images)
         interior_images = self._add_presigned_urls(s3_client, interior_images)
-        uploaded_images = self._add_presigned_urls(s3_client, uploaded_images)
         
-        return signboard_images, interior_images, uploaded_images
+        return signboard_images, interior_images
     
     def _add_presigned_urls(self, s3_client, images: List[Dict]) -> List[Dict]:
         """이미지 리스트에 presigned URL 추가"""
