@@ -43,11 +43,31 @@ INDUSTRIES = [
     "technology", "manufacturing", "construction", "finance", "other"
 ]
 
-REGIONS = [
-    "seoul", "busan", "daegu", "incheon", "gwangju", "daejeon",
-    "ulsan", "gyeonggi", "gangwon", "chungbuk", "chungnam",
-    "jeonbuk", "jeonnam", "gyeongbuk", "gyeongnam", "jeju"
-]
+# Countries and their major cities (OrderedDict to maintain order)
+from collections import OrderedDict
+
+COUNTRIES_CITIES = OrderedDict([
+    ("United States", [
+        "New York", "Los Angeles", "Chicago", "Houston", "Phoenix",
+        "Philadelphia", "San Antonio", "San Diego", "Dallas", "San Jose",
+        "Austin", "Seattle", "Denver", "Boston", "Las Vegas", "Miami",
+        "San Francisco", "Portland", "Atlanta", "Washington DC"
+    ]),
+    ("South Korea", [
+        "Seoul", "Busan", "Daegu", "Incheon", "Gwangju", "Daejeon",
+        "Ulsan", "Gyeonggi", "Gangwon", "Jeju"
+    ]),
+    ("India", [
+        "Mumbai", "Delhi", "Bangalore", "Hyderabad", "Chennai",
+        "Kolkata", "Pune", "Ahmedabad", "Jaipur", "Surat",
+        "Lucknow", "Kanpur", "Nagpur", "Indore", "Bhopal"
+    ]),
+    ("France", [
+        "Paris", "Marseille", "Lyon", "Toulouse", "Nice",
+        "Nantes", "Strasbourg", "Montpellier", "Bordeaux", "Lille",
+        "Rennes", "Reims", "Saint-Étienne", "Toulon", "Grenoble"
+    ])
+])
 
 SIZES = ["small", "medium", "large"]
 
@@ -349,6 +369,36 @@ def step1_business_analysis():
     """Step 1: Business Information Input and Analysis"""
     st.markdown("## Step 1: Business Information Input")
     
+    # Country selection OUTSIDE form for dynamic updates
+    st.markdown("### Location Selection")
+    col_country, col_city = st.columns(2)
+    
+    with col_country:
+        # Initialize country in session state if not exists
+        if 'selected_country' not in st.session_state:
+            st.session_state.selected_country = list(COUNTRIES_CITIES.keys())[0]
+        
+        country = st.selectbox(
+            "Select Country",
+            options=list(COUNTRIES_CITIES.keys()),
+            index=list(COUNTRIES_CITIES.keys()).index(st.session_state.selected_country),
+            key="country_selector"
+        )
+        
+        # Update session state when country changes
+        if country != st.session_state.selected_country:
+            st.session_state.selected_country = country
+            st.rerun()
+    
+    with col_city:
+        city = st.selectbox(
+            "Select City",
+            options=COUNTRIES_CITIES[country],
+            help=f"Major cities in {country}",
+            key="city_selector"
+        )
+    
+    # Rest of the form
     with st.form("business_info_form"):
         st.markdown("### Basic Information")
         
@@ -369,29 +419,6 @@ def step1_business_analysis():
                     "construction": "Construction",
                     "finance": "Finance",
                     "other": "Other"
-                }.get(x, x)
-            )
-            
-            region = st.selectbox(
-                "Select Region",
-                options=REGIONS,
-                format_func=lambda x: {
-                    "seoul": "Seoul",
-                    "busan": "Busan",
-                    "daegu": "Daegu",
-                    "incheon": "Incheon",
-                    "gwangju": "Gwangju",
-                    "daejeon": "Daejeon",
-                    "ulsan": "Ulsan",
-                    "gyeonggi": "Gyeonggi",
-                    "gangwon": "Gangwon",
-                    "chungbuk": "Chungbuk",
-                    "chungnam": "Chungnam",
-                    "jeonbuk": "Jeonbuk",
-                    "jeonnam": "Jeonnam",
-                    "gyeongbuk": "Gyeongbuk",
-                    "gyeongnam": "Gyeongnam",
-                    "jeju": "Jeju"
                 }.get(x, x)
             )
         
@@ -422,10 +449,12 @@ def step1_business_analysis():
         submitted = st.form_submit_button("Start Analysis", type="primary")
         
         if submitted:
-            # Prepare business info
+            # Prepare business info with country and city
             business_info = {
                 "industry": industry,
-                "region": region,
+                "country": country,
+                "city": city,
+                "region": f"{city}, {country}",  # Combined for backward compatibility
                 "size": size,
                 "description": description if description else None,
                 "uploaded_image_url": None  # Will be handled later for image upload
@@ -783,16 +812,34 @@ def display_business_names():
 
 def display_signboard_gallery():
     """Display signboard image gallery with selection interface"""
-    results = st.session_state.session_data.get("results", {}) if st.session_state.session_data else {}
-    signboard_data = results.get("signboard")
+    # Check multiple possible locations for signboard data
+    signboard_data = None
+    images = []
+    
+    # Try session_data.results.signboard first
+    if st.session_state.session_data:
+        results = st.session_state.session_data.get("results", {})
+        signboard_data = results.get("signboard")
+        
+        # If not in results, try direct field
+        if not signboard_data:
+            signboard_images_raw = st.session_state.session_data.get('signboard_images')
+            if signboard_images_raw:
+                # Parse if JSON string
+                if isinstance(signboard_images_raw, str):
+                    try:
+                        signboard_data = json.loads(signboard_images_raw)
+                    except json.JSONDecodeError:
+                        logger.error("Failed to parse signboard_images from session")
+                else:
+                    signboard_data = signboard_images_raw
     
     if signboard_data:
-        # API returns 'signboards' array
-        images = signboard_data.get("signboards", [])
-        
-        # Fallback: check for 'images' key
-        if not images:
-            images = signboard_data.get("images", [])
+        # Extract images array
+        if isinstance(signboard_data, dict):
+            images = signboard_data.get("signboards", []) or signboard_data.get("images", [])
+        elif isinstance(signboard_data, list):
+            images = signboard_data
         
         # Fallback: check for single image format
         if not images and signboard_data.get("imageUrl"):
@@ -970,7 +1017,50 @@ def manual_refresh_interior_status():
 def display_interior_options():
     """Display interior design options with selection interface"""
     results = st.session_state.session_data.get("results", {}) if st.session_state.session_data else {}
+    
+    # Try multiple paths for interior data (backward compatibility)
     interior_data = results.get("interiors")
+    if not interior_data and st.session_state.session_data:
+        # Try direct path (new format)
+        interiors_list = st.session_state.session_data.get("interiors")
+        if interiors_list:
+            interior_data = {"recommendations": interiors_list}
+    
+    # Debug logging
+    logger.info(f"Interior data check: has_results={bool(results)}, has_interior_data={bool(interior_data)}")
+    if interior_data:
+        recs = interior_data.get("recommendations", [])
+        logger.info(f"Interior recommendations: {len(recs)} items")
+        if recs:
+            logger.info(f"First rec has imageUrl: {'imageUrl' in recs[0]}")
+    
+    # DEBUG: Show data structure (remove after debugging)
+    if st.session_state.session_data:
+        with st.expander("🔍 DEBUG: Interior Data Structure", expanded=False):
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.write("**Results keys:**", list(results.keys()) if results else "No results")
+                st.write("**Has interior_data:**", bool(interior_data))
+                if interior_data:
+                    st.write("**Interior data keys:**", list(interior_data.keys()))
+                    recs = interior_data.get("recommendations", [])
+                    st.write(f"**Recommendations count:**", len(recs))
+                    if recs:
+                        st.write("**First recommendation:**")
+                        st.json({
+                            "style": recs[0].get("style"),
+                            "has_imageUrl": "imageUrl" in recs[0],
+                            "imageUrl_preview": recs[0].get("imageUrl", "")[:100] if "imageUrl" in recs[0] else "N/A",
+                            "provider": recs[0].get("provider")
+                        })
+            with col2:
+                if st.button("🔄 Refresh Data", key="refresh_interior_debug"):
+                    # Force refresh session data
+                    status_data = get_session_status(st.session_state.session_id)
+                    if status_data:
+                        st.session_state.session_data = status_data
+                        st.success("Data refreshed!")
+                        st.rerun()
     
     # Show manual refresh button if timeout occurred or in progress
     # Check both session_data root level and results level for interiorGenerationStatus
@@ -1224,11 +1314,13 @@ def select_business_name(name: str):
                 return
             
             # 2. Waiting for results with polling - showing progress
-            st.info(f"💡 AI is '{name}' is generating 3 styles of signboards with business name ...")
+            st.info(f"💡 AI is generating 3 signboard designs for '{name}'...")
+            st.info("⏱️ This may take 2-3 minutes for image generation")
             progress_bar = st.progress(0)
             status_text = st.empty()
+            debug_container = st.empty()  # For real-time debug info
             
-            max_attempts = 30  # 30 * 3s = 90s (considering image generation time)
+            max_attempts = 60  # 60 * 3s = 180s (3 minutes for image generation)
             for attempt in range(max_attempts):
                 time.sleep(3)  # Polling interval: 3s
                 
@@ -1242,42 +1334,99 @@ def select_business_name(name: str):
                     progress = min((attempt + 1) / max_attempts, 0.95)
                     progress_bar.progress(progress)
                     elapsed = (attempt + 1) * 3
-                    status_text.text(f"🔄 Generating signboards... ({elapsed}s elapsed / Maximum 90s)")
+                    status_text.text(f"🔄 Generating signboards... ({elapsed}s elapsed / Maximum 180s)")
                     
                     if session_response.status_code == 200:
                         session_data = session_response.json()
-                        # Try both field names (camelCase and snake_case)
-                        signboard_images = session_data.get('signboardImages') or session_data.get('signboard_images')
                         
-                        if signboard_images:
-                            # Parse if JSON string
-                            if isinstance(signboard_images, str):
-                                signboard_images = json.loads(signboard_images)
+                        # Show debug info every 5 attempts (15 seconds)
+                        if attempt % 5 == 0:
+                            debug_info = f"🔍 Debug (attempt {attempt + 1}): Keys in session: {list(session_data.keys())}"
+                            debug_container.text(debug_info)
+                            logger.info(f"Polling attempt {attempt + 1}/{max_attempts}")
+                            logger.info(f"Session data keys: {list(session_data.keys())}")
                             
-                            images = signboard_images.get('images', [])
+                            # Log all fields for debugging
+                            for key in session_data.keys():
+                                value = session_data[key]
+                                if isinstance(value, str) and len(value) > 100:
+                                    logger.info(f"  {key}: {type(value).__name__} (length: {len(value)})")
+                                else:
+                                    logger.info(f"  {key}: {value}")
+                        
+                        # Check for signboard_images field (stored as JSON string by Signboard Agent)
+                        signboard_images_raw = session_data.get('signboard_images')
+                        
+                        if signboard_images_raw:
+                            # Parse JSON string to dict
+                            signboard_data = None
+                            if isinstance(signboard_images_raw, str):
+                                try:
+                                    signboard_data = json.loads(signboard_images_raw)
+                                    logger.info(f"Parsed signboard_images JSON successfully")
+                                except json.JSONDecodeError as e:
+                                    logger.error(f"Failed to parse signboard_images JSON: {e}")
+                                    logger.error(f"Raw data: {signboard_images_raw[:300]}")
+                                    continue
+                            elif isinstance(signboard_images_raw, dict):
+                                signboard_data = signboard_images_raw
+                                logger.info(f"signboard_images is already a dict")
+                            else:
+                                logger.error(f"Unexpected signboard_images type: {type(signboard_images_raw)}")
+                                continue
+                            
+                            # Extract images array from parsed data
+                            images = []
+                            if isinstance(signboard_data, dict):
+                                images = signboard_data.get('images', [])
+                                logger.info(f"Extracted {len(images)} images from signboard_data")
+                            else:
+                                logger.error(f"signboard_data is not a dict: {type(signboard_data)}")
                             
                             if images and len(images) > 0:
                                 # Complete!
                                 progress_bar.progress(1.0)
                                 status_text.text("✅ Complete!")
+                                debug_container.text(f"✅ Found {len(images)} images!")
                                 logger.info(f"Signboard generation completed: {len(images)} images")
                                 
-                                # Update Session Data
+                                # Update Session Data - store in multiple locations for compatibility
                                 if not st.session_state.session_data:
                                     st.session_state.session_data = {}
                                 if 'results' not in st.session_state.session_data:
                                     st.session_state.session_data['results'] = {}
                                 
+                                # Store in results.signboard (for display_signboard_gallery)
                                 st.session_state.session_data['results']['signboard'] = {
-                                    'signboards': images
+                                    'signboards': images,
+                                    'images': images,  # Alternative key
+                                    'selected_image_url': signboard_data.get('selected_image_url')
                                 }
                                 
-                                st.success(f"✅ Signboard designs generation complete! ({len(images)}items)")
-                                time.sleep(1)
+                                # Also store raw data for compatibility
+                                st.session_state.session_data['signboard_images'] = signboard_images_raw
+                                
+                                logger.info(f"Stored signboard data in session_state")
+                                
+                                st.success(f"✅ Signboard designs generation complete! ({len(images)} items)")
+                                st.info("🔄 Navigating to gallery...")
+                                time.sleep(2)
                                 st.session_state.current_step = 3
-                                st.session_state.view_step = 3  # Auto-navigate to next page
+                                if 'view_step' not in st.session_state:
+                                    st.session_state.view_step = 3
+                                else:
+                                    st.session_state.view_step = 3  # Auto-navigate to next page
+                                logger.info(f"Set current_step={st.session_state.current_step}, view_step={st.session_state.view_step}")
                                 st.rerun()
                                 return
+                            else:
+                                if attempt % 5 == 0:  # Log every 15 seconds
+                                    debug_container.text(f"⏳ Waiting for images... (found {len(images)} so far)")
+                                logger.warning(f"No images found in signboard_data (attempt {attempt + 1})")
+                        else:
+                            if attempt % 5 == 0:  # Log every 15 seconds
+                                debug_container.text(f"⏳ Waiting for signboard_images field...")
+                                logger.info(f"signboard_images not found in session data (attempt {attempt + 1})")
                 
                 except Exception as poll_error:
                     logger.warning(f"Poll attempt {attempt + 1} failed: {poll_error}")
@@ -1286,8 +1435,9 @@ def select_business_name(name: str):
             # Timeout
             progress_bar.progress(1.0)
             status_text.text("⏱️ Timeout")
-            st.error("⏱️ Signboard generation timeout: 90s exceeded.")
-            st.info("💡 Lambda function may still be running. Refresh the page after a moment.")
+            st.warning("⏱️ Signboard generation is taking longer than expected (180s exceeded).")
+            st.info("💡 Image generation may still be in progress. Please refresh the page in a moment to check the results.")
+            st.info("🔄 Or try selecting the name again to restart the process.")
             
         except Exception as e:
             error_msg = f"Signboard generation error: {str(e)}"
@@ -1339,9 +1489,9 @@ def select_signboard_image(image_url: str):
                 st.session_state.session_data = {}
             if 'results' not in st.session_state.session_data:
                 st.session_state.session_data['results'] = {}
-            if 'signboards' not in st.session_state.session_data['results']:
-                st.session_state.session_data['results']['signboards'] = {}
-            st.session_state.session_data['results']['signboards']['selected_image_url'] = image_url
+            if 'signboard' not in st.session_state.session_data['results']:
+                st.session_state.session_data['results']['signboard'] = {}
+            st.session_state.session_data['results']['signboard']['selected_image_url'] = image_url
             
             # Step 2: Automatically start interior generation
             start_interior_generation()
@@ -1357,31 +1507,50 @@ def start_interior_generation():
     try:
         st.info("🎨 Starting interior recommendations generation...")
         
+        # Debug: Show request details
+        st.write(f"🔍 **Debug:** Calling {API_BASE_URL}/interiors/generate")
+        st.write(f"🔍 **Debug:** Session ID: {st.session_state.session_id}")
+        
         # Start async interior generation
-        interior_response = requests.post(
-            f"{API_BASE_URL}/interiors/generate",
-            headers={'x-async-mode': 'true'},  # Async mode
-            json={
-                "sessionId": st.session_state.session_id,
-                "businessInfo": st.session_state.business_info
-            },
-            timeout=10
-        )
+        try:
+            interior_response = requests.post(
+                f"{API_BASE_URL}/interiors/generate",
+                headers={'x-async-mode': 'true'},  # Async mode
+                json={
+                    "sessionId": st.session_state.session_id,
+                    "businessInfo": st.session_state.business_info
+                },
+                timeout=10
+            )
+            
+            st.write(f"🔍 **Debug:** Response status: {interior_response.status_code}")
+            if interior_response.status_code != 202:
+                st.write(f"🔍 **Debug:** Response body: {interior_response.text}")
+                
+        except requests.Timeout:
+            st.error("⏱️ Interior generation request timed out")
+            st.info("The API might be slow to respond. Try refreshing the page.")
+            return
+        except Exception as req_error:
+            st.error(f"❌ Request error: {str(req_error)}")
+            return
         
         if interior_response.status_code == 202:
             st.success("✅ Interior generation started!")
             
             # Poll for completion
-            st.info("💡 AI is is generating interior recommendations ...")
+            st.info("💡 AI is generating interior recommendations...")
+            st.info("⏱️ This may take 2-3 minutes for image generation")
             progress_bar = st.progress(0)
             status_text = st.empty()
+            debug_container = st.empty()  # For real-time debug info
             
-            max_attempts = 45  # 45 * 2s = 90s (considering image generation time)
+            max_attempts = 90  # 90 * 3s = 270s (4.5 minutes for image generation)
             for attempt in range(max_attempts):
-                time.sleep(2)
+                time.sleep(3)  # 3s interval
                 
                 # Calculate elapsed time
-                elapsed = (attempt + 1) * 2
+                elapsed = (attempt + 1) * 3  # Fixed: 3s interval
                 
                 # Get session status
                 status_data = get_session_status(st.session_state.session_id)
@@ -1431,15 +1600,40 @@ def start_interior_generation():
                     
                     total_recommendations = len(recommendations)
                     
-                    # Debug logging
-                    logger.info(f"Polling attempt {attempt + 1}: {generated_images}/{total_recommendations} images generated, status={interior_status}")
+                    # Debug logging every 5 attempts (15 seconds)
+                    if attempt % 5 == 0:
+                        debug_container.text(f"🔍 Debug: Found {total_recommendations} recommendations, {generated_images} with images")
+                        logger.info(f"Polling attempt {attempt + 1}: {generated_images}/{total_recommendations} images generated, status={interior_status}")
+                        logger.info(f"Session data keys: {list(status_data.keys())}")
+                        if 'interior_recommendations' in status_data:
+                            logger.info(f"interior_recommendations type: {type(status_data['interior_recommendations'])}")
                     
-                    # Check if all images are generated
-                    if interior_status == "completed" or (total_recommendations > 0 and generated_images == total_recommendations):
-                        # All images generated - complete!
+                    # Calculate total_recommendations from recommendations list
+                    total_recommendations = len(recommendations) if recommendations else 0
+                    
+                    # Also check interior_data for totalRecommendations field
+                    if interior_data and isinstance(interior_data, dict):
+                        total_from_data = interior_data.get('totalRecommendations', 0)
+                        if total_from_data > 0:
+                            total_recommendations = total_from_data
+                    
+                    # Check if generation is complete
+                    # Complete if: status is "completed" OR we have all images generated
+                    is_complete = (
+                        interior_status == "completed" or
+                        (total_recommendations > 0 and generated_images == total_recommendations and generated_images >= 3)
+                    )
+                    
+                    # Log completion check
+                    if attempt % 5 == 0 or is_complete:
+                        logger.info(f"Completion check: status={interior_status}, total={total_recommendations}, generated={generated_images}, is_complete={is_complete}")
+                    
+                    if is_complete:
+                        # Complete!
                         progress_bar.progress(1.0)
                         status_text.text("✅ Complete!")
-                        logger.info(f"Interior generation complete! {generated_images} images generated")
+                        debug_container.text(f"✅ Found {total_recommendations} recommendations!")
+                        logger.info(f"Interior generation complete! {total_recommendations} recommendations, {generated_images} images")
                         
                         # Update session state
                         if not st.session_state.session_data:
@@ -1452,23 +1646,43 @@ def start_interior_generation():
                             'totalRecommendations': total_recommendations
                         }
                         
-                        st.success(f"✅ Interior recommendations complete! ({generated_images}items images generated)")
+                        # Success message based on whether images were generated
+                        if generated_images > 0:
+                            st.success(f"✅ Interior recommendations complete! ({generated_images} images generated)")
+                        else:
+                            st.success(f"✅ Interior recommendations complete! ({total_recommendations} text recommendations)")
+                        
+                        st.info("🔄 Navigating to interior gallery...")
                         st.session_state.current_step = 4
                         st.session_state.view_step = 4  # Auto-navigate to next page
-                        time.sleep(1)
+                        
+                        # Reset step4_refreshed flag so data is refreshed when navigating to Step 4
+                        if 'step4_refreshed' in st.session_state:
+                            del st.session_state.step4_refreshed
+                        
+                        time.sleep(1)  # Reduced from 2s to 1s
                         st.rerun()
                         return
                     elif total_recommendations > 0:
-                        # Partial progress - show image generation status
-                        status_text.text(f"🎨 Generating interior images... ({generated_images}/{total_recommendations} Complete, {elapsed}s elapsed)")
+                        # Partial progress - show status
+                        if generated_images > 0:
+                            status_text.text(f"🎨 Generating interior images... ({generated_images}/{total_recommendations} complete, {elapsed}s elapsed)")
+                        else:
+                            status_text.text(f"📝 Processing recommendations... ({total_recommendations} found, {elapsed}s elapsed)")
+                        
+                        # Update debug info
+                        if attempt % 5 == 0:
+                            debug_container.text(f"⏳ Waiting for completion... ({total_recommendations} recommendations found)")
                 
                 # Update progress
                 progress = min((attempt + 1) / max_attempts, 0.95)
                 progress_bar.progress(progress)
                 
                 # Default status message
-                if not status_data or not interior_data:
-                    status_text.text(f"🔄 Generating interior... ({elapsed}s elapsed / Maximum 90s)")
+                if not status_data or (not interior_data and 'interior_recommendations' not in status_data):
+                    status_text.text(f"🔄 Generating interior... ({elapsed}s elapsed / Maximum 180s)")
+                    if attempt % 5 == 0:
+                        debug_container.text(f"⏳ Waiting for interior_recommendations field...")
             
             # Timeout - show manual refresh button
             st.warning("⏱️ Interior image generation is taking longer than expected.")
@@ -1990,6 +2204,15 @@ def main():
         elif current_view == 4:
             st.markdown("## 🏠 Step 4: Interior Recommendations")
             if st.session_state.current_step >= 4:
+                # Auto-refresh data when entering Step 4 (only once per view)
+                if 'step4_refreshed' not in st.session_state:
+                    if st.session_state.session_id:
+                        status_data = get_session_status(st.session_state.session_id)
+                        if status_data:
+                            st.session_state.session_data = status_data
+                            st.session_state.step4_refreshed = True
+                            logger.info("Auto-refreshed session data for Step 4")
+                
                 display_interior_options()
                 if not st.session_state.session_data or not st.session_state.session_data.get("results", {}).get("interiors"):
                     st.info("🔄 Interior recommendations in progress...")

@@ -290,8 +290,8 @@ Resources:
       FunctionName: !Sub "${ProjectName}-signboard-agent-${Environment}"
       CodeUri: src/lambda/agents/signboard/
       Handler: index.lambda_handler
-      Description: Signboard Agent - Signboard design generation
-      Timeout: 60
+      Description: Signboard Agent - AI signboard design generation with extended timeout
+      Timeout: 180
       MemorySize: 3008 # Max CPU allocation for parallel image generation
       Environment:
         Variables:

@@ -83,6 +83,8 @@ class BusinessInfo:
     size: str
     uploaded_image_url: Optional[str] = None
     description: Optional[str] = None
+    country: Optional[str] = None  # Country field
+    city: Optional[str] = None     # City field
     
     def validate(self) -> bool:
         """Validate business info fields"""

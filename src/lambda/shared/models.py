@@ -84,6 +84,8 @@ class BusinessInfo:
     size: str
     uploaded_image_url: Optional[str] = None
     description: Optional[str] = None
+    country: Optional[str] = None  # New field for country
+    city: Optional[str] = None     # New field for city
     
     def validate(self) -> bool:
         """Validate business info fields"""
@@ -102,10 +104,12 @@ class BusinessInfo:
         ]
         valid_sizes = ["small", "medium", "large"]
         
+        # Region validation is now flexible - can be city, region, or "city, country" format
+        # This allows backward compatibility with old format and new country/city fields
         return (
             self.industry.lower() in valid_industries and
-            self.region.lower() in valid_regions and
-            self.size.lower() in valid_sizes
+            self.size.lower() in valid_sizes and
+            bool(self.region)  # Just check region is not empty
         )
 
 

@@ -698,9 +698,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             # Try new format first: 'interiors' field (Map type)
             if 'interiors' in session_data:
+                interiors_list = session_data.get('interiors', [])
                 interior_data = {
-                    'recommendations': session_data.get('interiors', []),
-                    'generatedImages': len([r for r in session_data.get('interiors', []) if r.get('imageUrl')])
+                    'recommendations': interiors_list,
+                    'generatedImages': len([r for r in interiors_list if r.get('imageUrl')]),
+                    'totalRecommendations': len(interiors_list)
                 }
             # Fallback to old format: 'interior_recommendations' (JSON string)
             elif 'interior_recommendations' in session_data:

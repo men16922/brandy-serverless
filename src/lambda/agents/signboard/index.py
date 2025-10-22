@@ -1004,7 +1004,10 @@ class SignboardAgent(BaseAgent):
         Enhanced to emphasize English text display in generated images
         """
         industry = business_info.industry.lower()
-        region = business_info.region
+        
+        # Get location info (region already contains "city, country" format from Streamlit)
+        location_context = f"in {business_info.region}" if business_info.region else ""
+        self.logger.info(f"Using location: {business_info.region}")
         
         # 영어 이름으로 변환 (한글 이름은 사용하지 않음)
         english_name = self._translate_to_english(business_name)
@@ -1022,8 +1025,10 @@ class SignboardAgent(BaseAgent):
         
         # 최종 프롬프트 조합 (영어 텍스트 강조 - 이름을 여러 번 반복)
         # 텍스트 표시를 최우선으로 강조
+        # Add location context if available
+        location_part = f" {location_context}" if location_context else ""
         prompt = (
-            f"Professional storefront signboard design. "
+            f"Professional storefront signboard design{location_part}. "
             f"Large bold text displaying '{english_name}' in English letters. "
             f"The signboard prominently shows '{english_name}' as the main focal point. "
             f"{style_keywords} style, {mood} atmosphere, business-appropriate design. "

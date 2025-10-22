@@ -86,10 +86,12 @@ except ImportError as e:
             return len(self.recommendations) <= 3 and all(rec.validate() for rec in self.recommendations)
     
     class BusinessInfo:
-        def __init__(self, industry: str, region: str, size: str, **kwargs):
+        def __init__(self, industry: str, region: str, size: str, country: str = None, city: str = None, **kwargs):
             self.industry = industry
             self.region = region
             self.size = size
+            self.country = country
+            self.city = city
     
     class BaseAgent:
         def __init__(self, agent_type):

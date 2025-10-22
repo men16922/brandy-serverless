@@ -35,10 +35,12 @@ class AnalysisResult:
         }
 
 class BusinessInfo:
-    def __init__(self, industry: str, region: str, size: str, **kwargs):
+    def __init__(self, industry: str, region: str, size: str, country: str = None, city: str = None, **kwargs):
         self.industry = industry
         self.region = region
         self.size = size
+        self.country = country
+        self.city = city
     
     def validate(self):
         return bool(self.industry and self.region and self.size)
