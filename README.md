@@ -16,6 +16,7 @@ This project automates the entire business branding process, from market analysi
 
 > 📊 **Visual Architecture Diagrams**: 
 > - [AWS Infrastructure Diagram](docs/aws_architecture_diagram.png) - Complete system architecture
+> - [Infrastructure as Code (IaC)](docs/IaC.png) - AWS SAM template visualization
 > - [5-Step Workflow Diagram](docs/workflow_sequence_diagram.png) - Workflow sequence
 > - [Bedrock Integration Diagram](docs/bedrock_integration_diagram.png) - AI/ML integration
 > - [Detailed Mermaid Diagrams](docs/architecture-diagram.md) - Interactive diagrams
@@ -23,6 +24,18 @@ This project automates the entire business branding process, from market analysi
 ### AWS Infrastructure Architecture
 
 ![AWS Architecture](docs/aws_architecture_diagram.png)
+
+### Infrastructure as Code (AWS SAM)
+
+![Infrastructure as Code](docs/IaC.png)
+
+**SAM Template Components:**
+- **7 Lambda Functions**: Supervisor + 6 specialized agents
+- **API Gateway**: HTTP API with CORS enabled
+- **DynamoDB Table**: Session storage with TTL
+- **S3 Bucket**: Asset storage with public read access
+- **IAM Roles**: Least privilege access for each function
+- **Lambda Layer**: Shared utilities and dependencies
 
 **Key Components:**
 - **Streamlit UI**: Web interface running locally

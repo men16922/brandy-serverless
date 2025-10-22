@@ -160,9 +160,11 @@ class ReporterAgent(BaseAgent):
                     suggestions.append(NameSuggestion(
                         name=s.get('name', ''),
                         description=s.get('description', ''),
-                        pronunciation_score=s.get('pronunciationScore', 0.0),
-                        search_score=s.get('searchScore', 0.0),
-                        overall_score=s.get('overallScore', 0.0)
+                        pronunciation_score=s.get('pronunciationScore', s.get('pronunciation_score', 0.0)),
+                        memorability_score=s.get('memorabilityScore', s.get('memorability_score', 0.0)),
+                        relevance_score=s.get('relevanceScore', s.get('relevance_score', 0.0)),
+                        search_score=s.get('searchScore', s.get('search_score', 0.0)),
+                        overall_score=s.get('overallScore', s.get('overall_score', 0.0))
                     ))
                 else:
                     suggestions.append(s)
@@ -487,6 +489,8 @@ Please generate 3 unique, creative business names that fit this context perfectl
                     
                     # 점수를 float로 가져오기 (나중에 Decimal로 변환)
                     pronunciation_score = float(evaluation.get('pronunciation_score', 75.0))
+                    memorability_score = float(evaluation.get('memorability_score', 75.0))
+                    relevance_score = float(evaluation.get('relevance_score', 75.0))
                     search_score = float(evaluation.get('search_score', 75.0))
                     overall_score = float(evaluation.get('overall_score', 75.0))
                     
@@ -494,6 +498,8 @@ Please generate 3 unique, creative business names that fit this context perfectl
                         name=name,
                         description=description,
                         pronunciation_score=pronunciation_score,
+                        memorability_score=memorability_score,
+                        relevance_score=relevance_score,
                         search_score=search_score,
                         overall_score=overall_score
                     )
@@ -520,6 +526,8 @@ Please generate 3 unique, creative business names that fit this context perfectl
                         name=name,
                         description=description,
                         pronunciation_score=75.0,
+                        memorability_score=75.0,
+                        relevance_score=75.0,
                         search_score=75.0,
                         overall_score=75.0
                     )
@@ -1621,6 +1629,8 @@ Please generate 3 unique, creative business names that fit this context perfectl
             "name": suggestion.name,
             "description": suggestion.description,
             "pronunciationScore": self.convert_floats_to_decimal(suggestion.pronunciation_score),
+            "memorabilityScore": self.convert_floats_to_decimal(suggestion.memorability_score),
+            "relevanceScore": self.convert_floats_to_decimal(suggestion.relevance_score),
             "searchScore": self.convert_floats_to_decimal(suggestion.search_score),
             "overallScore": self.convert_floats_to_decimal(suggestion.overall_score)
         }

@@ -141,8 +141,10 @@ class NameSuggestion:
     name: str
     description: str
     pronunciation_score: float
-    search_score: float
-    overall_score: float
+    memorability_score: float = 0.0
+    relevance_score: float = 0.0
+    search_score: float = 0.0
+    overall_score: float = 0.0
     
     def validate(self) -> bool:
         """Validate name suggestion"""
@@ -150,6 +152,8 @@ class NameSuggestion:
             bool(self.name) and
             bool(self.description) and
             0 <= self.pronunciation_score <= 100 and
+            0 <= self.memorability_score <= 100 and
+            0 <= self.relevance_score <= 100 and
             0 <= self.search_score <= 100 and
             0 <= self.overall_score <= 100
         )

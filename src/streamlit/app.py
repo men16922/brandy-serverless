@@ -772,13 +772,15 @@ def display_business_names():
                     border_color = "#4CAF50" if is_selected else "#ddd"
                     
                     st.markdown(f"""
-                    <div style="border: 2px solid {border_color}; border-radius: 10px; padding: 15px; margin: 5px; height: 200px;">
+                    <div style="border: 2px solid {border_color}; border-radius: 10px; padding: 15px; margin: 5px; min-height: 280px;">
                         <h4 style="margin-top: 0;">{suggestion.get("name", "")}</h4>
-                        <p style="font-size: 12px; color: #666;">{suggestion.get("description", "")}</p>
-                        <div style="margin-top: 10px;">
-                            <div>Pronunciation: {suggestion.get("pronunciationScore", 0):.1f}/100</div>
-                            <div>Search: {suggestion.get("searchScore", 0):.1f}/100</div>
-                            <div><strong>Overall: {suggestion.get("overallScore", 0):.1f}/100</strong></div>
+                        <p style="font-size: 12px; color: #666; margin-bottom: 15px;">{suggestion.get("description", "")}</p>
+                        <div style="margin-top: 10px; font-size: 13px;">
+                            <div style="margin-bottom: 5px;">🗣️ Pronunciation: {suggestion.get("pronunciation_score", suggestion.get("pronunciationScore", 0)):.1f}/100</div>
+                            <div style="margin-bottom: 5px;">💡 Memorability: {suggestion.get("memorability_score", suggestion.get("memorabilityScore", 0)):.1f}/100</div>
+                            <div style="margin-bottom: 5px;">🎯 Relevance: {suggestion.get("relevance_score", suggestion.get("relevanceScore", 0)):.1f}/100</div>
+                            <div style="margin-bottom: 5px;">🔍 Search: {suggestion.get("search_score", suggestion.get("searchScore", 0)):.1f}/100</div>
+                            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee;"><strong>⭐ Overall: {suggestion.get("overall_score", suggestion.get("overallScore", 0)):.1f}/100</strong></div>
                         </div>
                         {"<div style='color: green; font-weight: bold; margin-top: 10px;'>✓ Selected</div>" if is_selected else ""}
                     </div>
@@ -860,10 +862,24 @@ def display_signboard_gallery():
                     is_selected = selected_url == image.get("url")
                     border_color = "#4CAF50" if is_selected else "#ddd"
                     
+                    # Provider display name mapping
+                    provider = image.get("provider", "AI")
+                    provider_display = {
+                        "bedrock_titan": "🎨 Bedrock Titan",
+                        "bedrock-titan": "🎨 Bedrock Titan",
+                        "bedrock_sdxl": "🎨 Bedrock Titan",
+                        "bedrock-sdxl": "🎨 Bedrock Titan",
+                        "sdxl": "🎨 Bedrock Titan",
+                        "dalle": "🤖 DALL-E",
+                        "openai-dalle3": "🤖 DALL-E 3",
+                        "gemini": "✨ Gemini",
+                        "fallback": "📦 Fallback"
+                    }.get(provider.lower(), f"🎨 {provider.upper()}")
+                    
                     st.markdown(f"""
                     <div style="border: 2px solid {border_color}; border-radius: 10px; padding: 10px; margin: 5px;">
                         <div style="text-align: center;">
-                            <strong>{image.get("provider", "AI").upper()}</strong>
+                            <strong>{provider_display}</strong>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
@@ -1112,7 +1128,7 @@ def display_interior_options():
                             
                             # Provider badge
                             provider_label = ""
-                            if provider == "bedrock-sdxl":
+                            if provider == "bedrock-titan" or provider == "bedrock_titan":
                                 provider_label = "🎨 Amazon Bedrock Titan Image Generator"
                             elif provider == "openai-dalle3":
                                 provider_label = "🤖 OpenAI DALL-E 3"

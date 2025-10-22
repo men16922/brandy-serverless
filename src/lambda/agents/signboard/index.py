@@ -331,10 +331,10 @@ class SignboardAgent(BaseAgent):
         # Bedrock SDXL is always initialized (Primary for hackathon)
         self.logger.info("Attempting to initialize Bedrock SDXL provider (PRIMARY)...")
         try:
-            # Use Bedrock SDXL Provider (AWS Bedrock)
-            sdxl_provider = AIProviderFactory.create_provider("sdxl", logger=self.logger)
-            providers["bedrock_sdxl"] = sdxl_provider
-            self.logger.info("✓ Bedrock SDXL provider initialized successfully (PRIMARY)")
+            # Use Bedrock Titan Image Generator Provider (AWS Bedrock)
+            titan_provider = AIProviderFactory.create_provider("sdxl", logger=self.logger)
+            providers["bedrock_titan"] = titan_provider
+            self.logger.info("✓ Bedrock Titan Image Generator provider initialized successfully (PRIMARY)")
         except Exception as e:
             error_type = type(e).__name__
             error_msg = str(e)
@@ -738,7 +738,7 @@ class SignboardAgent(BaseAgent):
         
         # Check availability
         available_providers = []
-        for provider_name in ["dalle", "bedrock_sdxl"]:
+        for provider_name in ["dalle", "bedrock_titan"]:
             if provider_name in self.ai_providers:
                 available_providers.append(provider_name)
                 self.logger.info(f"✓ Provider {provider_name} is available")
@@ -756,16 +756,16 @@ class SignboardAgent(BaseAgent):
         assignments = []
         for i, style in enumerate(styles[:3]):  # Max 3 styles
             # Get preferred provider for this index
-            preferred_provider = preferred_providers.get(i, "bedrock_sdxl")
+            preferred_provider = preferred_providers.get(i, "bedrock_titan")
             
             if preferred_provider in self.ai_providers:
                 # Use the preferred provider
                 provider_name = preferred_provider
                 self.logger.info(f"✓ Using preferred provider {provider_name} for {style} (index {i})")
             elif available_providers:
-                # Fallback: use available provider (prefer SDXL over DALLE for fallback)
-                if "bedrock_sdxl" in available_providers:
-                    provider_name = "bedrock_sdxl"
+                # Fallback: use available provider (prefer Titan over DALLE for fallback)
+                if "bedrock_titan" in available_providers:
+                    provider_name = "bedrock_titan"
                 else:
                     provider_name = available_providers[0]
                 self.logger.warning(f"⚠ Using fallback provider {provider_name} for {style} (index {i}) - preferred provider not available")
@@ -840,7 +840,7 @@ class SignboardAgent(BaseAgent):
                 images.append(result)
                 self.logger.info(
                     f"Successfully generated {style} image with {provider_name} "
-                    f"(is_bedrock={provider_name == 'bedrock_sdxl'})"
+                    f"(is_bedrock={provider_name == 'bedrock_titan'})"
                 )
             else:
                 # 실패한 경우 폴백 이미지 생성
@@ -877,7 +877,7 @@ class SignboardAgent(BaseAgent):
             self.logger.info(f"Provider params: {provider_params}")
             
             # Log Bedrock usage (Requirement 5.3)
-            is_bedrock = provider.provider_name == "bedrock_sdxl" or provider.provider_name == "sdxl"
+            is_bedrock = provider.provider_name == "bedrock_titan" or provider.provider_name == "sdxl"
             if is_bedrock:
                 self.logger.info(
                     f"🎯 Using Bedrock SDXL for image generation: "
@@ -965,8 +965,8 @@ class SignboardAgent(BaseAgent):
         - DALL-E: Standard quality for cost efficiency
         - Gemini: 1:1 aspect ratio
         """
-        if provider_name == "bedrock_sdxl":
-            # Bedrock SDXL optimized parameters (Requirement 1.4)
+        if provider_name == "bedrock_titan":
+            # Bedrock Titan Image Generator optimized parameters (Requirement 1.4)
             return {
                 "width": 1024,
                 "height": 1024,
