@@ -60,12 +60,18 @@ class DataCollector:
             interior_images = self._collect_interior_images(session_id, s3_client)
             
             # 선택된 인테리어 스타일 추출
-            selected_interior = ""
-            interior_data = session_data.get("interior_recommendations")
-            if interior_data:
-                if isinstance(interior_data, str):
-                    interior_data = json.loads(interior_data)
-                selected_interior = interior_data.get("selected_style", "")
+            # First try to get from top-level selected_interior (saved by select action)
+            selected_interior = session_data.get("selected_interior", "")
+            self.logger.info(f"Checking selected_interior from session_data.selected_interior: '{selected_interior}'")
+            
+            # Fallback: try interior_recommendations.selected_style
+            if not selected_interior:
+                interior_data = session_data.get("interior_recommendations")
+                if interior_data:
+                    if isinstance(interior_data, str):
+                        interior_data = json.loads(interior_data)
+                    selected_interior = interior_data.get("selected_style", "")
+                    self.logger.info(f"Fallback: got selected_interior from interior_recommendations.selected_style: '{selected_interior}'")
             
             self.logger.info(f"Selected items - name: {selected_name}, signboard: {selected_signboard}, interior: {selected_interior}")
             self.logger.info(f"Signboard images count: {len(signboard_images)}, Interior images count: {len(interior_images)}")

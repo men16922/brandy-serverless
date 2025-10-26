@@ -476,7 +476,10 @@ class AlternativeReportGenerator:
         """Generate HTML for interior design (show selected image only when available)"""
         # If no images and no selection, omit the section
         if not interior_images and not selected_interior:
+            self.logger.info("No interior images and no selected_interior, skipping interior section")
             return ""
+
+        self.logger.info(f"Matching interior image for selected_interior: '{selected_interior}' from {len(interior_images)} images")
 
         # Try to match a selected image by style name or filename
         selected_image = None
@@ -484,6 +487,9 @@ class AlternativeReportGenerator:
             for img in interior_images:
                 filename = img.get('key', '').split('/')[-1]
                 style = self._extract_style_from_filename(filename)
+                
+                # Log each image check (using info instead of debug)
+                self.logger.info(f"Checking image: filename='{filename}', extracted_style='{style}'")
 
                 # Match by style name (case-insensitive)
                 if selected_interior and (
@@ -492,12 +498,14 @@ class AlternativeReportGenerator:
                     selected_interior.lower() in style.lower()
                 ):
                     selected_image = img
+                    self.logger.info(f"✓ Matched interior image: filename='{filename}', style='{style}' matches selected_interior='{selected_interior}'")
                     break
 
             # Fallback to first image if no explicit match
             if not selected_image and interior_images:
                 selected_image = interior_images[0]
-                self.logger.warning(f"No interior image matched selected style: {selected_interior}, using first image")
+                first_filename = selected_image.get('key', '').split('/')[-1]
+                self.logger.warning(f"No interior image matched selected style: '{selected_interior}', using first image: '{first_filename}'")
 
         # Render either image+details or style-only placeholder
         if selected_image:

@@ -1092,12 +1092,35 @@ def display_interior_options():
         if recommendations:
             # Display interior recommendations
             for i, rec in enumerate(recommendations):
+                # Get style name - ensure it's a clean string
                 style = rec.get("style", "N/A")
+                if not isinstance(style, str):
+                    style = str(style)
+                
+                # Clean up style name (remove any file path or filename artifacts)
+                # Check if it looks like a filename (contains UUID pattern or timestamp)
+                import re
+                if re.match(r'^[a-f0-9]{8}-[a-f0-9]{4}-', style.lower()):
+                    # This is a filename pattern: {uuid}-{style}-{timestamp}
+                    # Extract the style part (middle section)
+                    parts = style.split('-')
+                    if len(parts) >= 3:
+                        # Skip first 5 parts (UUID) and last part (timestamp)
+                        style_parts = parts[5:-1]
+                        if style_parts:
+                            style = ' '.join(style_parts).title()
+                        else:
+                            # Fallback: use original style from rec
+                            style = rec.get("style", "Unknown Style")
+                elif '/' in style:
+                    # Remove path if present
+                    style = style.split('/')[-1]
+                
                 is_selected = selected_style == style
                 border_color = "#4CAF50" if is_selected else "#ddd"
                 
                 # Expandable card for each recommendation
-                with st.expander(f"{'✓ ' if is_selected else ''}Option {i+1}: {style.upper()} Style", expanded=(i == 0)):
+                with st.expander(f"{'✓ ' if is_selected else ''}Option {i+1}: {style.title()} Style", expanded=(i == 0)):
                     st.markdown(f"""
                     <div style="border: 2px solid {border_color}; border-radius: 10px; padding: 15px; margin: 10px 0;">
                     """, unsafe_allow_html=True)
@@ -1703,6 +1726,10 @@ def start_interior_generation():
                     if not interior_status:
                         interior_status = results.get('interiorGenerationStatus')
                     
+                    # Debug: Log status check
+                    if attempt % 5 == 0:
+                        logger.info(f"Status check: interior_status='{interior_status}', from root={status_data.get('interiorGenerationStatus')}, from results={results.get('interiorGenerationStatus')}")
+                    
                     total_recommendations = len(recommendations)
                     
                     # Debug logging every 5 attempts (15 seconds)
@@ -1723,15 +1750,24 @@ def start_interior_generation():
                             total_recommendations = total_from_data
                     
                     # Check if generation is complete
-                    # Complete if: status is "completed" OR we have all images generated
+                    # Complete if: 
+                    # 1. status is "completed" (Lambda finished processing)
+                    # 2. OR we have recommendations and waited long enough (4+ minutes)
+                    # 3. OR we have all images generated
                     is_complete = (
                         interior_status == "completed" or
+                        (total_recommendations > 0 and elapsed >= 240) or  # 4 minutes timeout
                         (total_recommendations > 0 and generated_images == total_recommendations and generated_images >= 3)
                     )
                     
                     # Log completion check
                     if attempt % 5 == 0 or is_complete:
-                        logger.info(f"Completion check: status={interior_status}, total={total_recommendations}, generated={generated_images}, is_complete={is_complete}")
+                        logger.info(f"Completion check: status={interior_status}, total={total_recommendations}, generated={generated_images}, elapsed={elapsed}s, is_complete={is_complete}")
+                    
+                    # Force complete if we have recommendations and status is completed
+                    if interior_status == "completed" and total_recommendations > 0:
+                        logger.info(f"Force completing: status is 'completed' with {total_recommendations} recommendations")
+                        is_complete = True
                     
                     if is_complete:
                         # Complete!
@@ -1849,14 +1885,18 @@ def select_interior_option(style: str):
                 f"{API_BASE_URL}/interiors/select",
                 json={
                     "sessionId": st.session_state.session_id,
-                    "selectedStyle": style
+                    "selectedStyle": style,
+                    "action": "select",
+                    "businessInfo": st.session_state.business_info  # Required by Interior Agent
                 },
                 timeout=10
             )
             if save_response.status_code == 200:
                 logger.info(f"Selected interior saved to session: {style}")
+                logger.info(f"API response: {save_response.json()}")
             else:
                 logger.warning(f"Failed to save selected interior: {save_response.status_code}")
+                logger.warning(f"Response: {save_response.text}")
         except Exception as e:
             logger.warning(f"Error saving selected interior: {str(e)}")
         
